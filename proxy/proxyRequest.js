@@ -28,7 +28,17 @@ async function proxyRequest(req, res, opts) {
     // content-encoding on the way back out (see below), which would then
     // serve compressed bytes to the browser as if they were plain text.
     // Omitting it lets fetch negotiate + auto-decompress transparently.
-    if (['host', 'connection', 'content-length', 'accept-encoding'].includes(k)) continue;
+    //
+    // if-none-match / if-modified-since: some backends (e.g. Express's
+    // res.sendFile) validate these against the *file's* mtime/ETag, which
+    // never changes even though we inject a different banner into the body
+    // each time. Forwarding them risks a 304 from the backend, which we'd
+    // pass straight through - causing the browser to redisplay whatever
+    // stale copy (without our banner) it cached earlier. Omitting them
+    // forces a full 200 response we can always inject into.
+    if (
+      ['host', 'connection', 'content-length', 'accept-encoding', 'if-none-match', 'if-modified-since'].includes(k)
+    ) continue;
     if (v !== undefined) headers.set(k, Array.isArray(v) ? v.join(', ') : v);
   }
   Object.entries(injectHeaders).forEach(([k, v]) => headers.set(k, v));
@@ -55,11 +65,17 @@ async function proxyRequest(req, res, opts) {
     res.status(upstreamResp.status);
     upstreamResp.headers.forEach((value, key) => {
       if (['content-encoding', 'transfer-encoding', 'connection'].includes(key)) return;
-      if (isHtml && key === 'content-length') return; // body length changes once we inject the banner
+      if (isHtml && ['content-length', 'etag', 'last-modified'].includes(key)) return;
       res.setHeader(key, value);
     });
 
     if (isHtml) {
+      // etag/last-modified above are the *backend file's* validators, which
+      // don't reflect our injected banner - forwarding them would let a
+      // browser (or CDN) treat our transformed page as equivalent to a
+      // stale cached copy from before the banner existed. no-store keeps
+      // every load honest.
+      res.setHeader('Cache-Control', 'no-store');
       const html = await upstreamResp.text();
       return res.send(injectPortalBanner(html, bannerLabel));
     }
