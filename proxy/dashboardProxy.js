@@ -9,6 +9,10 @@ function forward(req, res) {
     stripPrefix: '',
     injectQuery: { token: process.env.DASHBOARD_SECRET },
     timeoutMs: 15000,
+    // Safe to pass unconditionally: proxyRequest only injects into actual
+    // text/html responses, so this has no effect on the /api/* JSON calls
+    // that share this same forward() function.
+    bannerLabel: 'ITSM Dashboard',
   });
 }
 

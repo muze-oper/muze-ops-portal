@@ -1,10 +1,14 @@
 const { Readable } = require('stream');
+const { injectPortalBanner } = require('./portalBanner');
 
 // Generic streaming reverse proxy. Streams both directions so binary
 // downloads (.xlsx/.pptx) and their Content-Type/Content-Disposition
 // headers pass through unmodified - never buffer/re-encode the body here.
+// The one exception is text/html responses when `bannerLabel` is set: those
+// are buffered (pages are small) so the portal nav banner can be injected -
+// see portalBanner.js.
 async function proxyRequest(req, res, opts) {
-  const { targetBase, stripPrefix = '', injectHeaders = {}, injectQuery = {}, timeoutMs = 55000 } = opts;
+  const { targetBase, stripPrefix = '', injectHeaders = {}, injectQuery = {}, timeoutMs = 55000, bannerLabel } = opts;
 
   const incomingUrl = new URL(req.originalUrl, 'http://placeholder');
   let path = incomingUrl.pathname;
@@ -45,11 +49,20 @@ async function proxyRequest(req, res, opts) {
     });
     clearTimeout(timeout);
 
+    const contentType = upstreamResp.headers.get('content-type') || '';
+    const isHtml = bannerLabel && contentType.includes('text/html');
+
     res.status(upstreamResp.status);
     upstreamResp.headers.forEach((value, key) => {
       if (['content-encoding', 'transfer-encoding', 'connection'].includes(key)) return;
+      if (isHtml && key === 'content-length') return; // body length changes once we inject the banner
       res.setHeader(key, value);
     });
+
+    if (isHtml) {
+      const html = await upstreamResp.text();
+      return res.send(injectPortalBanner(html, bannerLabel));
+    }
 
     if (!upstreamResp.body) {
       return res.end();

@@ -12,6 +12,7 @@ function forward(req, res) {
     stripPrefix: '/report',
     injectHeaders: { Authorization: basicAuthHeader() },
     timeoutMs: 55000,
+    bannerLabel: 'Nissan Monthly Report',
   });
 }
 
