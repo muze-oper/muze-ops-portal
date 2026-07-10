@@ -289,8 +289,8 @@ function renderTable() {
             <option value="medium" selected>🟡 M</option>
             <option value="low">⚪ L</option>
           </select>
-          <input type="date" id="new-task-due">
-          <input type="time" id="new-task-time" step="900">
+          <input type="date" id="new-task-due" value="${DATE}">
+          <input type="time" id="new-task-time" step="900" value="09:00">
           <button id="add-task-btn" onclick="addTask()">+</button>
         </div>`;
       tr.appendChild(tdTodo);
@@ -397,10 +397,9 @@ function addTask() {
   const time = document.getElementById('new-task-time').value;
   todos.push({ id: Date.now(), text, done: false, priority, dueDate, time });
   saveTodos(); renderTable(); renderTodos();
-  input.value = '';
-  document.getElementById('new-task-due').value = '';
-  document.getElementById('new-task-time').value = '';
-  input.focus();
+  // renderTable() rebuilds #add-task-area from scratch (fresh defaults baked
+  // in), so re-fetch the new node rather than reuse the now-detached `input`
+  document.getElementById('new-task-input').focus();
 }
 
 async function saveTodos() {
