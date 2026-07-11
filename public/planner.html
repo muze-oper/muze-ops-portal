@@ -22,7 +22,9 @@
   .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8.4px; margin-bottom: 8.4px; padding-top: 2.8px; }
   .header-left { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .title-block h1 { font-size: 16px; font-weight: 400; letter-spacing: 1px; color: #111; }
-  .quote-line { flex: 1; min-width: 0; font-size: 7.5px; color: #555; font-style: italic; text-align: center; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .quote-line { flex: 1; min-width: 0; text-align: center; padding: 0 8px; }
+  .quote-text { font-size: 11px; color: #555; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .quote-credit { font-size: 8px; color: #777; font-style: italic; margin-top: 1px; }
   .date-area { text-align: right; flex-shrink: 0; }
   .date-value { font-size: 9px; font-weight: 400; color: #111; letter-spacing: 0.3px; display: block; }
   .header-btns { display: flex; gap: 4px; justify-content: flex-end; }
@@ -176,7 +178,10 @@
         <h1>Daily Planner</h1>
       </div>
     </div>
-    <p class="quote-line">&ldquo;Hot heads and cold hearts never solved anything.&rdquo; &mdash; Billy Graham</p>
+    <div class="quote-line">
+      <div class="quote-text">&ldquo;Hot heads and cold hearts never solved anything.&rdquo;</div>
+      <div class="quote-credit">&mdash; Billy Graham</div>
+    </div>
     <div class="date-area">
       <span class="date-value" id="date-value">—</span>
       <div class="header-btns">
