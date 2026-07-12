@@ -56,6 +56,7 @@
   <select id="digest-select"><option value="">Loading...</option></select>
   <span id="last-updated"></span>
   <span id="next-refresh" style="margin-left:auto;font-size:11px;color:#999"></span>
+  <button onclick="refresh()" style="padding:5px 14px;background:#1a73e8;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">🔄 Reload</button>
 </div>
 
 <div id="content">
@@ -134,19 +135,20 @@ function renderSummary(title, accountList) {
 
 function renderCard(d, idx) {
   const emails   = d.emails || [];
-  const urgent   = emails.filter(e => e.carried).length;
-  const action   = emails.filter(e => e.category === '🔴 ต้อง Action' && !e.carried).length;
+  // match the same category logic used in the digest email
+  const action   = emails.filter(e => e.category === '🔴 ต้อง Action').length;
   const mustRead = emails.filter(e => e.category === '🟡 ควรรับรู้').length;
   const auto     = emails.filter(e => e.category === '⚪ แจ้งเตือนอัตโนมัติ').length;
+  const carried  = emails.filter(e => e.carried).length;
   return `<div style="background:white;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.1);overflow:hidden">
   <div style="background:#1a73e8;color:white;padding:10px 14px;font-size:12px;font-weight:600">
     📧 ${d.account}<br><span style="font-weight:400;opacity:0.85;font-size:11px">${emails.length} emails</span>
   </div>
   <div style="padding:12px 14px;display:flex;flex-direction:column;gap:7px">
-    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">🔴 Urgent (ยังไม่อ่าน)</span><span style="font-weight:700;font-size:14px;color:${urgent>0?'#e53935':'#aaa'}">${urgent}</span></div>
-    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">🚨 Require Action</span><span style="font-weight:700;font-size:14px;color:${action>0?'#e53935':'#aaa'}">${action}</span></div>
-    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">📌 Must Read</span><span style="font-weight:700;font-size:14px;color:${mustRead>0?'#f9ab00':'#aaa'}">${mustRead}</span></div>
-    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">🤖 Automated</span><span style="font-weight:700;font-size:14px;color:#9aa0a6">${auto}</span></div>
+    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">🔴 ต้อง Action</span><span style="font-weight:700;font-size:14px;color:${action>0?'#e53935':'#aaa'}">${action}</span></div>
+    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">🟡 ควรรับรู้</span><span style="font-weight:700;font-size:14px;color:${mustRead>0?'#f9ab00':'#aaa'}">${mustRead}</span></div>
+    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">⚪ แจ้งเตือนอัตโนมัติ</span><span style="font-weight:700;font-size:14px;color:#9aa0a6">${auto}</span></div>
+    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#888">🔁 ยังไม่ได้อ่าน (carried)</span><span style="font-weight:700;font-size:13px;color:${carried>0?'#e53935':'#aaa'}">${carried}</span></div>
   </div>
   <div style="padding:0 14px 14px">
     <button onclick="openDetail(${idx})" style="width:100%;padding:7px;background:#1a73e8;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">ดูรายละเอียด →</button>
@@ -262,6 +264,8 @@ async function loadList() {
   await loadDigest(0);
   startCountdown();
 }
+
+loadList();
 </script>
 </body>
 </html>
