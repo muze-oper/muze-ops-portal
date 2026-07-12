@@ -69,7 +69,8 @@ function buildSlotsFromEvents(events) {
     if (startHHMM < '06:00' || startHHMM >= '18:00') continue; // outside the planner window
 
     let startIdx = Math.max(0, Math.min(timeToSlotIndex(startHHMM), TOTAL_SLOTS - 1));
-    let endIdx = endHHMM <= startHHMM ? startIdx : Math.min(timeToSlotIndex(endHHMM), TOTAL_SLOTS - 1);
+    // endHHMM is the slot where the event *begins* to be free, so subtract 1
+    let endIdx = endHHMM <= startHHMM ? startIdx : Math.min(timeToSlotIndex(endHHMM) - 1, TOTAL_SLOTS - 1);
     endIdx = Math.max(startIdx, endIdx);
 
     const label = ev.summary || '(no title)';
@@ -118,9 +119,19 @@ async function fetchTodaysCalendarEvents(email) {
     `&singleEvents=true&orderBy=startTime`;
 
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error(`Calendar API ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text();
+    console.error(`Calendar API ${res.status}:`, body);
+    throw new Error(`Calendar API ${res.status}: ${body.slice(0, 200)}`);
+  }
   const data = await res.json();
-  return data.items || [];
+  const items = data.items || [];
+  // exclude events the user has explicitly declined
+  return items.filter(ev => {
+    if (!ev.attendees) return true; // no attendees list = organizer/sole invitee, keep it
+    const me = ev.attendees.find(a => a.self === true);
+    return !me || me.responseStatus !== 'declined';
+  });
 }
 
 // POST /api/planner — no SSO, protected by shared secret.

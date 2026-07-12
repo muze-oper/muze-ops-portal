@@ -72,8 +72,11 @@
     border-bottom: 0.5px solid #ccc; padding-bottom: 2px; margin-bottom: 3px;
     display: flex; justify-content: space-between; align-items: center;
   }
-  #todo-list { column-count: 1; }
-  .todo-item { display: flex; align-items: flex-start; gap: 3px; font-size: 9.5px; font-weight: 400; line-height: 1.4; margin: 2px 0; break-inside: avoid; }
+  .todo-columns { display: flex; gap: 6px; }
+  .todo-col-active { flex: 1; min-width: 0; }
+  .todo-col-done   { flex: 1; min-width: 0; border-left: 0.5px solid #e0e0e0; padding-left: 5px; }
+  .todo-col-header { font-size: 7px; font-weight: 600; color: #888; letter-spacing: 0.8px; text-transform: uppercase; border-bottom: 0.5px solid #e0e0e0; padding-bottom: 1px; margin-bottom: 2px; }
+  .todo-item { display: flex; align-items: flex-start; gap: 2px; font-size: 8.5px; font-weight: 400; line-height: 1.35; margin: 1.5px 0; break-inside: avoid; }
   .todo-item.overdue-item { border-left: 2px solid #dc2626; padding-left: 2px; background: #fff5f5; border-radius: 2px; }
   .todo-cb { cursor: pointer; font-size: 11px; flex-shrink: 0; color: #555; user-select: none; line-height: 1.3; margin-top: 0; }
   .todo-text { flex: 1; min-width: 0; word-break: break-word; color: #111; line-height: 1.4; font-weight: 400; cursor: text; border-radius: 2px; padding: 0 2px; }
@@ -318,7 +321,10 @@ function renderTable() {
       tdTodo.rowSpan = 12;
       tdTodo.innerHTML = `
         <div class="todo-header"><span>📋 To-Do List</span></div>
-        <div id="todo-list"></div>
+        <div class="todo-columns">
+          <div class="todo-col-active"><div class="todo-col-header">Active</div><div id="todo-list-active"></div></div>
+          <div class="todo-col-done"><div class="todo-col-header">Done</div><div id="todo-list-done"></div></div>
+        </div>
         <div id="add-task-area">
           <input type="text" id="new-task-input" placeholder="task..." onkeydown="if(event.key==='Enter')addTask()">
           <select id="new-task-priority">
@@ -396,26 +402,30 @@ function pBadge(p) {
   return '<span class="p-badge p-med">MED</span>';
 }
 
+function todoItemHtml(t, i) {
+  const over = isOverdue(t);
+  const duePart = t.dueDate ? `<span class="due-date${over ? ' due-overdue' : ''}">${fmtDate(t.dueDate)}</span>` : '';
+  const timePart = t.time ? `<span class="time-badge">${t.time}</span>` : '';
+  return `<div class="todo-item${t.done ? ' done' : ''}${over ? ' overdue-item' : ''}">
+    <span class="todo-cb" onclick="toggleTodo(${i})">${t.done ? '☑' : '☐'}</span>
+    ${duePart}${timePart}${pBadge(t.priority || 'medium')}
+    <span class="todo-text" contenteditable="true" onblur="editTodo(${i},this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${esc(t.text)}</span>
+    <span class="todo-del" onclick="delTodo(${i})">✕</span>
+  </div>`;
+}
+
 function renderTodos() {
-  const list = document.getElementById('todo-list');
-  if (!list) return;
-  if (!todos.length) {
-    list.innerHTML = '<div style="font-size:8px;color:#bbb;padding:2px 0;">ยังไม่มี task — เพิ่มด้านล่าง</div>';
-    return;
-  }
-  list.innerHTML = todos.map((t, i) => {
-    const over = isOverdue(t);
-    const duePart = t.dueDate
-      ? `<span class="due-date${over ? ' due-overdue' : ''}">${fmtDate(t.dueDate)}</span>`
-      : '';
-    const timePart = t.time ? `<span class="time-badge">${t.time}</span>` : '';
-    return `<div class="todo-item${t.done ? ' done' : ''}${over ? ' overdue-item' : ''}">
-      <span class="todo-cb" onclick="toggleTodo(${i})">${t.done ? '☑' : '☐'}</span>
-      ${duePart}${timePart}${pBadge(t.priority || 'medium')}
-      <span class="todo-text" contenteditable="true" onblur="editTodo(${i},this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${esc(t.text)}</span>
-      <span class="todo-del" onclick="delTodo(${i})">✕</span>
-    </div>`;
-  }).join('');
+  const activeEl = document.getElementById('todo-list-active');
+  const doneEl   = document.getElementById('todo-list-done');
+  if (!activeEl || !doneEl) return;
+  const active = todos.map((t, i) => ({ t, i })).filter(({ t }) => !t.done);
+  const done   = todos.map((t, i) => ({ t, i })).filter(({ t }) =>  t.done);
+  activeEl.innerHTML = active.length
+    ? active.map(({ t, i }) => todoItemHtml(t, i)).join('')
+    : '<div style="font-size:7.5px;color:#bbb;padding:2px 0;">ยังไม่มี task</div>';
+  doneEl.innerHTML = done.length
+    ? done.map(({ t, i }) => todoItemHtml(t, i)).join('')
+    : '<div style="font-size:7.5px;color:#bbb;padding:2px 0;">—</div>';
 }
 
 function toggleTodo(i) { todos[i].done = !todos[i].done; saveTodos(); renderTable(); renderTodos(); }
