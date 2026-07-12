@@ -185,6 +185,7 @@
     <div class="date-area">
       <span class="date-value" id="date-value">—</span>
       <div class="header-btns">
+        <button class="save-planner-btn" id="run-btn" onclick="runSync()" title="Run — sync from Google Calendar">▶</button>
         <button class="save-planner-btn" onclick="manualSave()" title="Save Planner">💾</button>
         <button class="save-planner-btn" onclick="window.print()" title="Print">🖨️</button>
       </div>
@@ -458,6 +459,30 @@ function flashSaved() {
 async function manualSave() {
   clearTimeout(saveCellsTimeout);
   await Promise.all([saveCells(), saveTodos()]);
+}
+
+async function runSync() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  const prevText = btn.textContent;
+  btn.textContent = '…';
+  try {
+    const res = await fetch('/api/planner/run', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.message || `Sync failed: ${data.error || res.status}`);
+      return;
+    }
+    scheduleSlots = data.slots;
+    renderTable();
+    renderTodos();
+    flashSaved();
+  } catch (e) {
+    alert('Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prevText;
+  }
 }
 
 init();

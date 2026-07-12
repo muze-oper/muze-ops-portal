@@ -1,8 +1,11 @@
 const router = require('express').Router();
 const path = require('path');
+const { OAuth2Client } = require('google-auth-library');
 const { put, list, get: blobGet } = require('@vercel/blob');
+const { getRefreshToken } = require('../auth/calendarTokens');
 
 const PLANNER_SECRET = process.env.PLANNER_SECRET;
+const TOTAL_SLOTS = 49; // 06:00-18:00 inclusive, 15-min steps
 
 // Vercel functions run in UTC - compute "today" explicitly in Asia/Bangkok
 // (this gateway is muze.co.th-only) rather than the UTC calendar date.
@@ -19,6 +22,105 @@ async function fetchBlob(url) {
 async function findBlob(prefix) {
   const { blobs } = await list({ prefix });
   return blobs[0] || null;
+}
+
+function slotIndexToTime(idx) {
+  const totalMinutes = idx * 15 + 6 * 60;
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function timeToSlotIndex(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return Math.floor((h * 60 + m - 6 * 60) / 15);
+}
+
+function fmtBangkokTime(isoString) {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date(isoString));
+}
+
+// Builds the same 49-slot schedule shape the frontend renders, from raw
+// Google Calendar events (see daily-planner-generator/SKILL.md for the
+// hand-authored equivalent this mirrors).
+function buildSlotsFromEvents(events) {
+  const slots = [];
+  for (let i = 0; i < TOTAL_SLOTS; i++) {
+    const time = slotIndexToTime(i);
+    const isLunch = time >= '12:00' && time <= '12:45';
+    slots.push({
+      time, hourMark: time.endsWith(':00'), hasEvent: false, lunch: isLunch,
+      eventLabel: isLunch && time === '12:00' ? 'Lunch Break' : null,
+      eventType: isLunch ? 'lunch' : null,
+      note: isLunch && time === '12:00' ? '12:00–13:00' : null,
+      noteFixed: isLunch,
+    });
+  }
+
+  for (const ev of events) {
+    const startIso = ev.start && ev.start.dateTime;
+    const endIso = ev.end && ev.end.dateTime;
+    if (!startIso || !endIso) continue; // skip all-day events (date-only, no dateTime)
+
+    const startHHMM = fmtBangkokTime(startIso);
+    const endHHMM = fmtBangkokTime(endIso);
+    if (startHHMM < '06:00' || startHHMM >= '18:00') continue; // outside the planner window
+
+    let startIdx = Math.max(0, Math.min(timeToSlotIndex(startHHMM), TOTAL_SLOTS - 1));
+    let endIdx = endHHMM <= startHHMM ? startIdx : Math.min(timeToSlotIndex(endHHMM), TOTAL_SLOTS - 1);
+    endIdx = Math.max(startIdx, endIdx);
+
+    const label = ev.summary || '(no title)';
+    const platform = ev.hangoutLink || ev.conferenceData ? 'Google Meet' : (ev.location || 'Onsite');
+
+    for (let i = startIdx; i <= endIdx; i++) {
+      const slot = slots[i];
+      slot.hasEvent = true;
+      slot.lunch = false;
+      slot.eventLabel = label;
+      if (i === startIdx) {
+        slot.eventType = 'start';
+        slot.note = startIdx === endIdx ? `ถึง ${endHHMM}` : `${startHHMM}–${endHHMM} · ${platform}`;
+        slot.noteFixed = true;
+      } else if (i === endIdx) {
+        slot.eventType = 'cont';
+        slot.note = `ถึง ${endHHMM}`;
+        slot.noteFixed = true;
+      } else {
+        slot.eventType = 'cont';
+        slot.note = null;
+        slot.noteFixed = false;
+      }
+    }
+  }
+  return slots;
+}
+
+async function fetchTodaysCalendarEvents(email) {
+  const refreshToken = await getRefreshToken(email);
+  if (!refreshToken) {
+    const err = new Error('No stored Calendar access - log out and back in to grant it');
+    err.code = 'NO_CALENDAR_ACCESS';
+    throw err;
+  }
+
+  const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+  client.setCredentials({ refresh_token: refreshToken });
+  const { token } = await client.getAccessToken();
+
+  const date = todayStr();
+  const timeMin = new Date(`${date}T06:00:00+07:00`).toISOString();
+  const timeMax = new Date(`${date}T18:00:00+07:00`).toISOString();
+  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+    `timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}` +
+    `&singleEvents=true&orderBy=startTime`;
+
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Calendar API ${res.status}`);
+  const data = await res.json();
+  return data.items || [];
 }
 
 // POST /api/planner — no SSO, protected by shared secret.
@@ -115,6 +217,30 @@ router.post('/api/planner/todos', async (req, res) => {
     });
     res.json({ ok: true });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/planner/run — pull today's events straight from the logged-in
+// user's own Google Calendar and store them as today's schedule, on demand
+// (the "Run" button), instead of waiting for the 6am scheduled push.
+router.post('/api/planner/run', async (req, res) => {
+  try {
+    const events = await fetchTodaysCalendarEvents(req.user.email);
+    const slots = buildSlotsFromEvents(events);
+    const date = todayStr();
+    const filename = `planner/${req.user.email}/schedule/${date}.json`;
+    await put(filename, JSON.stringify({ date, slots, generatedAt: new Date().toISOString() }), {
+      access: 'private',
+      contentType: 'application/json',
+      allowOverwrite: true,
+    });
+    res.json({ ok: true, date, slots });
+  } catch (err) {
+    if (err.code === 'NO_CALENDAR_ACCESS') {
+      return res.status(409).json({ error: 'no_calendar_access', message: err.message });
+    }
+    console.error('Planner run error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
