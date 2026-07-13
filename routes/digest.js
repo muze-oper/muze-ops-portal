@@ -69,6 +69,42 @@ router.get('/api/digest/list', async (req, res) => {
 
 const SHARED_ACCOUNTS = ['support@muze.co.th','support-mea@muze.co.th','support-tvn@muze.co.th','nissan-ma@muze.co.th','ktc@muze.co.th'];
 
+// POST /api/digest/live — store live unread counts (no SSO, secret-protected)
+router.post('/api/digest/live', async (req, res) => {
+  const secret = req.headers['x-digest-secret'];
+  if (secret !== DIGEST_SECRET) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { counts, updatedAt } = req.body;
+    await put('digests/live.json', JSON.stringify({ counts, updatedAt }), {
+      access: 'private', contentType: 'application/json', allowOverwrite: true,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/digest/live — return live unread counts filtered by logged-in user
+router.get('/api/digest/live', async (req, res) => {
+  try {
+    const { blobs } = await list({ prefix: 'digests/live.json' });
+    if (!blobs[0]) return res.json({ counts: {}, updatedAt: null });
+    const data = await fetchBlob(blobs[0].url);
+    const userEmail = req.user?.email;
+    if (userEmail && data.counts) {
+      const allowed = new Set([...SHARED_ACCOUNTS, userEmail]);
+      const filtered = {};
+      for (const [acc, c] of Object.entries(data.counts)) {
+        if (allowed.has(acc) && c) filtered[acc] = c;
+      }
+      data.counts = filtered;
+    }
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/digest/:index — get digest content by index (filtered by logged-in user)
 router.get('/api/digest/:index', async (req, res) => {
   try {
