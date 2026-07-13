@@ -69,7 +69,7 @@ router.get('/api/digest/list', async (req, res) => {
 
 const SHARED_ACCOUNTS = ['support@muze.co.th','support-mea@muze.co.th','support-tvn@muze.co.th','nissan-ma@muze.co.th','ktc@muze.co.th'];
 
-// POST /api/digest/live — store live unread counts (no SSO, secret-protected)
+// POST /api/digest/live — store live unread counts + email list (no SSO, secret-protected)
 router.post('/api/digest/live', async (req, res) => {
   const secret = req.headers['x-digest-secret'];
   if (secret !== DIGEST_SECRET) return res.status(403).json({ error: 'Forbidden' });
@@ -84,7 +84,7 @@ router.post('/api/digest/live', async (req, res) => {
   }
 });
 
-// GET /api/digest/live — return live unread counts filtered by logged-in user
+// GET /api/digest/live — return live unread counts + emails filtered by logged-in user
 router.get('/api/digest/live', async (req, res) => {
   try {
     const { blobs } = await list({ prefix: 'digests/live.json' });
@@ -94,8 +94,8 @@ router.get('/api/digest/live', async (req, res) => {
     if (userEmail && data.counts) {
       const allowed = new Set([...SHARED_ACCOUNTS, userEmail]);
       const filtered = {};
-      for (const [acc, c] of Object.entries(data.counts)) {
-        if (allowed.has(acc) && c) filtered[acc] = c;
+      for (const [acc, entry] of Object.entries(data.counts)) {
+        if (allowed.has(acc) && entry) filtered[acc] = entry;
       }
       data.counts = filtered;
     }

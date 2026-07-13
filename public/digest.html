@@ -221,8 +221,17 @@ async function loadLive() {
     if (!res.ok) return;
     const data = await res.json();
     if (data.counts && Object.keys(data.counts).length) {
-      _liveCounts = data.counts;
-      // re-render cards with fresh live counts (keeps detail data intact)
+      // data.counts = { 'email': { counts: {...}, emails: [...] } }
+      _liveCounts = {};
+      for (const [acc, entry] of Object.entries(data.counts)) {
+        if (entry && entry.counts) {
+          _liveCounts[acc] = entry.counts;
+          // update _detailData with live emails for this account
+          const existing = _detailData.find(d => d.account === acc);
+          if (existing) existing.emails = entry.emails || [];
+          else _detailData.push({ account: acc, emails: entry.emails || [] });
+        }
+      }
       if (_detailData.length) renderSummary(_lastTitle, _detailData);
       const ts = data.updatedAt ? new Date(data.updatedAt).toLocaleString('th-TH', { timeStyle: 'short' }) : '';
       document.getElementById('last-updated').textContent = `อัปเดต: ${ts} · live`;
