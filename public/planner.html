@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Planner — Muze Ops Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #e0e0e0; }
+
+  .breadcrumb { background: #1a1a2e; color: rgba(255,255,255,0.7); padding: 6px 24px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .breadcrumb a { color: rgba(255,255,255,0.7); text-decoration: none; }
+  .breadcrumb a:hover { color: white; }
+  .breadcrumb .sep { opacity: 0.4; }
+  .breadcrumb .right { margin-left: auto; display: flex; gap: 16px; }
+
+  .page-wrap { display: flex; justify-content: center; padding: 16px; overflow-x: auto; }
+  .page { font-family: 'Mitr', sans-serif; width: 210mm; min-height: 297mm; background: white; padding: 0.5cm; position: relative; overflow: hidden; }
+  @media screen { .page { zoom: 1.25; } }
+
+  .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8.4px; margin-bottom: 8.4px; padding-top: 2.8px; }
+  .header-left { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .title-block h1 { font-size: 16px; font-weight: 400; letter-spacing: 1px; color: #111; }
+  .quote-line { flex: 1; min-width: 0; text-align: center; padding: 0 8px; }
+  .quote-text { font-size: 11px; color: #555; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .quote-credit { font-size: 8px; color: #777; font-style: italic; margin-top: 1px; }
+  .date-area { text-align: right; flex-shrink: 0; }
+  .date-value { font-size: 9px; font-weight: 400; color: #111; letter-spacing: 0.3px; display: block; }
+  .header-btns { display: flex; gap: 4px; justify-content: flex-end; }
+  .save-planner-btn {
+    margin-top: 3px; font-size: 9px; padding: 2px 5px;
+    background: #444; color: white; border: none; border-radius: 3px;
+    cursor: pointer; font-family: 'Mitr', sans-serif; font-weight: 400;
+    display: inline-block; width: auto; line-height: 1.3;
+  }
+  .save-planner-btn:hover { background: #222; }
+  .save-status { font-size: 7px; color: #4a7c6f; margin-top: 3px; text-align: right; height: 9px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  thead tr th { background: #4a7c6f; color: white; padding: 3px 5px; text-align: left; font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 600; }
+  thead tr th:first-child { width: 44px; text-align: center; }
+  thead tr th:nth-child(2) { width: 265px; }
+
+  tbody tr { border-bottom: 0.5px solid #d5e8e4; }
+  tbody tr:nth-child(even) { background: #f2f2f2; }
+  tbody tr.hour-mark { border-top: 1.5px solid #4a7c6f; }
+  tbody tr td { padding: 1px 5px; vertical-align: middle; color: #111; line-height: 1.2; }
+  tbody tr td:first-child { text-align: center; font-weight: 700; font-size: 10.5px; color: #2d5a50; border-right: 2px solid #4a7c6f; white-space: nowrap; letter-spacing: -0.3px; background: #e8e8e8; }
+  tbody tr td:nth-child(2) { border-right: 1px dashed #a8cfc8; }
+  .task-cell { height: 20px; }
+  td[contenteditable="true"]:empty::before { content: attr(data-ph); color: #ccc; font-size: 8px; }
+  td[contenteditable="true"]:focus { outline: none; background: #fffef0 !important; }
+  td[contenteditable="true"] { cursor: text; }
+
+  .cal-event { background: #d4eaf8; border-radius: 2px; padding: 0 4px; font-size: 9.5px; color: #1a4a6b; display: inline-block; font-weight: 600; border-left: 2px solid #4a90b8; }
+  .cal-cont { font-size: 8.5px; color: #4a7c6f; padding-left: 8px; }
+  .cal-note { font-size: 8.5px; color: #555; }
+  tr.has-event td { background: #eaf4fb !important; }
+  tr.lunch td { background: inherit; }
+  .lunch-label { font-size: 10px; font-weight: 700; color: #8a6200; letter-spacing: 0.3px; }
+
+  /* TODO LIST */
+  .todo-cell {
+    vertical-align: top; padding: 5px 6px !important;
+    background: #fafafa !important; border-left: 1px solid #ddd;
+    overflow-y: auto; max-height: 240px;
+  }
+  .todo-header {
+    font-size: 9px; font-weight: 600; color: #555;
+    letter-spacing: 0.8px; text-transform: uppercase;
+    border-bottom: 0.5px solid #ccc; padding-bottom: 2px; margin-bottom: 3px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .todo-columns { display: flex; gap: 6px; }
+  .todo-col-active { flex: 1; min-width: 0; }
+  .todo-col-done   { flex: 1; min-width: 0; border-left: 0.5px solid #e0e0e0; padding-left: 5px; }
+  .todo-col-header { font-size: 7px; font-weight: 600; color: #888; letter-spacing: 0.8px; text-transform: uppercase; border-bottom: 0.5px solid #e0e0e0; padding-bottom: 1px; margin-bottom: 2px; }
+  .todo-item { display: flex; align-items: flex-start; gap: 2px; font-size: 8.5px; font-weight: 400; line-height: 1.35; margin: 1.5px 0; break-inside: avoid; }
+  .todo-item.overdue-item { border-left: 2px solid #dc2626; padding-left: 2px; background: #fff5f5; border-radius: 2px; }
+  .todo-cb { cursor: pointer; font-size: 11px; flex-shrink: 0; color: #555; user-select: none; line-height: 1.3; margin-top: 0; }
+  .todo-text { flex: 1; min-width: 0; word-break: break-word; color: #111; line-height: 1.4; font-weight: 400; cursor: text; border-radius: 2px; padding: 0 2px; }
+  .todo-text:focus { outline: none; background: #fffef0; box-shadow: 0 0 0 1px #a8cfc8; }
+  .todo-item.done .todo-text { text-decoration: line-through; color: #b0b0b0; }
+  .p-badge { font-size: 6.5px; padding: 0 3px; border-radius: 2px; font-weight: 500; white-space: nowrap; line-height: 1.6; }
+  .p-high { background: #fee2e2; color: #b91c1c; border: 0.5px solid #fca5a5; }
+  .p-med  { background: #fef3c7; color: #92400e; border: 0.5px solid #fde68a; }
+  .p-low  { background: #f3f4f6; color: #6b7280; border: 0.5px solid #d1d5db; }
+  .due-date { font-size: 7.5px; color: #888; white-space: nowrap; font-weight: 400; }
+  .due-overdue { color: #dc2626 !important; font-weight: 500; }
+  .time-badge { font-size: 7.5px; color: #1a4a6b; white-space: nowrap; font-weight: 600; background: #d4eaf8; border-radius: 2px; padding: 0 3px; }
+  .todo-del { cursor: pointer; color: #ccc; font-size: 10px; flex-shrink: 0; line-height: 1.5; margin-top: 1px; }
+  .todo-del:hover { color: #e57373; }
+
+  #add-task-area {
+    display: flex; gap: 3px; align-items: center;
+    margin-top: 5px; border-top: 0.5px solid #d5e8e4; padding-top: 4px;
+  }
+  #new-task-input {
+    flex: 2; min-width: 0; font-size: 11px; padding: 2px 4px;
+    border: 0.5px solid #a8cfc8; border-radius: 2px;
+    font-family: 'Mitr', sans-serif; color: #111; background: white; outline: none;
+  }
+  #new-task-input:focus { border-color: #4a7c6f; }
+  #new-task-priority {
+    font-size: 9px; padding: 1px 2px; border: 0.5px solid #a8cfc8;
+    border-radius: 2px; background: white; color: #111; font-family: 'Mitr', sans-serif;
+    flex-shrink: 0;
+  }
+  #new-task-due {
+    flex: 1; min-width: 0; font-size: 9px; padding: 1px 3px;
+    border: 0.5px solid #a8cfc8; border-radius: 2px; background: white; color: #111;
+  }
+  #new-task-time {
+    flex: 1; min-width: 0; font-size: 9px; padding: 1px 3px;
+    border: 0.5px solid #a8cfc8; border-radius: 2px; background: white; color: #111;
+  }
+  #add-task-btn {
+    font-size: 15px; font-weight: 700; padding: 1px 7px; flex-shrink: 0;
+    background: #4a7c6f; color: white; border: none; border-radius: 2px; cursor: pointer; line-height: 1.4;
+  }
+  #add-task-btn:hover { background: #3a6a5f; }
+
+  .daisy {
+    position: absolute;
+    width: 24px; height: 24px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg fill='%23fdfaf0' stroke='%23e2d6ac' stroke-width='0.9'%3E%3Cellipse cx='20' cy='11' rx='3.4' ry='7.5'/%3E%3Cellipse cx='20' cy='11' rx='3.4' ry='7.5' transform='rotate(60 20 20)'/%3E%3Cellipse cx='20' cy='11' rx='3.4' ry='7.5' transform='rotate(120 20 20)'/%3E%3Cellipse cx='20' cy='11' rx='3.4' ry='7.5' transform='rotate(180 20 20)'/%3E%3Cellipse cx='20' cy='11' rx='3.4' ry='7.5' transform='rotate(240 20 20)'/%3E%3Cellipse cx='20' cy='11' rx='3.4' ry='7.5' transform='rotate(300 20 20)'/%3E%3C/g%3E%3Ccircle cx='20' cy='20' r='4.2' fill='%23f5cf4a'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  @media print {
+    .daisy { display: none; }
+    .breadcrumb { display: none; }
+    @page { size: A4 portrait; margin: 0.5cm; }
+    body { background: white; }
+    .page-wrap { padding: 0; overflow-x: visible; }
+    .page { width: 100%; min-height: 0; padding: 0; box-shadow: none; zoom: 1; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    #add-task-area { display: none !important; }
+    .save-planner-btn, .save-status { display: none !important; }
+    .todo-del { display: none !important; }
+    td[contenteditable]:empty::before { content: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="breadcrumb">
+  <a href="/">🏠 Muze Ops Portal</a>
+  <span class="sep">/</span>
+  <span>Daily Planner</span>
+  <div class="right">
+    <a href="/">← กลับหน้าหลัก</a>
+    <a href="/logout">Logout</a>
+  </div>
+</div>
+
+<div class="page-wrap">
+<div class="page">
+
+  <div class="daisy" style="top:8px; left:6px;"></div>
+  <div class="daisy" style="top:10px; left:772px; width:20px; height:20px; opacity:0.3;"></div>
+  <div class="daisy" style="top:150px; left:400px; width:18px; height:18px; opacity:0.25;"></div>
+  <div class="daisy" style="top:230px; left:55px; opacity:0.3;"></div>
+  <div class="daisy" style="top:310px; left:705px; width:20px; height:20px; opacity:0.28;"></div>
+  <div class="daisy" style="top:430px; left:250px;"></div>
+  <div class="daisy" style="top:520px; left:555px; width:18px; height:18px; opacity:0.25;"></div>
+  <div class="daisy" style="top:640px; left:80px; width:20px; height:20px; opacity:0.3;"></div>
+  <div class="daisy" style="top:730px; left:650px; opacity:0.28;"></div>
+  <div class="daisy" style="top:850px; left:350px; width:18px; height:18px; opacity:0.25;"></div>
+  <div class="daisy" style="top:950px; left:120px;"></div>
+  <div class="daisy" style="top:1020px; left:600px; width:20px; height:20px; opacity:0.28;"></div>
+
+  <div class="header">
+    <div class="header-left">
+      <div class="title-block">
+        <h1>Daily Planner</h1>
+      </div>
+    </div>
+    <div class="quote-line">
+      <div class="quote-text">&ldquo;Hot heads and cold hearts never solved anything.&rdquo;</div>
+      <div class="quote-credit">&mdash; Billy Graham</div>
+    </div>
+    <div class="date-area">
+      <span class="date-value" id="date-value">—</span>
+      <div class="header-btns">
+        <button class="save-planner-btn" id="run-btn" onclick="runSync()" title="Run — sync from Google Calendar">▶</button>
+        <button class="save-planner-btn" onclick="manualSave()" title="Save Planner">💾</button>
+        <button class="save-planner-btn" onclick="window.print()" title="Print">🖨️</button>
+      </div>
+      <div class="save-status" id="save-status"></div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Task / Activity</th><th>Brief Detail / Note</th></tr>
+    </thead>
+    <tbody id="planner-tbody"></tbody>
+  </table>
+
+</div>
+</div>
+
+<script>
+const DATE = new URLSearchParams(location.search).get('date') || todayStr();
+
+let scheduleSlots = null;
+let cells = {};
+let todos = [];
+let lastMondayCleanup = null;
+
+// toISOString() gives the UTC calendar date, which is a day behind local
+// Asia/Bangkok time for roughly the first 7 hours of each Bangkok day -
+// compute "today" explicitly in Asia/Bangkok instead (this gateway is
+// muze.co.th-only, so hardcoding the org's timezone is fine).
+function todayStr() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date()); }
+
+function fmtDateDisplay(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${yy}`;
+}
+
+function esc(t) { return (t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function buildDefaultSlots() {
+  const slots = [];
+  let h = 6, m = 0;
+  while (h < 18 || (h === 18 && m === 0)) {
+    const time = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    const lunch = h === 12;
+    slots.push({
+      time, hourMark: m === 0, hasEvent: false, lunch,
+      eventLabel: lunch && m === 0 ? 'Lunch Break' : null,
+      eventType: lunch ? 'lunch' : null,
+      note: lunch && m === 0 ? '12:00–13:00' : null,
+      noteFixed: lunch,
+    });
+    m += 15;
+    if (m === 60) { m = 0; h++; }
+  }
+  return slots;
+}
+
+async function init() {
+  document.getElementById('date-value').textContent = fmtDateDisplay(DATE);
+
+  const [scheduleRes, cellsRes, todosRes] = await Promise.all([
+    fetch(`/api/planner/schedule?date=${DATE}`).then(r => r.json()),
+    fetch(`/api/planner/cells?date=${DATE}`).then(r => r.json()),
+    fetch(`/api/planner/todos`).then(r => r.json()),
+  ]);
+
+  scheduleSlots = scheduleRes.slots;
+  cells = cellsRes.cells || {};
+  todos = todosRes.todos || [];
+  lastMondayCleanup = todosRes.lastMondayCleanup || null;
+
+  applyMondayCleanup();
+  renderTable();
+  renderTodos();
+}
+
+function applyMondayCleanup() {
+  const today = new Date();
+  if (today.getDay() === 1 && lastMondayCleanup !== todayStr()) {
+    const before = todos.length;
+    todos = todos.filter(t => !t.done);
+    lastMondayCleanup = todayStr();
+    if (todos.length !== before) saveTodos();
+  }
+}
+
+function renderTable() {
+  const slots = (scheduleSlots && scheduleSlots.length) ? scheduleSlots : buildDefaultSlots();
+  const tbody = document.getElementById('planner-tbody');
+  tbody.innerHTML = '';
+
+  slots.forEach((slot, idx) => {
+    const tr = document.createElement('tr');
+    tr.className = [slot.hourMark ? 'hour-mark' : '', slot.hasEvent ? 'has-event' : '', slot.lunch ? 'lunch' : ''].filter(Boolean).join(' ');
+
+    const tdTime = document.createElement('td');
+    tdTime.textContent = slot.time;
+    tr.appendChild(tdTime);
+
+    const tdTask = document.createElement('td');
+    tdTask.className = 'task-cell';
+    if (slot.lunch && slot.hourMark) {
+      tdTask.innerHTML = `<span class="lunch-label">🍱 ${esc(slot.eventLabel || 'Lunch Break')}</span>`;
+    } else if (slot.lunch) {
+      tdTask.innerHTML = `<span class="lunch-label">🍱 Lunch Break</span>`;
+    } else if (slot.hasEvent) {
+      tdTask.innerHTML = slot.eventType === 'start'
+        ? `<span class="cal-event">${esc(slot.eventLabel)}</span>`
+        : `<span class="cal-cont">↳ ${esc(slot.eventLabel)}</span>`;
+    } else {
+      tdTask.contentEditable = 'true';
+      tdTask.dataset.ph = 'task...';
+      tdTask.dataset.time = slot.time;
+      tdTask.dataset.field = 'task';
+      const explicitTask = cells[slot.time] && cells[slot.time].task;
+      const timedTodo = (DATE === todayStr())
+        ? todos.find(t => t.time === slot.time && t.dueDate === DATE)
+        : null;
+      tdTask.innerHTML = explicitTask || (timedTodo ? esc(timedTodo.text) : '');
+      tdTask.addEventListener('blur', onCellBlur);
+    }
+    tr.appendChild(tdTask);
+
+    if (idx === 0) {
+      const tdTodo = document.createElement('td');
+      tdTodo.className = 'todo-cell';
+      tdTodo.rowSpan = 12;
+      tdTodo.innerHTML = `
+        <div class="todo-header"><span>📋 To-Do List</span></div>
+        <div class="todo-columns">
+          <div class="todo-col-active"><div class="todo-col-header">Active</div><div id="todo-list-active"></div></div>
+          <div class="todo-col-done"><div class="todo-col-header">Done</div><div id="todo-list-done"></div></div>
+        </div>
+        <div id="add-task-area">
+          <input type="text" id="new-task-input" placeholder="task..." onkeydown="if(event.key==='Enter')addTask()">
+          <select id="new-task-priority">
+            <option value="high">🔴 H</option>
+            <option value="medium" selected>🟡 M</option>
+            <option value="low">⚪ L</option>
+          </select>
+          <input type="date" id="new-task-due" value="${DATE}">
+          <input type="time" id="new-task-time" step="900" value="09:00">
+          <button id="add-task-btn" onclick="addTask()">+</button>
+        </div>`;
+      tr.appendChild(tdTodo);
+    } else if (idx >= 12) {
+      const tdNote = document.createElement('td');
+      if (slot.noteFixed) {
+        tdNote.className = 'cal-note';
+        tdNote.textContent = slot.note || '';
+      } else {
+        tdNote.contentEditable = 'true';
+        tdNote.dataset.ph = 'note...';
+        tdNote.dataset.time = slot.time;
+        tdNote.dataset.field = 'note';
+        tdNote.innerHTML = (cells[slot.time] && cells[slot.time].note) || '';
+        tdNote.addEventListener('blur', onCellBlur);
+      }
+      tr.appendChild(tdNote);
+    }
+
+    tbody.appendChild(tr);
+  });
+}
+
+let saveCellsTimeout;
+function onCellBlur(e) {
+  const time = e.target.dataset.time;
+  const field = e.target.dataset.field;
+  const value = e.target.innerHTML.trim();
+  if (!cells[time]) cells[time] = {};
+  cells[time][field] = value;
+  if (!cells[time].task && !cells[time].note) delete cells[time];
+  scheduleSaveCells();
+}
+
+function scheduleSaveCells() {
+  clearTimeout(saveCellsTimeout);
+  saveCellsTimeout = setTimeout(saveCells, 600);
+}
+
+async function saveCells() {
+  await fetch('/api/planner/cells', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date: DATE, cells }),
+  });
+  flashSaved();
+}
+
+function isOverdue(task) {
+  if (!task.dueDate || task.done) return false;
+  const due = new Date(task.dueDate + 'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  return due < today;
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${dt.getDate()} ${months[dt.getMonth()]}`;
+}
+
+function pBadge(p) {
+  if (p === 'high') return '<span class="p-badge p-high">HIGH</span>';
+  if (p === 'low')  return '<span class="p-badge p-low">LOW</span>';
+  return '<span class="p-badge p-med">MED</span>';
+}
+
+function todoItemHtml(t, i) {
+  const over = isOverdue(t);
+  const duePart = t.dueDate ? `<span class="due-date${over ? ' due-overdue' : ''}">${fmtDate(t.dueDate)}</span>` : '';
+  const timePart = t.time ? `<span class="time-badge">${t.time}</span>` : '';
+  return `<div class="todo-item${t.done ? ' done' : ''}${over ? ' overdue-item' : ''}">
+    <span class="todo-cb" onclick="toggleTodo(${i})">${t.done ? '☑' : '☐'}</span>
+    ${duePart}${timePart}${pBadge(t.priority || 'medium')}
+    <span class="todo-text" contenteditable="true" onblur="editTodo(${i},this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${esc(t.text)}</span>
+    <span class="todo-del" onclick="delTodo(${i})">✕</span>
+  </div>`;
+}
+
+function renderTodos() {
+  const activeEl = document.getElementById('todo-list-active');
+  const doneEl   = document.getElementById('todo-list-done');
+  if (!activeEl || !doneEl) return;
+  const active = todos.map((t, i) => ({ t, i })).filter(({ t }) => !t.done);
+  const done   = todos.map((t, i) => ({ t, i })).filter(({ t }) =>  t.done);
+  activeEl.innerHTML = active.length
+    ? active.map(({ t, i }) => todoItemHtml(t, i)).join('')
+    : '<div style="font-size:7.5px;color:#bbb;padding:2px 0;">ยังไม่มี task</div>';
+  doneEl.innerHTML = done.length
+    ? done.map(({ t, i }) => todoItemHtml(t, i)).join('')
+    : '<div style="font-size:7.5px;color:#bbb;padding:2px 0;">—</div>';
+}
+
+function toggleTodo(i) { todos[i].done = !todos[i].done; saveTodos(); renderTable(); renderTodos(); }
+function delTodo(i) { todos.splice(i, 1); saveTodos(); renderTable(); renderTodos(); }
+function editTodo(i, el) {
+  const newText = el.innerText.trim();
+  if (newText && newText !== todos[i].text) { todos[i].text = newText; saveTodos(); renderTable(); renderTodos(); }
+  else if (!newText) renderTodos();
+}
+
+function addTask() {
+  const input = document.getElementById('new-task-input');
+  const text = input.value.trim(); if (!text) return;
+  const priority = document.getElementById('new-task-priority').value;
+  const dueDate = document.getElementById('new-task-due').value;
+  const time = document.getElementById('new-task-time').value;
+  todos.push({ id: Date.now(), text, done: false, priority, dueDate, time });
+  saveTodos(); renderTable(); renderTodos();
+  // renderTable() rebuilds #add-task-area from scratch (fresh defaults baked
+  // in), so re-fetch the new node rather than reuse the now-detached `input`
+  document.getElementById('new-task-input').focus();
+}
+
+async function saveTodos() {
+  await fetch('/api/planner/todos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ todos, lastMondayCleanup }),
+  });
+  flashSaved();
+}
+
+let flashTimeout;
+function flashSaved() {
+  const el = document.getElementById('save-status');
+  el.textContent = 'บันทึกแล้ว ✓';
+  clearTimeout(flashTimeout);
+  flashTimeout = setTimeout(() => { el.textContent = ''; }, 1500);
+}
+
+async function manualSave() {
+  clearTimeout(saveCellsTimeout);
+  await Promise.all([saveCells(), saveTodos()]);
+}
+
+async function runSync() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  const prevText = btn.textContent;
+  btn.textContent = '…';
+  try {
+    const res = await fetch('/api/planner/run', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.message || `Sync failed: ${data.error || res.status}`);
+      return;
+    }
+    scheduleSlots = data.slots;
+    renderTable();
+    renderTodos();
+    flashSaved();
+  } catch (e) {
+    alert('Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prevText;
+  }
+}
+
+init();
+</script>
+</body>
+</html>

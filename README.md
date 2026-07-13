@@ -25,11 +25,17 @@ sign in with Google.
 1. **Google OAuth client** (the one piece only a Google Cloud Console admin
    for `muze.co.th` can set up):
    - Create/reuse a GCP project, set the OAuth consent screen to **Internal**
+   - Add the `.../auth/calendar.readonly` scope on the consent screen (used
+     only by the Daily Planner's "Run" button, to read the signed-in user's
+     own calendar - it's a sensitive but not restricted scope, so Internal
+     apps don't need Google's verification review for it)
    - Create a Web-application OAuth 2.0 Client ID
    - Authorized redirect URI: `https://muze-ops-portal.vercel.app/auth/google/callback`
      (and `http://localhost:3000/auth/google/callback` for local dev)
    - Put the Client ID/Secret into `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`
      (locally in `.env`, and in Vercel's project env vars for production)
+   - Everyone needs to log out and back in once after this scope was added,
+     to grant it - existing sessions/refresh tokens predate it
 2. Everything else (`REPORT_TOOL_BASIC_AUTH_*`, `DASHBOARD_SECRET`,
    `SESSION_SECRET`) is already set as Vercel production env vars, reusing
    the existing secrets from the two backend projects.

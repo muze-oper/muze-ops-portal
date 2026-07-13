@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const path = require('path');
-const { buildAuthUrl, exchangeCodeForIdTokenPayload } = require('../auth/google');
+const { buildAuthUrl, exchangeCodeForTokens } = require('../auth/google');
 const { createSessionCookie, clearSessionCookie } = require('../auth/session');
+const { saveRefreshToken } = require('../auth/calendarTokens');
 
 router.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
@@ -17,8 +18,15 @@ router.get('/auth/google/callback', async (req, res) => {
   if (!code) return res.redirect('/login?error=missing_code');
 
   try {
-    const payload = await exchangeCodeForIdTokenPayload(code);
+    const { payload, refreshToken } = await exchangeCodeForTokens(code);
     createSessionCookie(res, payload);
+    if (refreshToken) {
+      // Best-effort - a failed save here shouldn't block login, just the
+      // Planner's "Run" sync until the next successful one
+      saveRefreshToken(payload.email, refreshToken).catch(err =>
+        console.error('Failed to save calendar refresh token:', err.message)
+      );
+    }
     const next = state ? decodeURIComponent(state) : '/';
     res.redirect(next.startsWith('/') ? next : '/');
   } catch (err) {
