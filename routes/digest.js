@@ -1,15 +1,12 @@
 const router = require('express').Router();
 const path = require('path');
-const { put, list, get: blobGet } = require('@vercel/blob');
+const drive = require('../storage/googleDrive');
 
 const DIGEST_SECRET = process.env.DIGEST_SECRET;
+const LIVE_FILENAME = 'digest_live.json';
 
-async function fetchBlob(url) {
-  const r = await blobGet(url, { access: 'private' });
-  if (r.statusCode !== 200) throw new Error(`Blob fetch ${r.statusCode}`);
-  const chunks = [];
-  for await (const chunk of r.stream) chunks.push(chunk);
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+function digestFilename(timestamp) {
+  return `digest__${timestamp.replace(/[:.]/g, '-')}.json`;
 }
 
 // POST /api/digest — no SSO, protected by shared secret
@@ -20,17 +17,11 @@ router.post('/api/digest', async (req, res) => {
   try {
     const { title, html, accounts, sentAt } = req.body;
     const timestamp = sentAt || new Date().toISOString();
-    const filename = `digests/${timestamp.replace(/[:.]/g, '-')}.json`;
-
-    const result = await put(filename, JSON.stringify({ title, html, accounts, sentAt: timestamp }), {
-      access: 'private',
-      contentType: 'application/json',
-    });
-
-    console.log(`Digest stored: ${title} → ${result.url}`);
-    res.json({ ok: true, url: result.url, pathname: result.pathname });
+    await drive.writeFile(digestFilename(timestamp), { title, html, accounts, sentAt: timestamp });
+    console.log(`Digest stored: ${title}`);
+    res.json({ ok: true });
   } catch (err) {
-    console.error('Blob put error:', err.message);
+    console.error('Digest store error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -39,18 +30,18 @@ router.post('/api/digest', async (req, res) => {
 router.get('/api/digest/debug', async (req, res) => {
   if (req.headers['x-digest-secret'] !== DIGEST_SECRET) return res.status(403).end();
   try {
-    const result = await list({ prefix: 'digests/' });
-    const first = result.blobs[0];
+    const files = await drive.listFiles('digest__');
+    const first = files[0];
     let contentTest = null;
     if (first) {
       try {
-        const data = await fetchBlob(first.url);
+        const data = await drive.readFile(first.name);
         contentTest = { ok: true, keys: Object.keys(data) };
       } catch (e) {
         contentTest = { error: e.message };
       }
     }
-    res.json({ blobCount: result.blobs.length, first, contentTest });
+    res.json({ fileCount: files.length, first, contentTest });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -59,9 +50,8 @@ router.get('/api/digest/debug', async (req, res) => {
 // GET /api/digest/list — list stored digests
 router.get('/api/digest/list', async (req, res) => {
   try {
-    const { blobs } = await list({ prefix: 'digests/' });
-    const sorted = blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)).slice(0, 48);
-    res.json(sorted.map((b, i) => ({ index: i, pathname: b.pathname, uploadedAt: b.uploadedAt })));
+    const files = (await drive.listFiles('digest__')).slice(0, 48);
+    res.json(files.map((f, i) => ({ index: i, pathname: f.name, uploadedAt: f.modifiedTime })));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -75,9 +65,7 @@ router.post('/api/digest/live', async (req, res) => {
   if (secret !== DIGEST_SECRET) return res.status(403).json({ error: 'Forbidden' });
   try {
     const { counts, updatedAt } = req.body;
-    await put('digests/live.json', JSON.stringify({ counts, updatedAt }), {
-      access: 'private', contentType: 'application/json', allowOverwrite: true,
-    });
+    await drive.writeFile(LIVE_FILENAME, { counts, updatedAt });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -87,9 +75,8 @@ router.post('/api/digest/live', async (req, res) => {
 // GET /api/digest/live — return live unread counts + emails filtered by logged-in user
 router.get('/api/digest/live', async (req, res) => {
   try {
-    const { blobs } = await list({ prefix: 'digests/live.json' });
-    if (!blobs[0]) return res.json({ counts: {}, updatedAt: null });
-    const data = await fetchBlob(blobs[0].url);
+    const data = await drive.readFile(LIVE_FILENAME);
+    if (!data) return res.json({ counts: {}, updatedAt: null });
     const userEmail = req.user?.email;
     if (userEmail && data.counts) {
       const allowed = new Set([...SHARED_ACCOUNTS, userEmail]);
@@ -108,12 +95,11 @@ router.get('/api/digest/live', async (req, res) => {
 // GET /api/digest/:index — get digest content by index (filtered by logged-in user)
 router.get('/api/digest/:index', async (req, res) => {
   try {
-    const { blobs } = await list({ prefix: 'digests/' });
-    const sorted = blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
-    const blob = sorted[parseInt(req.params.index)];
-    if (!blob) return res.status(404).json({ error: 'Not found' });
+    const files = await drive.listFiles('digest__');
+    const file = files[parseInt(req.params.index)];
+    if (!file) return res.status(404).json({ error: 'Not found' });
 
-    const data = await fetchBlob(blob.url);
+    const data = await drive.readFile(file.name);
 
     // server-side: only return accounts the requesting user is allowed to see
     const userEmail = req.user?.email;

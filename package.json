@@ -8,7 +8,6 @@
   },
   "license": "ISC",
   "dependencies": {
-    "@vercel/blob": "^2.6.1",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

@@ -15,6 +15,7 @@ function buildAuthUrl(state) {
     scope: [
       'openid', 'email', 'profile',
       'https://www.googleapis.com/auth/calendar.readonly', // used only by the Daily Planner's "Run" sync
+      'https://www.googleapis.com/auth/drive.appdata', // used only by the admin account: hidden per-app storage, backs digest/planner data instead of paid Blob storage
     ],
     hd: process.env.ALLOWED_DOMAIN, // UI hint only, NOT the security boundary
     state,

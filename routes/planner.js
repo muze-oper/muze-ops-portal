@@ -1,8 +1,7 @@
 const router = require('express').Router();
 const path = require('path');
 const { OAuth2Client } = require('google-auth-library');
-const { put, list, get: blobGet } = require('@vercel/blob');
-const { getRefreshToken } = require('../auth/calendarTokens');
+const drive = require('../storage/googleDrive');
 
 const PLANNER_SECRET = process.env.PLANNER_SECRET;
 const TOTAL_SLOTS = 49; // 06:00-18:00 inclusive, 15-min steps
@@ -11,18 +10,9 @@ const TOTAL_SLOTS = 49; // 06:00-18:00 inclusive, 15-min steps
 // (this gateway is muze.co.th-only) rather than the UTC calendar date.
 function todayStr() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date()); }
 
-async function fetchBlob(url) {
-  const r = await blobGet(url, { access: 'private' });
-  if (r.statusCode !== 200) throw new Error(`Blob fetch ${r.statusCode}`);
-  const chunks = [];
-  for await (const chunk of r.stream) chunks.push(chunk);
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-}
-
-async function findBlob(prefix) {
-  const { blobs } = await list({ prefix });
-  return blobs[0] || null;
-}
+function scheduleFilename(email, date) { return `planner_schedule__${email}__${date}.json`; }
+function cellsFilename(email, date) { return `planner_cells__${email}__${date}.json`; }
+function todosFilename(email) { return `planner_todos__${email}.json`; }
 
 function slotIndexToTime(idx) {
   const totalMinutes = idx * 15 + 6 * 60;
@@ -99,10 +89,9 @@ function buildSlotsFromEvents(events) {
   return slots;
 }
 
-async function fetchTodaysCalendarEvents(email) {
-  const refreshToken = await getRefreshToken(email);
+async function fetchTodaysCalendarEvents(refreshToken) {
   if (!refreshToken) {
-    const err = new Error('No stored Calendar access - log out and back in to grant it');
+    const err = new Error('No Calendar access on this session - log out and back in to grant it');
     err.code = 'NO_CALENDAR_ACCESS';
     throw err;
   }
@@ -146,14 +135,9 @@ router.post('/api/planner', async (req, res) => {
     if (!email || !date || !Array.isArray(slots)) {
       return res.status(400).json({ error: 'email, date, slots required' });
     }
-    const filename = `planner/${email}/schedule/${date}.json`;
-    const result = await put(filename, JSON.stringify({ date, slots, generatedAt: new Date().toISOString() }), {
-      access: 'private',
-      contentType: 'application/json',
-      allowOverwrite: true,
-    });
-    console.log(`Planner schedule stored: ${email} ${date} -> ${result.url}`);
-    res.json({ ok: true, url: result.url });
+    await drive.writeFile(scheduleFilename(email, date), { date, slots, generatedAt: new Date().toISOString() });
+    console.log(`Planner schedule stored: ${email} ${date}`);
+    res.json({ ok: true });
   } catch (err) {
     console.error('Planner store error:', err.message);
     res.status(500).json({ error: err.message });
@@ -166,10 +150,8 @@ router.post('/api/planner', async (req, res) => {
 router.get('/api/planner/schedule', async (req, res) => {
   try {
     const date = req.query.date || todayStr();
-    const blob = await findBlob(`planner/${req.user.email}/schedule/${date}.json`);
-    if (!blob) return res.json({ date, slots: null });
-    const data = await fetchBlob(blob.url);
-    res.json(data);
+    const data = await drive.readFile(scheduleFilename(req.user.email, date));
+    res.json(data || { date, slots: null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -179,10 +161,8 @@ router.get('/api/planner/schedule', async (req, res) => {
 router.get('/api/planner/cells', async (req, res) => {
   try {
     const date = req.query.date || todayStr();
-    const blob = await findBlob(`planner/${req.user.email}/cells/${date}.json`);
-    if (!blob) return res.json({ date, cells: {} });
-    const data = await fetchBlob(blob.url);
-    res.json(data);
+    const data = await drive.readFile(cellsFilename(req.user.email, date));
+    res.json(data || { date, cells: {} });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -192,12 +172,7 @@ router.post('/api/planner/cells', async (req, res) => {
   try {
     const { date, cells } = req.body;
     if (!date || typeof cells !== 'object') return res.status(400).json({ error: 'date, cells required' });
-    const filename = `planner/${req.user.email}/cells/${date}.json`;
-    await put(filename, JSON.stringify({ date, cells }), {
-      access: 'private',
-      contentType: 'application/json',
-      allowOverwrite: true,
-    });
+    await drive.writeFile(cellsFilename(req.user.email, date), { date, cells });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -207,10 +182,8 @@ router.post('/api/planner/cells', async (req, res) => {
 // GET/POST /api/planner/todos — running to-do list, not date-scoped
 router.get('/api/planner/todos', async (req, res) => {
   try {
-    const blob = await findBlob(`planner/${req.user.email}/todos.json`);
-    if (!blob) return res.json({ todos: [], lastMondayCleanup: null });
-    const data = await fetchBlob(blob.url);
-    res.json(data);
+    const data = await drive.readFile(todosFilename(req.user.email));
+    res.json(data || { todos: [], lastMondayCleanup: null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -220,12 +193,7 @@ router.post('/api/planner/todos', async (req, res) => {
   try {
     const { todos, lastMondayCleanup } = req.body;
     if (!Array.isArray(todos)) return res.status(400).json({ error: 'todos required' });
-    const filename = `planner/${req.user.email}/todos.json`;
-    await put(filename, JSON.stringify({ todos, lastMondayCleanup: lastMondayCleanup || null }), {
-      access: 'private',
-      contentType: 'application/json',
-      allowOverwrite: true,
-    });
+    await drive.writeFile(todosFilename(req.user.email), { todos, lastMondayCleanup: lastMondayCleanup || null });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -237,15 +205,10 @@ router.post('/api/planner/todos', async (req, res) => {
 // (the "Run" button), instead of waiting for the 6am scheduled push.
 router.post('/api/planner/run', async (req, res) => {
   try {
-    const events = await fetchTodaysCalendarEvents(req.user.email);
+    const events = await fetchTodaysCalendarEvents(req.user.refreshToken);
     const slots = buildSlotsFromEvents(events);
     const date = todayStr();
-    const filename = `planner/${req.user.email}/schedule/${date}.json`;
-    await put(filename, JSON.stringify({ date, slots, generatedAt: new Date().toISOString() }), {
-      access: 'private',
-      contentType: 'application/json',
-      allowOverwrite: true,
-    });
+    await drive.writeFile(scheduleFilename(req.user.email, date), { date, slots, generatedAt: new Date().toISOString() });
     res.json({ ok: true, date, slots });
   } catch (err) {
     if (err.code === 'NO_CALENDAR_ACCESS') {
