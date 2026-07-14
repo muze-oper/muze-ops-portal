@@ -3,10 +3,11 @@ const path = require('path');
 const drive = require('../storage/googleDrive');
 
 const DIGEST_SECRET = process.env.DIGEST_SECRET;
-const LIVE_FILENAME = 'digest_live.json';
+const LIVE_FILENAME = 'digestlivecounts.json';
+const SNAPSHOT_PREFIX = 'digestsnapshot_';
 
 function digestFilename(timestamp) {
-  return `digest__${timestamp.replace(/[:.]/g, '-')}.json`;
+  return `${SNAPSHOT_PREFIX}${timestamp.replace(/[:.]/g, '-')}.json`;
 }
 
 // POST /api/digest — no SSO, protected by shared secret
@@ -30,7 +31,7 @@ router.post('/api/digest', async (req, res) => {
 router.get('/api/digest/debug', async (req, res) => {
   if (req.headers['x-digest-secret'] !== DIGEST_SECRET) return res.status(403).end();
   try {
-    const files = await drive.listFiles('digest__');
+    const files = await drive.listFiles(SNAPSHOT_PREFIX);
     const first = files[0];
     let contentTest = null;
     if (first) {
@@ -50,7 +51,7 @@ router.get('/api/digest/debug', async (req, res) => {
 // GET /api/digest/list — list stored digests
 router.get('/api/digest/list', async (req, res) => {
   try {
-    const files = (await drive.listFiles('digest__')).slice(0, 48);
+    const files = (await drive.listFiles(SNAPSHOT_PREFIX)).slice(0, 48);
     res.json(files.map((f, i) => ({ index: i, pathname: f.name, uploadedAt: f.modifiedTime })));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -95,7 +96,7 @@ router.get('/api/digest/live', async (req, res) => {
 // GET /api/digest/:index — get digest content by index (filtered by logged-in user)
 router.get('/api/digest/:index', async (req, res) => {
   try {
-    const files = await drive.listFiles('digest__');
+    const files = await drive.listFiles(SNAPSHOT_PREFIX);
     const file = files[parseInt(req.params.index)];
     if (!file) return res.status(404).json({ error: 'Not found' });
 
