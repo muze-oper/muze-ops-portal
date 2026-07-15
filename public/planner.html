@@ -91,6 +91,12 @@
   .time-badge { font-size: 7.5px; color: #1a4a6b; white-space: nowrap; font-weight: 600; background: #d4eaf8; border-radius: 2px; padding: 0 3px; }
   .todo-del { cursor: pointer; color: #ccc; font-size: 10px; flex-shrink: 0; line-height: 1.5; margin-top: 1px; }
   .todo-del:hover { color: #e57373; }
+  .project-badge {
+    font-size: 7px; color: #6b3fa0; background: #f0e6fa; border: 0.5px solid #d9c2f0;
+    border-radius: 2px; padding: 0 3px; cursor: pointer; white-space: nowrap;
+    max-width: 90px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle;
+  }
+  .project-badge:hover { background: #e3d1f5; }
 
   #add-task-area {
     display: flex; gap: 3px; align-items: center;
@@ -115,11 +121,49 @@
     flex: 1; min-width: 0; font-size: 9px; padding: 1px 3px;
     border: 0.5px solid #a8cfc8; border-radius: 2px; background: white; color: #111;
   }
+  #new-task-project {
+    font-size: 9px; padding: 1px 2px; border: 0.5px solid #a8cfc8;
+    border-radius: 2px; background: white; color: #111; font-family: 'Mitr', sans-serif;
+    flex-shrink: 0; max-width: 60px;
+  }
   #add-task-btn {
     font-size: 15px; font-weight: 700; padding: 1px 7px; flex-shrink: 0;
     background: #4a7c6f; color: white; border: none; border-radius: 2px; cursor: pointer; line-height: 1.4;
   }
   #add-task-btn:hover { background: #3a6a5f; }
+
+  /* PROJECT CHECKLIST MODAL */
+  #project-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 1000; align-items: center; justify-content: center;
+  }
+  #project-modal {
+    background: white; width: 320px; max-height: 80vh; border-radius: 8px;
+    overflow: hidden; display: flex; flex-direction: column;
+    font-family: 'Mitr', sans-serif; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+  #project-modal-header {
+    background: #6b3fa0; color: white; padding: 10px 14px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  #project-modal-title { font-weight: 600; font-size: 13px; }
+  #project-modal-close { cursor: pointer; font-size: 16px; line-height: 1; }
+  #project-modal-list { padding: 10px 14px; overflow-y: auto; flex: 1; min-height: 40px; }
+  .subitem { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
+  .subitem-cb { cursor: pointer; user-select: none; }
+  .subitem-text { flex: 1; word-break: break-word; }
+  .subitem.done .subitem-text { text-decoration: line-through; color: #aaa; }
+  .subitem-del { cursor: pointer; color: #ccc; }
+  .subitem-del:hover { color: #e57373; }
+  #project-subitem-area { display: flex; gap: 4px; padding: 8px 14px; border-top: 1px solid #eee; }
+  #project-subitem-input {
+    flex: 1; font-size: 11px; padding: 4px 6px; border: 1px solid #ccc;
+    border-radius: 3px; font-family: 'Mitr', sans-serif;
+  }
+  #project-subitem-add {
+    background: #6b3fa0; color: white; border: none; border-radius: 3px;
+    padding: 4px 10px; cursor: pointer; font-weight: 700;
+  }
 
   .daisy {
     position: absolute;
@@ -143,6 +187,7 @@
     #add-task-area { display: none !important; }
     .save-planner-btn, .save-status { display: none !important; }
     .todo-del { display: none !important; }
+    #project-overlay { display: none !important; }
     td[contenteditable]:empty::before { content: none !important; }
   }
 </style>
@@ -206,6 +251,20 @@
 </div>
 </div>
 
+<div id="project-overlay" onclick="if(event.target===this)closeProjectModal()">
+  <div id="project-modal">
+    <div id="project-modal-header">
+      <span id="project-modal-title"></span>
+      <span id="project-modal-close" onclick="closeProjectModal()">✕</span>
+    </div>
+    <div id="project-modal-list"></div>
+    <div id="project-subitem-area">
+      <input type="text" id="project-subitem-input" placeholder="เพิ่มขั้นตอน..." onkeydown="if(event.key==='Enter')addSubItem()">
+      <button id="project-subitem-add" onclick="addSubItem()">+</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const DATE = new URLSearchParams(location.search).get('date') || todayStr();
 
@@ -213,6 +272,8 @@ let scheduleSlots = null;
 let cells = {};
 let todos = [];
 let lastMondayCleanup = null;
+let projects = [];
+let currentProjectId = null;
 
 // toISOString() gives the UTC calendar date, which is a day behind local
 // Asia/Bangkok time for roughly the first 7 hours of each Bangkok day -
@@ -252,16 +313,18 @@ function buildDefaultSlots() {
 async function init() {
   document.getElementById('date-value').textContent = fmtDateDisplay(DATE);
 
-  const [scheduleRes, cellsRes, todosRes] = await Promise.all([
+  const [scheduleRes, cellsRes, todosRes, projectsRes] = await Promise.all([
     fetch(`/api/planner/schedule?date=${DATE}`).then(r => r.json()),
     fetch(`/api/planner/cells?date=${DATE}`).then(r => r.json()),
     fetch(`/api/planner/todos`).then(r => r.json()),
+    fetch(`/api/planner/projects`).then(r => r.json()),
   ]);
 
   scheduleSlots = scheduleRes.slots;
   cells = cellsRes.cells || {};
   todos = todosRes.todos || [];
   lastMondayCleanup = todosRes.lastMondayCleanup || null;
+  projects = projectsRes.projects || [];
 
   applyMondayCleanup();
   renderTable();
@@ -334,6 +397,11 @@ function renderTable() {
           </select>
           <input type="date" id="new-task-due" value="${DATE}">
           <input type="time" id="new-task-time" step="900" value="09:00">
+          <select id="new-task-project" onchange="onProjectSelectChange(this)">
+            <option value="">🔗 —</option>
+            ${projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+            <option value="__new__">+ New Project</option>
+          </select>
           <button id="add-task-btn" onclick="addTask()">+</button>
         </div>`;
       tr.appendChild(tdTodo);
@@ -402,6 +470,15 @@ function pBadge(p) {
   return '<span class="p-badge p-med">MED</span>';
 }
 
+function projectBadgeHtml(t) {
+  if (!t.projectId) return '';
+  const p = projects.find(p => p.id === t.projectId);
+  if (!p) return '';
+  const total = p.subItems.length;
+  const done = p.subItems.filter(s => s.done).length;
+  return `<span class="project-badge" onclick="openProject('${p.id}')" title="${esc(p.name)}">🔗 ${esc(p.name)} (${done}/${total})</span>`;
+}
+
 function todoItemHtml(t, i) {
   const over = isOverdue(t);
   const duePart = t.dueDate ? `<span class="due-date${over ? ' due-overdue' : ''}">${fmtDate(t.dueDate)}</span>` : '';
@@ -410,6 +487,7 @@ function todoItemHtml(t, i) {
     <span class="todo-cb" onclick="toggleTodo(${i})">${t.done ? '☑' : '☐'}</span>
     ${duePart}${timePart}${pBadge(t.priority || 'medium')}
     <span class="todo-text" contenteditable="true" onblur="editTodo(${i},this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${esc(t.text)}</span>
+    ${projectBadgeHtml(t)}
     <span class="todo-del" onclick="delTodo(${i})">✕</span>
   </div>`;
 }
@@ -442,7 +520,9 @@ function addTask() {
   const priority = document.getElementById('new-task-priority').value;
   const dueDate = document.getElementById('new-task-due').value;
   const time = document.getElementById('new-task-time').value;
-  todos.push({ id: Date.now(), text, done: false, priority, dueDate, time });
+  const projectSel = document.getElementById('new-task-project');
+  const projectId = (projectSel && projectSel.value && projectSel.value !== '__new__') ? projectSel.value : null;
+  todos.push({ id: Date.now(), text, done: false, priority, dueDate, time, projectId });
   saveTodos(); renderTable(); renderTodos();
   // renderTable() rebuilds #add-task-area from scratch (fresh defaults baked
   // in), so re-fetch the new node rather than reuse the now-detached `input`
@@ -456,6 +536,82 @@ async function saveTodos() {
     body: JSON.stringify({ todos, lastMondayCleanup }),
   });
   flashSaved();
+}
+
+async function saveProjects() {
+  await fetch('/api/planner/projects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ projects }),
+  });
+  flashSaved();
+}
+
+// Fires when the add-task project <select> changes. "+ New Project" prompts
+// for a name inline, creates it, then re-renders the table (which rebuilds
+// this select with fresh options) and re-selects the new project.
+function onProjectSelectChange(sel) {
+  if (sel.value !== '__new__') return;
+  const name = prompt('ชื่อ Project ใหม่:');
+  if (!name || !name.trim()) { sel.value = ''; return; }
+  const id = 'proj' + Date.now();
+  projects.push({ id, name: name.trim(), subItems: [] });
+  saveProjects();
+  renderTable();
+  const newSel = document.getElementById('new-task-project');
+  if (newSel) newSel.value = id;
+}
+
+function openProject(id) {
+  currentProjectId = id;
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('project-modal-title').textContent = '📁 ' + p.name;
+  renderProjectModalList();
+  document.getElementById('project-overlay').style.display = 'flex';
+}
+
+function closeProjectModal() {
+  document.getElementById('project-overlay').style.display = 'none';
+  currentProjectId = null;
+}
+
+function renderProjectModalList() {
+  const p = projects.find(x => x.id === currentProjectId);
+  const el = document.getElementById('project-modal-list');
+  if (!p) return;
+  if (!p.subItems.length) {
+    el.innerHTML = '<div style="color:#aaa;font-size:12px;text-align:center;padding:20px 0;">ยังไม่มีขั้นตอน — เพิ่มด้านล่าง</div>';
+    return;
+  }
+  el.innerHTML = p.subItems.map((s, i) => `
+    <div class="subitem${s.done ? ' done' : ''}">
+      <span class="subitem-cb" onclick="toggleSubItem(${i})">${s.done ? '☑' : '☐'}</span>
+      <span class="subitem-text">${esc(s.text)}</span>
+      <span class="subitem-del" onclick="delSubItem(${i})">✕</span>
+    </div>`).join('');
+}
+
+function toggleSubItem(i) {
+  const p = projects.find(x => x.id === currentProjectId); if (!p) return;
+  p.subItems[i].done = !p.subItems[i].done;
+  saveProjects(); renderProjectModalList(); renderTodos();
+}
+
+function delSubItem(i) {
+  const p = projects.find(x => x.id === currentProjectId); if (!p) return;
+  p.subItems.splice(i, 1);
+  saveProjects(); renderProjectModalList(); renderTodos();
+}
+
+function addSubItem() {
+  const input = document.getElementById('project-subitem-input');
+  const text = input.value.trim(); if (!text) return;
+  const p = projects.find(x => x.id === currentProjectId); if (!p) return;
+  p.subItems.push({ id: 'si' + Date.now(), text, done: false });
+  saveProjects(); renderProjectModalList(); renderTodos();
+  input.value = '';
+  input.focus();
 }
 
 let flashTimeout;

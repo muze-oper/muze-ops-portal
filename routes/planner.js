@@ -13,6 +13,7 @@ function todayStr() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/
 function scheduleFilename(email, date) { return `planner_schedule__${email}__${date}.json`; }
 function cellsFilename(email, date) { return `planner_cells__${email}__${date}.json`; }
 function todosFilename(email) { return `planner_todos__${email}.json`; }
+function projectsFilename(email) { return `planner_projects__${email}.json`; }
 
 function slotIndexToTime(idx) {
   const totalMinutes = idx * 15 + 6 * 60;
@@ -194,6 +195,28 @@ router.post('/api/planner/todos', async (req, res) => {
     const { todos, lastMondayCleanup } = req.body;
     if (!Array.isArray(todos)) return res.status(400).json({ error: 'todos required' });
     await drive.writeFile(todosFilename(req.user.email), { todos, lastMondayCleanup: lastMondayCleanup || null });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET/POST /api/planner/projects — projects a to-do can link to, each with
+// its own checklist of sub-items (e.g. "จัดระเบียบกรงแมว" -> ย้ายชั้นวาง, ...)
+router.get('/api/planner/projects', async (req, res) => {
+  try {
+    const data = await drive.readFile(projectsFilename(req.user.email));
+    res.json(data || { projects: [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/api/planner/projects', async (req, res) => {
+  try {
+    const { projects } = req.body;
+    if (!Array.isArray(projects)) return res.status(400).json({ error: 'projects required' });
+    await drive.writeFile(projectsFilename(req.user.email), { projects });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
