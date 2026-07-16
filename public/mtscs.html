@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MTS Customer Support Dashboard — Muze Ops Portal</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+    .breadcrumb { background: #1a1a2e; color: rgba(255,255,255,0.7); padding: 6px 24px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+    .breadcrumb a { color: rgba(255,255,255,0.7); text-decoration: none; }
+    .breadcrumb a:hover { color: white; }
+    .breadcrumb .sep { opacity: 0.4; }
+    header {
+      background: #1a73e8; color: white; padding: 16px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    header h1 { font-size: 18px; }
+    header div { display: flex; gap: 16px; align-items: center; }
+    header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
+    #content { max-width: 1100px; margin: 24px auto; padding: 0 24px 48px; }
+    #last-updated { font-size: 12px; color: #888; margin-bottom: 16px; }
+
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-tile { background: white; border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stat-tile .label { font-size: 12px; color: #888; margin-bottom: 6px; }
+    .stat-tile .value { font-size: 26px; font-weight: 700; color: #1a1a2e; }
+
+    .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .panel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .panel h2 { font-size: 13px; font-weight: 700; color: #555; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 12px; }
+    .bar-row .bar-label { width: 140px; flex-shrink: 0; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-row .bar-track { flex: 1; background: #eef1f5; border-radius: 4px; height: 16px; overflow: hidden; }
+    .bar-row .bar-fill { background: #1a73e8; height: 100%; border-radius: 4px; }
+    .bar-row .bar-count { width: 32px; text-align: right; font-weight: 600; color: #1a1a2e; flex-shrink: 0; }
+
+    .ticket-table { background: white; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; background: #f7f8fa; color: #888; font-weight: 600; padding: 10px 14px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
+    td { padding: 10px 14px; border-top: 1px solid #f0f0f0; color: #333; }
+    td a { color: #1a73e8; text-decoration: none; font-weight: 600; }
+    td a:hover { text-decoration: underline; }
+    .status-chip { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; background: #eef1f5; color: #444; }
+    #empty-state { text-align: center; padding: 80px 24px; color: #666; }
+    #empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+<div class="breadcrumb">
+  <a href="/">🏠 Muze Ops Portal</a>
+  <span class="sep">/</span>
+  <span>MTS Customer Support</span>
+</div>
+<header>
+  <h1>📊 MTS Customer Support Dashboard</h1>
+  <div>
+    <a href="/">← กลับหน้าหลัก</a>
+    <a href="/logout">Logout</a>
+  </div>
+</header>
+
+<div id="content">
+  <div id="last-updated">กำลังโหลด...</div>
+  <div id="body"></div>
+</div>
+
+<script>
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderBarList(entries) {
+  if (!entries.length) return '<div style="color:#aaa;font-size:12px">ไม่มีข้อมูล</div>';
+  const max = Math.max(...entries.map(e => e[1]));
+  return entries.map(([label, count]) => `
+    <div class="bar-row">
+      <div class="bar-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, Math.round(count / max * 100))}%"></div></div>
+      <div class="bar-count">${count}</div>
+    </div>
+  `).join('');
+}
+
+function renderTicketRow(t, jiraBaseUrl) {
+  const keyCell = jiraBaseUrl ? `<a href="${jiraBaseUrl}/browse/${encodeURIComponent(t.key)}" target="_blank" rel="noopener">${escapeHtml(t.key)}</a>` : escapeHtml(t.key);
+  const created = t.created ? new Date(t.created).toLocaleDateString('th-TH', { dateStyle: 'medium' }) : '-';
+  return `<tr>
+    <td>${keyCell}</td>
+    <td>${escapeHtml(t.summary || '')}</td>
+    <td><span class="status-chip">${escapeHtml(t.status || '-')}</span></td>
+    <td>${escapeHtml(t.assignee || '-')}</td>
+    <td>${created}</td>
+  </tr>`;
+}
+
+async function load() {
+  const res = await fetch('/api/mtscs');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    document.getElementById('body').innerHTML = `<div id="empty-state"><div class="icon">⚠️</div><p>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.error || res.statusText)}</p></div>`;
+    return;
+  }
+  const data = await res.json();
+
+  document.getElementById('last-updated').textContent =
+    'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+
+  const assigneeCount = data.byAssignee.filter(([name]) => name && name !== 'Unknown').length;
+
+  document.getElementById('body').innerHTML = `
+    <div class="stats">
+      <div class="stat-tile"><div class="label">ทั้งหมด</div><div class="value">${data.total}</div></div>
+      <div class="stat-tile"><div class="label">ยังไม่ปิด (Open)</div><div class="value">${data.open}</div></div>
+      <div class="stat-tile"><div class="label">ผู้รับผิดชอบ</div><div class="value">${assigneeCount}</div></div>
+    </div>
+    <div class="panels">
+      <div class="panel"><h2>สถานะ (Status)</h2>${renderBarList(data.byStatus)}</div>
+      <div class="panel"><h2>ความสำคัญ (Priority)</h2>${renderBarList(data.byPriority)}</div>
+      <div class="panel"><h2>ภาระงานตามผู้รับผิดชอบ</h2>${renderBarList(data.byAssignee)}</div>
+    </div>
+    <div class="ticket-table">
+      <table>
+        <thead><tr><th>Key</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Created</th></tr></thead>
+        <tbody>${data.latest.map(t => renderTicketRow(t, data.jiraBaseUrl)).join('')}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+load();
+</script>
+</body>
+</html>

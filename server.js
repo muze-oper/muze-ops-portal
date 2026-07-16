@@ -6,6 +6,7 @@ const loginRoutes = require('./routes/login');
 const landingRoutes = require('./routes/landing');
 const digestRoutes = require('./routes/digest');
 const plannerRoutes = require('./routes/planner');
+const mtscsRoutes = require('./routes/mtscs');
 
 const app = express();
 app.use(cookieParser());
@@ -28,6 +29,7 @@ app.use(requireAuth);
 app.use(landingRoutes);
 app.use(digestRoutes);
 app.use(plannerRoutes);
+app.use(mtscsRoutes);
 
 module.exports = app;
 if (require.main === module) {
