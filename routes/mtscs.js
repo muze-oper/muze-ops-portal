@@ -24,6 +24,10 @@ async function loadData() {
   const doneStatuses = new Set(['resolved', 'done', 'closed']);
   const openCount = tickets.filter(t => !doneStatuses.has((t.status || '').toLowerCase())).length;
 
+  // customfield_11588 = Jira's "First Tier" dropdown (Yes/No)
+  const firstTierCount = tickets.filter(t => (t.customfield_11588 || '').toLowerCase() === 'yes').length;
+  const firstTierPercent = tickets.length > 0 ? Math.round((firstTierCount / tickets.length) * 100) : 0;
+
   const latest = [...tickets]
     .sort((a, b) => new Date(b.created) - new Date(a.created))
     .slice(0, 20);
@@ -31,8 +35,10 @@ async function loadData() {
   return {
     total: tickets.length,
     open: openCount,
+    firstTierPercent,
     byStatus: groupBy(tickets, 'status'),
     byPriority: groupBy(tickets, 'priority'),
+    byIssueType: groupBy(tickets, 'issuetype'),
     byAssignee: groupBy(tickets, 'assignee').slice(0, 10),
     latest,
     jiraBaseUrl: JIRA_BASE_URL,

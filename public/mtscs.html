@@ -114,10 +114,12 @@ async function load() {
       <div class="stat-tile"><div class="label">ทั้งหมด</div><div class="value">${data.total}</div></div>
       <div class="stat-tile"><div class="label">ยังไม่ปิด (Open)</div><div class="value">${data.open}</div></div>
       <div class="stat-tile"><div class="label">ผู้รับผิดชอบ</div><div class="value">${assigneeCount}</div></div>
+      <div class="stat-tile"><div class="label">First Tier</div><div class="value">${data.firstTierPercent}%</div></div>
     </div>
     <div class="panels">
       <div class="panel"><h2>สถานะ (Status)</h2>${renderBarList(data.byStatus)}</div>
       <div class="panel"><h2>ความสำคัญ (Priority)</h2>${renderBarList(data.byPriority)}</div>
+      <div class="panel"><h2>ประเภท (Issue Type)</h2>${renderBarList(data.byIssueType)}</div>
       <div class="panel"><h2>ภาระงานตามผู้รับผิดชอบ</h2>${renderBarList(data.byAssignee)}</div>
     </div>
     <div class="ticket-table">
