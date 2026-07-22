@@ -9,39 +9,14 @@ const CACHE_MS = 30 * 60 * 1000;
 
 let cache = { data: null, lastUpdated: 0 };
 
-function groupBy(tickets, field) {
-  const counts = {};
-  tickets.forEach(t => {
-    const value = t[field] || 'Unknown';
-    counts[value] = (counts[value] || 0) + 1;
-  });
-  return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-}
-
+// Aggregation (status/priority/first-tier breakdowns, month filtering) happens
+// client-side in mtscs.html so the month filter doesn't need a server round trip.
 async function loadData() {
   const rows = await fetchSheetRows(SHEET_ID, SHEET_RANGE);
   const tickets = rowsToObjects(rows);
-  const doneStatuses = new Set(['resolved', 'done', 'closed']);
-  const openCount = tickets.filter(t => !doneStatuses.has((t.status || '').toLowerCase())).length;
-
-  // customfield_11588 = Jira's "First Tier" dropdown (Yes/No)
-  const firstTierTickets = tickets.filter(t => (t.customfield_11588 || '').toLowerCase() === 'yes');
-  const firstTierCount = firstTierTickets.length;
-  const firstTierPercent = tickets.length > 0 ? Math.round((firstTierCount / tickets.length) * 100) : 0;
-
-  const latest = [...tickets]
-    .sort((a, b) => new Date(b.created) - new Date(a.created))
-    .slice(0, 20);
 
   return {
-    total: tickets.length,
-    open: openCount,
-    firstTierCount,
-    firstTierPercent,
-    firstTierByIssueType: groupBy(firstTierTickets, 'customfield_11703'),
-    byStatus: groupBy(tickets, 'status'),
-    byIssueType: groupBy(tickets, 'customfield_11703'),
-    latest,
+    tickets,
     jiraBaseUrl: JIRA_BASE_URL,
     lastUpdated: new Date().toISOString(),
   };

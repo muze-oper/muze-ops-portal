@@ -19,7 +19,10 @@
     header div { display: flex; gap: 16px; align-items: center; }
     header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
     #content { max-width: 1100px; margin: 24px auto; padding: 0 24px 48px; }
-    #last-updated { font-size: 12px; color: #888; margin-bottom: 16px; }
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    #last-updated { font-size: 12px; color: #888; }
+    .toolbar label { font-size: 12px; font-weight: 600; color: #555; }
+    .toolbar select { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; background: white; }
 
     .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
     .panel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
@@ -62,7 +65,11 @@
 </header>
 
 <div id="content">
-  <div id="last-updated">กำลังโหลด...</div>
+  <div class="toolbar">
+    <label for="month-filter">เดือน:</label>
+    <select id="month-filter" onchange="onMonthChange()"><option value="all">ทุกเดือน</option></select>
+    <div id="last-updated">กำลังโหลด...</div>
+  </div>
   <div id="body"></div>
 </div>
 
@@ -104,6 +111,86 @@ function renderTicketRow(t, jiraBaseUrl) {
   </tr>`;
 }
 
+const MONTH_ABBR = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
+
+// The Sheet's "created" is when the Jira ticket was filed - the [DD Mon YYYY]
+// prefix on the summary is the actual customer event date, which is what the
+// month filter should key off.
+function extractMonth(summary) {
+  const m = (summary || '').match(/^\[(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})\]/);
+  if (!m || !(m[2] in MONTH_ABBR)) return null;
+  const monthIdx = MONTH_ABBR[m[2]];
+  const year = parseInt(m[3], 10);
+  return { key: `${year}-${String(monthIdx + 1).padStart(2, '0')}`, label: `${m[2]} ${year}` };
+}
+
+function groupBy(tickets, field) {
+  const counts = {};
+  tickets.forEach(t => {
+    const value = t[field] || 'Unknown';
+    counts[value] = (counts[value] || 0) + 1;
+  });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+}
+
+let ALL_TICKETS = [];
+let JIRA_BASE_URL = '';
+
+function populateMonthFilter() {
+  const months = {};
+  ALL_TICKETS.forEach(t => { if (t._month) months[t._month.key] = t._month.label; });
+  const select = document.getElementById('month-filter');
+  const previousValue = select.value || 'all';
+  const sortedKeys = Object.keys(months).sort().reverse();
+  select.innerHTML = '<option value="all">ทุกเดือน</option>' +
+    sortedKeys.map(k => `<option value="${k}">${escapeHtml(months[k])}</option>`).join('');
+  select.value = sortedKeys.includes(previousValue) ? previousValue : 'all';
+}
+
+function renderDashboard() {
+  const monthFilter = document.getElementById('month-filter').value;
+  const tickets = monthFilter === 'all' ? ALL_TICKETS : ALL_TICKETS.filter(t => t._month && t._month.key === monthFilter);
+
+  const doneStatuses = new Set(['resolved', 'done', 'closed']);
+  const open = tickets.filter(t => !doneStatuses.has((t.status || '').toLowerCase())).length;
+
+  const firstTierTickets = tickets.filter(t => (t.customfield_11588 || '').toLowerCase() === 'yes');
+  const firstTierCount = firstTierTickets.length;
+  const firstTierPercent = tickets.length > 0 ? Math.round((firstTierCount / tickets.length) * 100) : 0;
+
+  const latest = [...tickets].sort((a, b) => new Date(b.created) - new Date(a.created));
+
+  document.getElementById('body').innerHTML = `
+    <div class="panels">
+      <div class="panel">
+        <h2>ทั้งหมด / สถานะ</h2>
+        <div class="value" style="margin-bottom: 4px">${tickets.length}</div>
+        <div style="margin-bottom: 12px; font-size: 11px; color: #888">ยังไม่ปิด (Open): <strong style="color:#1a1a2e; font-size: 13px">${open}</strong></div>
+        ${renderCountTable(groupBy(tickets, 'status'), tickets.length, 'สถานะ')}
+      </div>
+      <div class="panel">
+        <h2>First Tier</h2>
+        <div class="value" style="margin-bottom: 4px">${firstTierPercent}%</div>
+        <div style="margin-bottom: 12px; font-size: 11px; color: #888">First Tier ทั้งหมด: <strong style="color:#1a1a2e; font-size: 13px">${firstTierCount}</strong> ticket</div>
+        ${renderColumnChart(groupBy(firstTierTickets, 'customfield_11703'))}
+      </div>
+    </div>
+    <div class="panels">
+      <div class="panel"><h2>ประเภท (Issue Type)</h2>${renderColumnChart(groupBy(tickets, 'customfield_11703'))}</div>
+    </div>
+    <div class="ticket-table">
+      <table>
+        <thead><tr><th>Key</th><th>Issue Type</th><th>Summary</th><th>Status</th><th>Assignee</th></tr></thead>
+        <tbody>${latest.map(t => renderTicketRow(t, JIRA_BASE_URL)).join('')}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function onMonthChange() {
+  renderDashboard();
+}
+
 async function load() {
   const res = await fetch('/api/mtscs');
   if (!res.ok) {
@@ -116,31 +203,11 @@ async function load() {
   document.getElementById('last-updated').textContent =
     'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
 
-  document.getElementById('body').innerHTML = `
-    <div class="panels">
-      <div class="panel">
-        <h2>ทั้งหมด / สถานะ</h2>
-        <div class="value" style="margin-bottom: 4px">${data.total}</div>
-        <div style="margin-bottom: 12px; font-size: 11px; color: #888">ยังไม่ปิด (Open): <strong style="color:#1a1a2e; font-size: 13px">${data.open}</strong></div>
-        ${renderCountTable(data.byStatus, data.total, 'สถานะ')}
-      </div>
-      <div class="panel">
-        <h2>First Tier</h2>
-        <div class="value" style="margin-bottom: 4px">${data.firstTierPercent}%</div>
-        <div style="margin-bottom: 12px; font-size: 11px; color: #888">First Tier ทั้งหมด: <strong style="color:#1a1a2e; font-size: 13px">${data.firstTierCount}</strong> ticket</div>
-        ${renderColumnChart(data.firstTierByIssueType)}
-      </div>
-    </div>
-    <div class="panels">
-      <div class="panel"><h2>ประเภท (Issue Type)</h2>${renderColumnChart(data.byIssueType)}</div>
-    </div>
-    <div class="ticket-table">
-      <table>
-        <thead><tr><th>Key</th><th>Issue Type</th><th>Summary</th><th>Status</th><th>Assignee</th></tr></thead>
-        <tbody>${data.latest.map(t => renderTicketRow(t, data.jiraBaseUrl)).join('')}</tbody>
-      </table>
-    </div>
-  `;
+  JIRA_BASE_URL = data.jiraBaseUrl;
+  ALL_TICKETS = data.tickets.map(t => ({ ...t, _month: extractMonth(t.summary) }));
+
+  populateMonthFilter();
+  renderDashboard();
 }
 
 load();
