@@ -37,7 +37,6 @@ async function loadData() {
     open: openCount,
     firstTierPercent,
     byStatus: groupBy(tickets, 'status'),
-    byPriority: groupBy(tickets, 'priority'),
     byIssueType: groupBy(tickets, 'customfield_11703'),
     latest,
     jiraBaseUrl: JIRA_BASE_URL,

@@ -124,13 +124,15 @@ async function load() {
 
   document.getElementById('body').innerHTML = `
     <div class="stats">
-      <div class="stat-tile"><div class="label">ทั้งหมด</div><div class="value">${data.total}</div></div>
-      <div class="stat-tile"><div class="label">ยังไม่ปิด (Open)</div><div class="value">${data.open}</div></div>
+      <div class="stat-tile">
+        <div class="label">ทั้งหมด</div>
+        <div class="value">${data.total}</div>
+        <div style="margin-top: 10px; font-size: 11px; color: #888">ยังไม่ปิด (Open): <strong style="color:#1a1a2e; font-size: 13px">${data.open}</strong></div>
+      </div>
+      <div class="panel"><h2>สถานะ (Status)</h2>${renderStatusTable(data.byStatus, data.total)}</div>
       <div class="stat-tile"><div class="label">First Tier</div><div class="value">${data.firstTierPercent}%</div></div>
     </div>
     <div class="panels">
-      <div class="panel"><h2>สถานะ (Status)</h2>${renderStatusTable(data.byStatus, data.total)}</div>
-      <div class="panel"><h2>ความสำคัญ (Priority)</h2>${renderColumnChart(data.byPriority)}</div>
       <div class="panel"><h2>ประเภท (Issue Type)</h2>${renderColumnChart(data.byIssueType)}</div>
     </div>
     <div class="ticket-table">
