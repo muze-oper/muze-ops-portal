@@ -126,8 +126,9 @@ async function load() {
       </div>
       <div class="panel">
         <h2>First Tier</h2>
-        <div class="value" style="margin-bottom: 12px">${data.firstTierPercent}%</div>
-        ${renderCountTable(data.firstTierByIssueType, data.firstTierCount, 'ประเภท')}
+        <div class="value" style="margin-bottom: 4px">${data.firstTierPercent}%</div>
+        <div style="margin-bottom: 12px; font-size: 11px; color: #888">First Tier ทั้งหมด: <strong style="color:#1a1a2e; font-size: 13px">${data.firstTierCount}</strong> ticket</div>
+        ${renderColumnChart(data.firstTierByIssueType)}
       </div>
     </div>
     <div class="panels">
