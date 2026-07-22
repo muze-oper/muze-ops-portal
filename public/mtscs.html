@@ -30,19 +30,15 @@
     .panel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .panel h2 { font-size: 13px; font-weight: 700; color: #555; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
 
-    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 12px; }
-    .bar-row .bar-label { width: 140px; flex-shrink: 0; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .bar-row .bar-track { flex: 1; background: #eef1f5; border-radius: 4px; height: 16px; overflow: hidden; }
-    .bar-row .bar-fill { background: #1a73e8; height: 100%; border-radius: 4px; }
-    .bar-row .bar-count { width: 32px; text-align: right; font-weight: 600; color: #1a1a2e; flex-shrink: 0; }
+    .col-chart { display: flex; align-items: flex-end; gap: 16px; padding-top: 8px; }
+    .col-item { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 0; }
+    .col-bar-track { width: 100%; max-width: 36px; height: 110px; display: flex; align-items: flex-end; background: #f7f8fa; border-radius: 4px; }
+    .col-bar-fill { width: 100%; background: #1a73e8; border-radius: 4px 4px 0 0; min-height: 4px; }
+    .col-value { font-size: 11px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+    .col-label { width: 100%; font-size: 10px; color: #666; margin-top: 8px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .pie-panel { display: flex; align-items: center; gap: 20px; }
-    .pie-chart { width: 110px; height: 110px; border-radius: 50%; flex-shrink: 0; }
-    .pie-legend { display: flex; flex-direction: column; gap: 10px; font-size: 12px; flex: 1; }
-    .pie-legend-item { display: flex; align-items: center; gap: 8px; }
-    .pie-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
-    .pie-legend-label { color: #444; }
-    .pie-legend-count { font-weight: 700; color: #1a1a2e; margin-left: auto; padding-left: 14px; }
+    .stat-table td, .stat-table th { padding: 6px 10px; }
+    .stat-table th:not(:first-child), .stat-table td:not(:first-child) { text-align: right; }
 
     .ticket-table { background: white; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -79,33 +75,26 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function renderBarList(entries) {
+function renderColumnChart(entries) {
   if (!entries.length) return '<div style="color:#aaa;font-size:12px">ไม่มีข้อมูล</div>';
   const max = Math.max(...entries.map(e => e[1]));
-  return entries.map(([label, count]) => `
-    <div class="bar-row">
-      <div class="bar-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, Math.round(count / max * 100))}%"></div></div>
-      <div class="bar-count">${count}</div>
+  return `<div class="col-chart">` + entries.map(([label, count]) => `
+    <div class="col-item">
+      <div class="col-value">${count}</div>
+      <div class="col-bar-track"><div class="col-bar-fill" style="height:${Math.max(4, Math.round(count / max * 100))}px"></div></div>
+      <div class="col-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
     </div>
-  `).join('');
+  `).join('') + `</div>`;
 }
 
-const STATUS_COLORS = { open: '#1a73e8', closed: '#9aa0a6' };
-
-function renderStatusPie(openCount, closedCount) {
-  const total = openCount + closedCount;
-  const openPct = total > 0 ? (openCount / total * 100) : 0;
-  const gradient = `conic-gradient(${STATUS_COLORS.open} 0% ${openPct}%, ${STATUS_COLORS.closed} ${openPct}% 100%)`;
-  return `
-    <div class="pie-panel">
-      <div class="pie-chart" style="background:${gradient}"></div>
-      <div class="pie-legend">
-        <div class="pie-legend-item"><span class="pie-swatch" style="background:${STATUS_COLORS.open}"></span><span class="pie-legend-label">Open</span><span class="pie-legend-count">${openCount}</span></div>
-        <div class="pie-legend-item"><span class="pie-swatch" style="background:${STATUS_COLORS.closed}"></span><span class="pie-legend-label">Closed</span><span class="pie-legend-count">${closedCount}</span></div>
-      </div>
-    </div>
-  `;
+function renderStatusTable(entries, total) {
+  if (!entries.length) return '<div style="color:#aaa;font-size:12px">ไม่มีข้อมูล</div>';
+  return `<table class="stat-table">
+    <thead><tr><th>สถานะ</th><th>จำนวน</th><th>%</th></tr></thead>
+    <tbody>${entries.map(([label, count]) => `
+      <tr><td>${escapeHtml(label)}</td><td>${count}</td><td>${total > 0 ? Math.round(count / total * 100) : 0}%</td></tr>
+    `).join('')}</tbody>
+  </table>`;
 }
 
 function renderTicketRow(t, jiraBaseUrl) {
@@ -140,9 +129,9 @@ async function load() {
       <div class="stat-tile"><div class="label">First Tier</div><div class="value">${data.firstTierPercent}%</div></div>
     </div>
     <div class="panels">
-      <div class="panel"><h2>สถานะ (Status)</h2>${renderStatusPie(data.open, data.total - data.open)}</div>
-      <div class="panel"><h2>ความสำคัญ (Priority)</h2>${renderBarList(data.byPriority)}</div>
-      <div class="panel"><h2>ประเภท (Issue Type)</h2>${renderBarList(data.byIssueType)}</div>
+      <div class="panel"><h2>สถานะ (Status)</h2>${renderStatusTable(data.byStatus, data.total)}</div>
+      <div class="panel"><h2>ความสำคัญ (Priority)</h2>${renderColumnChart(data.byPriority)}</div>
+      <div class="panel"><h2>ประเภท (Issue Type)</h2>${renderColumnChart(data.byIssueType)}</div>
     </div>
     <div class="ticket-table">
       <table>
