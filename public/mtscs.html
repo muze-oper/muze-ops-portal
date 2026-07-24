@@ -23,6 +23,9 @@
     #last-updated { font-size: 12px; color: #888; }
     .toolbar label { font-size: 12px; font-weight: 600; color: #555; }
     .toolbar select { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; background: white; }
+    .toolbar button { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; background: white; cursor: pointer; color: #444; }
+    .toolbar button:hover { background: #f7f8fa; }
+    .toolbar button:disabled { opacity: 0.5; cursor: default; }
 
     .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
     .panel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
@@ -74,6 +77,7 @@
   <div class="toolbar">
     <label for="month-filter">เดือน:</label>
     <select id="month-filter" onchange="onMonthChange()"><option value="all">ทุกเดือน</option></select>
+    <button id="refresh-btn" onclick="load(true)">🔄 รีเฟรชข้อมูล</button>
     <div id="last-updated">กำลังโหลด...</div>
   </div>
   <div id="body"></div>
@@ -209,11 +213,15 @@ function onMonthChange() {
   renderDashboard();
 }
 
-async function load() {
-  const res = await fetch('/api/mtscs');
+async function load(forceRefresh) {
+  const btn = document.getElementById('refresh-btn');
+  if (forceRefresh) { btn.disabled = true; btn.textContent = '🔄 กำลังโหลด...'; }
+
+  const res = await fetch('/api/mtscs' + (forceRefresh ? '?refresh=1' : ''));
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     document.getElementById('body').innerHTML = `<div id="empty-state"><div class="icon">⚠️</div><p>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.error || res.statusText)}</p></div>`;
+    if (forceRefresh) { btn.disabled = false; btn.textContent = '🔄 รีเฟรชข้อมูล'; }
     return;
   }
   const data = await res.json();
@@ -226,6 +234,8 @@ async function load() {
 
   populateMonthFilter();
   renderDashboard();
+
+  if (forceRefresh) { btn.disabled = false; btn.textContent = '🔄 รีเฟรชข้อมูล'; }
 }
 
 load();

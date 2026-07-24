@@ -25,7 +25,8 @@ async function loadData() {
 router.get('/api/mtscs', async (req, res) => {
   if (!SHEET_ID) return res.status(500).json({ error: 'MTSCS_SHEET_ID is not configured' });
   try {
-    if (!cache.data || (Date.now() - cache.lastUpdated) > CACHE_MS) {
+    const forceRefresh = req.query.refresh === '1';
+    if (forceRefresh || !cache.data || (Date.now() - cache.lastUpdated) > CACHE_MS) {
       cache.data = await loadData();
       cache.lastUpdated = Date.now();
     }
