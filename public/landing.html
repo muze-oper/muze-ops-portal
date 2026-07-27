@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Muze Ops Portal</title>
+  <title>Muze Tech Ops Portal</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
@@ -12,7 +12,9 @@
       display: flex; justify-content: space-between; align-items: center;
     }
     header h1 { font-size: 18px; }
+    header .header-right { display: flex; align-items: center; gap: 16px; }
     header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
+    #last-updated { font-size: 11px; color: white; opacity: 0.7; }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -35,8 +37,11 @@
 </head>
 <body>
   <header>
-    <h1>📊 Muze Ops Portal</h1>
-    <a href="/logout">Logout</a>
+    <h1>📊 Muze Tech Ops Portal</h1>
+    <div class="header-right">
+      <div id="last-updated"></div>
+      <a href="/logout">Logout</a>
+    </div>
   </header>
   <div class="grid">
     <a class="card" href="/digest">
@@ -64,6 +69,24 @@
       <h2>MTS Customer Support</h2>
       <p>สรุปสถานะ ticket, priority และภาระงาน จาก Jira project MTSCS</p>
     </a>
+    <a class="card" href="/nissan-mn">
+      <div class="icon">🚗</div>
+      <h2>Nissan Mobile Application (ITSM)</h2>
+      <p>สรุป ticket จาก Jira Service Desk queue 550 ของ project MN</p>
+    </a>
   </div>
+  <script>
+    fetch('/api/last-updated')
+      .then(r => r.json())
+      .then(({ author, date }) => {
+        if (!author && !date) return;
+        const when = date
+          ? new Date(date).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
+          : null;
+        const parts = [author ? `โดย ${author}` : null, when ? `เมื่อ ${when}` : null].filter(Boolean);
+        document.getElementById('last-updated').textContent = `อัปเดตล่าสุด ${parts.join(' ')}`;
+      })
+      .catch(() => {});
+  </script>
 </body>
 </html>
