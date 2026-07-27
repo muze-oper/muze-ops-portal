@@ -33,6 +33,7 @@
     .card .icon { font-size: 28px; margin-bottom: 12px; }
     .card h2 { font-size: 15px; margin-bottom: 6px; color: #1a73e8; }
     .card p { font-size: 12px; color: #666; }
+    .card .card-meta { font-size: 10px; color: #999; margin-top: 12px; }
   </style>
 </head>
 <body>
@@ -44,35 +45,41 @@
     </div>
   </header>
   <div class="grid">
-    <a class="card" href="/digest">
+    <a class="card" href="/digest" data-card="digest">
       <div class="icon">📬</div>
       <h2>Email Digest</h2>
       <p>สรุป email จาก 5 accounts รายชั่วโมง แยกหมวด ต้อง Action / ควรรับรู้ / แจ้งอัตโนมัติ</p>
+      <div class="card-meta"></div>
     </a>
-    <a class="card" href="/planner">
+    <a class="card" href="/planner" data-card="planner">
       <div class="icon">🗓️</div>
       <h2>Daily Planner</h2>
       <p>ตารางเวลารายวัน ผูกกับ Google Calendar พร้อม To-Do List ส่วนตัว</p>
+      <div class="card-meta"></div>
     </a>
-    <a class="card" href="https://script.google.com/a/macros/muze.co.th/s/AKfycbx9s2HgME47aT6I9k02TbyLkirSmxM8EWv49qgo8SW7Y2E3iE6ds_U7LVdwdOUBE0cDWg/exec" target="_blank" rel="noopener">
+    <a class="card" href="https://script.google.com/a/macros/muze.co.th/s/AKfycbx9s2HgME47aT6I9k02TbyLkirSmxM8EWv49qgo8SW7Y2E3iE6ds_U7LVdwdOUBE0cDWg/exec" target="_blank" rel="noopener" data-card="tvn">
       <div class="icon">📺</div>
       <h2>TVN Case Monitoring</h2>
       <p>Live case monitoring dashboard for TVN incidents and tickets.</p>
+      <div class="card-meta"></div>
     </a>
-    <a class="card" href="https://ktc-monthly-report.vercel.app" target="_blank" rel="noopener">
+    <a class="card" href="https://ktc-monthly-report.vercel.app" target="_blank" rel="noopener" data-card="ktc">
       <div class="icon">📋</div>
       <h2>KTC Monthly Report</h2>
       <p>Monthly ticket report dashboard for the KTC Jira project.</p>
+      <div class="card-meta"></div>
     </a>
-    <a class="card" href="/mtscs">
+    <a class="card" href="/mtscs" data-card="mtscs">
       <div class="icon">📊</div>
       <h2>MTS Customer Support</h2>
       <p>สรุปสถานะ ticket, priority และภาระงาน จาก Jira project MTSCS</p>
+      <div class="card-meta"></div>
     </a>
-    <a class="card" href="/nissan-mn">
+    <a class="card" href="/nissan-mn" data-card="nissan-mn">
       <div class="icon">🚗</div>
       <h2>Nissan Mobile Application (ITSM)</h2>
       <p>สรุป ticket จาก Jira Service Desk queue 550 ของ project MN</p>
+      <div class="card-meta"></div>
     </a>
   </div>
   <script>
@@ -85,6 +92,20 @@
           : null;
         const parts = [author ? `โดย ${author}` : null, when ? `เมื่อ ${when}` : null].filter(Boolean);
         document.getElementById('last-updated').textContent = `อัปเดตล่าสุด ${parts.join(' ')}`;
+      })
+      .catch(() => {});
+
+    fetch('/api/card-info')
+      .then(r => r.json())
+      .then(info => {
+        document.querySelectorAll('[data-card]').forEach(card => {
+          const { creator, date } = info[card.dataset.card] || {};
+          const when = date
+            ? new Date(date).toLocaleDateString('th-TH', { dateStyle: 'medium' })
+            : null;
+          const parts = [creator ? `Created by ${creator}` : null, when ? `Latest update: ${when}` : null].filter(Boolean);
+          if (parts.length) card.querySelector('.card-meta').textContent = parts.join(' · ');
+        });
       })
       .catch(() => {});
   </script>
