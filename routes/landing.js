@@ -50,9 +50,9 @@ const CARD_INFO = {
   planner: { creator: 'Thiranattda', files: ['routes/planner.js', 'public/planner.html'] },
   mtscs: { creator: 'Thiranattda', files: ['routes/mtscs.js', 'public/mtscs.html'] },
   'nissan-mn': { creator: 'Thiranattda', files: ['routes/nissanMn.js', 'public/nissan-mn.html'] },
-  // Hosted outside this repo - no local commit history to derive a date from.
+  // Hosted outside this repo (Apps Script web apps) - no local commit history to derive a date from.
   tvn: { creator: 'Chartwit', date: null },
-  ktc: { creator: 'Jakrapat', date: '2026-07-14T00:00:00+07:00' },
+  ktc: { creator: 'Jakrapat', date: null },
 };
 
 router.get('/api/card-info', (req, res) => {
