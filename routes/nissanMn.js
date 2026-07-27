@@ -1,5 +1,4 @@
 const router = require('express').Router();
-const path = require('path');
 const { fetchSheetRows, rowsToObjects } = require('../storage/googleSheets');
 
 const SHEET_ID = process.env.NISSAN_SHEET_ID;
@@ -41,8 +40,10 @@ router.get('/api/nissan-mn', async (req, res) => {
   }
 });
 
+// The Nissan MN dashboard is now a tab on /mtscs rather than its own page -
+// redirect so the URL that was briefly live still works (bookmarks, links).
 router.get('/nissan-mn', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'nissan-mn.html'));
+  res.redirect('/mtscs?tab=nissan');
 });
 
 module.exports = router;

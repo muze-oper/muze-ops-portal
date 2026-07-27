@@ -13,8 +13,10 @@ const CARD_INFO_PATH = path.join(REPO_ROOT, 'card-info.json');
 const GIT_BACKED_CARDS = {
   digest: ['routes/digest.js', 'public/digest.html'],
   planner: ['routes/planner.js', 'public/planner.html'],
+  // Both cards link into the same /mtscs page (tabs), so both track it as a
+  // shared backing file alongside their own route.
   mtscs: ['routes/mtscs.js', 'public/mtscs.html'],
-  'nissan-mn': ['routes/nissanMn.js', 'public/nissan-mn.html'],
+  'nissan-mn': ['routes/nissanMn.js', 'public/mtscs.html'],
 };
 
 function lastCommitDate(files) {
