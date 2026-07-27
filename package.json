@@ -4,7 +4,8 @@
   "description": "Unified gateway with Google SSO fronting nissan-report-tool and muze-jira-dashboard",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "update-card-info": "node scripts/update-card-info.js"
   },
   "license": "ISC",
   "dependencies": {

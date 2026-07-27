@@ -1,6 +1,13 @@
 const router = require('express').Router();
 const path = require('path');
-const { execFileSync } = require('child_process');
+
+// Vercel's serverless functions ship neither .git nor a git binary, so these
+// dates can't be computed at request time in production - they're baked into
+// this file at commit time instead (see scripts/update-card-info.js).
+function readCardInfo() {
+  delete require.cache[require.resolve('../card-info.json')];
+  return require('../card-info.json');
+}
 
 router.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'landing.html'));
@@ -11,56 +18,13 @@ router.get('/api/me', (req, res) => {
 });
 
 router.get('/api/last-updated', (req, res) => {
-  try {
-    const [author, date] = execFileSync(
-      'git',
-      ['log', '-1', '--pretty=format:%an|%aI'],
-      { cwd: path.join(__dirname, '..') }
-    )
-      .toString()
-      .split('|');
-    return res.json({ author, date });
-  } catch (err) {
-    return res.json({
-      author: process.env.VERCEL_GIT_COMMIT_AUTHOR_NAME || process.env.VERCEL_GIT_COMMIT_AUTHOR_LOGIN || null,
-      date: null,
-    });
-  }
+  const { _portal } = readCardInfo();
+  res.json(_portal || { author: null, date: null });
 });
 
-const REPO_ROOT = path.join(__dirname, '..');
-
-function lastCommitDate(files) {
-  try {
-    const date = execFileSync('git', ['log', '-1', '--pretty=format:%aI', '--', ...files], {
-      cwd: REPO_ROOT,
-    })
-      .toString()
-      .trim();
-    return date || null;
-  } catch {
-    return null;
-  }
-}
-
-// "creator" is who owns/requested each tool, not who typed the code (one
-// person commits nearly everything in this repo) - set manually per card.
-const CARD_INFO = {
-  digest: { creator: 'Thiranattda', files: ['routes/digest.js', 'public/digest.html'] },
-  planner: { creator: 'Thiranattda', files: ['routes/planner.js', 'public/planner.html'] },
-  mtscs: { creator: 'Thiranattda', files: ['routes/mtscs.js', 'public/mtscs.html'] },
-  'nissan-mn': { creator: 'Thiranattda', files: ['routes/nissanMn.js', 'public/nissan-mn.html'] },
-  // Hosted outside this repo (Apps Script web apps) - no local commit history to derive a date from.
-  tvn: { creator: 'Chartwit', date: null },
-  ktc: { creator: 'Jakrapat', date: null },
-};
-
 router.get('/api/card-info', (req, res) => {
-  const result = {};
-  for (const [id, cfg] of Object.entries(CARD_INFO)) {
-    result[id] = { creator: cfg.creator, date: cfg.files ? lastCommitDate(cfg.files) : cfg.date };
-  }
-  res.json(result);
+  const { _portal, ...cards } = readCardInfo();
+  res.json(cards);
 });
 
 module.exports = router;
