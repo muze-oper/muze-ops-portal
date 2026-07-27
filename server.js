@@ -7,6 +7,7 @@ const landingRoutes = require('./routes/landing');
 const digestRoutes = require('./routes/digest');
 const plannerRoutes = require('./routes/planner');
 const mtscsRoutes = require('./routes/mtscs');
+const nissanMnRoutes = require('./routes/nissanMn');
 
 const app = express();
 app.use(cookieParser());
@@ -30,6 +31,7 @@ app.use(landingRoutes);
 app.use(digestRoutes);
 app.use(plannerRoutes);
 app.use(mtscsRoutes);
+app.use(nissanMnRoutes);
 
 module.exports = app;
 if (require.main === module) {

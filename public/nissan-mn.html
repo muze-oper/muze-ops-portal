@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nissan Mobile Application (ITSM) Dashboard — Muze Tech Ops Portal</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+    .breadcrumb { background: #1a1a2e; color: rgba(255,255,255,0.7); padding: 6px 24px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+    .breadcrumb a { color: rgba(255,255,255,0.7); text-decoration: none; }
+    .breadcrumb a:hover { color: white; }
+    .breadcrumb .sep { opacity: 0.4; }
+    .breadcrumb .nav-current { color: white; font-weight: 600; }
+    header {
+      background: #1a73e8; color: white; padding: 16px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    header h1 { font-size: 18px; }
+    header div { display: flex; gap: 16px; align-items: center; }
+    header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
+    #content { max-width: 1100px; margin: 24px auto; padding: 0 24px 48px; }
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    #last-updated { font-size: 12px; color: #888; }
+    .toolbar button { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; background: white; cursor: pointer; color: #444; }
+    .toolbar button:hover { background: #f7f8fa; }
+    .toolbar button:disabled { opacity: 0.5; cursor: default; }
+
+    .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .panel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .panel h2 { font-size: 13px; font-weight: 700; color: #555; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .panel .value { font-size: 26px; font-weight: 700; color: #1a1a2e; }
+
+    .stat-table td, .stat-table th { padding: 6px 10px; }
+    .stat-table th:not(:first-child), .stat-table td:not(:first-child) { text-align: right; }
+
+    .ticket-table-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 12px; color: #666; gap: 10px; flex-wrap: wrap; }
+    .ticket-table-toolbar button { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; background: white; cursor: pointer; color: #444; }
+    .ticket-table-toolbar button:hover { background: #f7f8fa; }
+    .ticket-table-toolbar input { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; }
+    .ticket-table { background: white; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; background: #f7f8fa; color: #888; font-weight: 600; padding: 10px 14px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; }
+    td { padding: 10px 14px; border-top: 1px solid #f0f0f0; color: #333; }
+    td a { color: #1a73e8; text-decoration: none; font-weight: 600; }
+    td a:hover { text-decoration: underline; }
+    .status-chip { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; background: #eef1f5; color: #444; white-space: nowrap; }
+    #empty-state { text-align: center; padding: 80px 24px; color: #666; }
+    #empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+<div class="breadcrumb">
+  <a href="/">🏠 Muze Tech Ops Portal</a>
+  <span class="sep">/</span>
+  <a href="/mtscs">MTS Customer Support</a>
+  <span class="sep">|</span>
+  <span class="nav-current">Nissan Mobile Application (ITSM)</span>
+</div>
+<header>
+  <h1>🚗 Nissan Mobile Application — ITSM Dashboard</h1>
+  <div>
+    <a href="/">← กลับหน้าหลัก</a>
+    <a href="/logout">Logout</a>
+  </div>
+</header>
+
+<div id="content">
+  <div class="toolbar">
+    <button id="refresh-btn" onclick="load(true)">🔄 รีเฟรชข้อมูล</button>
+    <div id="last-updated">กำลังโหลด...</div>
+  </div>
+  <div id="body"></div>
+</div>
+
+<script>
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function humanizeColumn(col) {
+  return col.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function renderColumnChart(entries) {
+  if (!entries.length) return '<div style="color:#aaa;font-size:12px">ไม่มีข้อมูล</div>';
+  const max = Math.max(...entries.map(e => e[1]));
+  return `<div style="display:flex;align-items:flex-end;gap:16px;padding-top:8px">` + entries.map(([label, count]) => `
+    <div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0">
+      <div style="font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:4px">${count}</div>
+      <div style="width:100%;max-width:36px;height:110px;display:flex;align-items:flex-end;background:#f7f8fa;border-radius:4px">
+        <div style="width:100%;background:#1a73e8;border-radius:4px 4px 0 0;min-height:4px;height:${Math.max(4, Math.round(count / max * 100))}px"></div>
+      </div>
+      <div style="width:100%;font-size:10px;color:#666;margin-top:8px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+    </div>
+  `).join('') + `</div>`;
+}
+
+function renderCountTable(entries, total, labelHeader) {
+  if (!entries.length) return '<div style="color:#aaa;font-size:12px">ไม่มีข้อมูล</div>';
+  return `<table class="stat-table">
+    <thead><tr><th>${escapeHtml(labelHeader)}</th><th>จำนวน</th><th>%</th></tr></thead>
+    <tbody>${entries.map(([label, count]) => `
+      <tr><td>${escapeHtml(label)}</td><td>${count}</td><td>${total > 0 ? Math.round(count / total * 100) : 0}%</td></tr>
+    `).join('')}</tbody>
+  </table>`;
+}
+
+function groupBy(tickets, field) {
+  const counts = {};
+  tickets.forEach(t => {
+    const value = t[field] || 'Unknown';
+    counts[value] = (counts[value] || 0) + 1;
+  });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+}
+
+let ALL_TICKETS = [];
+let COLUMNS = [];
+let JIRA_BASE_URL = '';
+let TABLE_FILTERS = { search: '', status: 'all' };
+
+function renderTicketRow(t) {
+  const keyCell = JIRA_BASE_URL ? `<a href="${JIRA_BASE_URL}/browse/${encodeURIComponent(t.key)}" target="_blank" rel="noopener">${escapeHtml(t.key)}</a>` : escapeHtml(t.key);
+  const cells = COLUMNS.map(col => {
+    const val = t[col] || '';
+    if (col.toLowerCase() === 'status') return `<td><span class="status-chip">${escapeHtml(val || '-')}</span></td>`;
+    return `<td>${escapeHtml(val)}</td>`;
+  }).join('');
+  return `<tr><td style="white-space:nowrap">${keyCell}</td>${cells}</tr>`;
+}
+
+function filterTickets(tickets) {
+  const search = TABLE_FILTERS.search.trim().toLowerCase();
+  return tickets.filter(t => {
+    if (TABLE_FILTERS.status !== 'all' && (t.status || 'Unknown') !== TABLE_FILTERS.status) return false;
+    if (search) {
+      const haystack = [t.key, ...COLUMNS.map(c => t[c])].join(' ').toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function renderTicketTableBody() {
+  const filtered = filterTickets(ALL_TICKETS);
+  document.getElementById('ticket-tbody').innerHTML = filtered.map(renderTicketRow).join('');
+  document.getElementById('ticket-count').textContent = `แสดง ${filtered.length} จาก ${ALL_TICKETS.length} รายการ`;
+}
+
+function onSearchChange(value) {
+  TABLE_FILTERS.search = value;
+  renderTicketTableBody();
+}
+
+function onStatusFilterChange(value) {
+  TABLE_FILTERS.status = value;
+  renderTicketTableBody();
+}
+
+function csvCell(v) {
+  const s = String(v === undefined || v === null ? '' : v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function exportCsv() {
+  const rows = filterTickets(ALL_TICKETS);
+  const header = ['Key', ...COLUMNS.map(humanizeColumn)];
+  const lines = [header.map(csvCell).join(',')];
+  rows.forEach(t => {
+    lines.push([t.key, ...COLUMNS.map(c => t[c] || '')].map(csvCell).join(','));
+  });
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'nissan-mn-tickets.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function renderTicketTableSection() {
+  const hasStatus = COLUMNS.some(c => c.toLowerCase() === 'status');
+  const statuses = hasStatus ? Array.from(new Set(ALL_TICKETS.map(t => t.status || 'Unknown'))).sort() : [];
+
+  return `
+    <div class="ticket-table-toolbar">
+      <span id="ticket-count">แสดง ${ALL_TICKETS.length} จาก ${ALL_TICKETS.length} รายการ</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${hasStatus ? `<select onchange="onStatusFilterChange(this.value)">
+          <option value="all">ทุกสถานะ</option>
+          ${statuses.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
+        </select>` : ''}
+        <input type="text" placeholder="ค้นหา key/ข้อมูล..." oninput="onSearchChange(this.value)">
+        <button onclick="exportCsv()">📥 Export CSV</button>
+      </div>
+    </div>
+    <div class="ticket-table">
+      <table>
+        <thead>
+          <tr><th>Key</th>${COLUMNS.map(c => `<th>${escapeHtml(humanizeColumn(c))}</th>`).join('')}</tr>
+        </thead>
+        <tbody id="ticket-tbody">${ALL_TICKETS.map(renderTicketRow).join('')}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderDashboard() {
+  if (ALL_TICKETS.length === 0) {
+    document.getElementById('body').innerHTML = `<div id="empty-state"><div class="icon">🗒️</div><p>ยังไม่มีข้อมูลใน Sheet — เช็คว่าตั้งค่า Apps Script (nissan-mn-dashboard) และแชร์ Sheet ให้ service account เรียบร้อยหรือยัง</p></div>`;
+    return;
+  }
+
+  const hasStatus = COLUMNS.some(c => c.toLowerCase() === 'status');
+  const doneStatuses = new Set(['resolved', 'done', 'closed']);
+  const open = hasStatus ? ALL_TICKETS.filter(t => !doneStatuses.has((t.status || '').toLowerCase())).length : null;
+
+  document.getElementById('body').innerHTML = `
+    <div class="panels">
+      <div class="panel">
+        <h2>ทั้งหมด${hasStatus ? ' / สถานะ' : ''}</h2>
+        <div class="value" style="margin-bottom: 4px">${ALL_TICKETS.length}</div>
+        ${hasStatus ? `<div style="margin-bottom: 12px; font-size: 11px; color: #888">ยังไม่ปิด (Open): <strong style="color:#1a1a2e; font-size: 13px">${open}</strong></div>${renderCountTable(groupBy(ALL_TICKETS, 'status'), ALL_TICKETS.length, 'สถานะ')}` : ''}
+      </div>
+      ${hasStatus ? `<div class="panel"><h2>สถานะ (Chart)</h2>${renderColumnChart(groupBy(ALL_TICKETS, 'status'))}</div>` : ''}
+    </div>
+    ${renderTicketTableSection()}
+  `;
+}
+
+async function load(forceRefresh) {
+  const btn = document.getElementById('refresh-btn');
+  if (forceRefresh) { btn.disabled = true; btn.textContent = '🔄 กำลังโหลด...'; }
+
+  const res = await fetch('/api/nissan-mn' + (forceRefresh ? '?refresh=1' : ''));
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    document.getElementById('body').innerHTML = `<div id="empty-state"><div class="icon">⚠️</div><p>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.error || res.statusText)}</p></div>`;
+    if (forceRefresh) { btn.disabled = false; btn.textContent = '🔄 รีเฟรชข้อมูล'; }
+    return;
+  }
+  const data = await res.json();
+
+  document.getElementById('last-updated').textContent =
+    'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+
+  JIRA_BASE_URL = data.jiraBaseUrl;
+  COLUMNS = data.columns || [];
+  ALL_TICKETS = data.tickets || [];
+  TABLE_FILTERS = { search: '', status: 'all' };
+
+  renderDashboard();
+
+  if (forceRefresh) { btn.disabled = false; btn.textContent = '🔄 รีเฟรชข้อมูล'; }
+}
+
+load();
+</script>
+</body>
+</html>
