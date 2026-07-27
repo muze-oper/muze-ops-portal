@@ -46,13 +46,13 @@ function lastCommitDate(files) {
 // "creator" is who owns/requested each tool, not who typed the code (one
 // person commits nearly everything in this repo) - set manually per card.
 const CARD_INFO = {
-  digest: { creator: 'thiranattada', files: ['routes/digest.js', 'public/digest.html'] },
-  planner: { creator: 'thiranattada', files: ['routes/planner.js', 'public/planner.html'] },
-  mtscs: { creator: 'thiranattada', files: ['routes/mtscs.js', 'public/mtscs.html'] },
-  'nissan-mn': { creator: 'thiranattada', files: ['routes/nissanMn.js', 'public/nissan-mn.html'] },
+  digest: { creator: 'Thiranattda', files: ['routes/digest.js', 'public/digest.html'] },
+  planner: { creator: 'Thiranattda', files: ['routes/planner.js', 'public/planner.html'] },
+  mtscs: { creator: 'Thiranattda', files: ['routes/mtscs.js', 'public/mtscs.html'] },
+  'nissan-mn': { creator: 'Thiranattda', files: ['routes/nissanMn.js', 'public/nissan-mn.html'] },
   // Hosted outside this repo - no local commit history to derive a date from.
   tvn: { creator: 'Chartwit', date: null },
-  ktc: { creator: 'thiranattada', date: '2026-07-14T00:00:00+07:00' },
+  ktc: { creator: 'Jakrapat', date: '2026-07-14T00:00:00+07:00' },
 };
 
 router.get('/api/card-info', (req, res) => {
