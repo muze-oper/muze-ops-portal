@@ -206,6 +206,31 @@ function renderPieChart(entries) {
   </div>`;
 }
 
+// Same conic-gradient approach as renderPieChart, but legend stacked below the
+// pie instead of beside it - fits several of these side-by-side in a grid tile.
+function renderPieChartCompact(entries) {
+  if (!entries.length) return '<div style="color:#aaa;font-size:12px">ไม่มีข้อมูล</div>';
+  const total = entries.reduce((sum, e) => sum + e[1], 0);
+  let acc = 0;
+  const stops = entries.map(([label, count], i) => {
+    const start = total > 0 ? acc / total * 100 : 0;
+    acc += count;
+    const end = total > 0 ? acc / total * 100 : 0;
+    return `${PIE_COLORS[i % PIE_COLORS.length]} ${start}% ${end}%`;
+  }).join(', ');
+  const legend = entries.map(([label, count], i) => `
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:4px">
+      <span style="width:9px;height:9px;border-radius:2px;background:${PIE_COLORS[i % PIE_COLORS.length]};flex-shrink:0"></span>
+      <span style="flex:1;color:#444;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+      <span style="font-weight:700;color:#1a1a2e">${total > 0 ? Math.round(count / total * 100) : 0}%</span>
+    </div>
+  `).join('');
+  return `
+    <div style="width:100px;height:100px;border-radius:50%;background:conic-gradient(${stops});margin:0 auto 12px"></div>
+    ${legend}
+  `;
+}
+
 function groupBy(tickets, field) {
   const counts = {};
   tickets.forEach(t => {
@@ -550,6 +575,23 @@ function nissanRenderTicketTableSection(tickets) {
   `;
 }
 
+// One pie chart per Process Incident (parent) value, each showing that
+// parent's own Child breakdown - separate charts read much clearer than one
+// combined pie mixing children from unrelated parents.
+function nissanRenderProcessIncidentPies(tickets, hasProcessIncident) {
+  const groups = hasProcessIncident
+    ? groupBy(tickets, 'Process Incident')
+    : [['Process Incident (Child)', tickets.length]];
+
+  const panels = groups.map(([parent, count]) => {
+    const subset = hasProcessIncident ? tickets.filter(t => (t['Process Incident'] || 'Unknown') === parent) : tickets;
+    const childBreakdown = groupBy(subset, 'Process Incident (Child)');
+    return `<div class="panel"><h2>${escapeHtml(parent)} (${count})</h2>${renderPieChartCompact(childBreakdown)}</div>`;
+  }).join('');
+
+  return `<div class="panels" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr))">${panels}</div>`;
+}
+
 function nissanRenderDashboard() {
   if (NISSAN_ALL_TICKETS.length === 0) {
     document.getElementById('nissan-body').innerHTML = `<div id="empty-state"><div class="icon">🗒️</div><p>ยังไม่มีข้อมูลใน Sheet — เช็คว่าตั้งค่า Apps Script (nissan-mn-dashboard) และแชร์ Sheet ให้ service account เรียบร้อยหรือยัง</p></div>`;
@@ -589,10 +631,7 @@ function nissanRenderDashboard() {
       ${hasStatus ? `<div class="panel"><h2>สถานะ (Chart)</h2>${renderColumnChart(groupBy(tickets, 'status'))}</div>` : ''}
       ${hasProcessIncident ? `<div class="panel"><h2>ประเภท (Process Incident)</h2>${renderColumnChart(groupBy(tickets, 'Process Incident'))}</div>` : ''}
     </div>
-    ${hasProcessIncidentChild ? `
-    <div class="panels">
-      <div class="panel"><h2>Process Incident แบ่งตาม Child</h2>${renderPieChart(groupBy(tickets, 'Process Incident (Child)'))}</div>
-    </div>` : ''}
+    ${hasProcessIncidentChild ? nissanRenderProcessIncidentPies(tickets, hasProcessIncident) : ''}
     ${nissanRenderTicketTableSection(tickets)}
   `;
 
