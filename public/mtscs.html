@@ -575,13 +575,22 @@ function nissanRenderTicketTableSection(tickets) {
   `;
 }
 
-// One pie chart per Process Incident (parent) value, each showing that
-// parent's own Child breakdown - separate charts read much clearer than one
-// combined pie mixing children from unrelated parents.
+// Only these Process Incident (parent) values get their own pie chart -
+// requested explicitly, rather than one per parent value that shows up.
+const PROCESS_INCIDENT_PIE_PARENTS = ['Service Request', 'Inquiry'];
+
+// One pie chart per selected Process Incident (parent) value, each showing
+// that parent's own Child breakdown - separate charts read much clearer than
+// one combined pie mixing children from unrelated parents.
 function nissanRenderProcessIncidentPies(tickets, hasProcessIncident) {
-  const groups = hasProcessIncident
+  const allGroups = hasProcessIncident
     ? groupBy(tickets, 'Process Incident')
     : [['Process Incident (Child)', tickets.length]];
+  const groups = hasProcessIncident
+    ? PROCESS_INCIDENT_PIE_PARENTS.map(name => allGroups.find(([label]) => label === name)).filter(Boolean)
+    : allGroups;
+
+  if (!groups.length) return '';
 
   const panels = groups.map(([parent, count]) => {
     const subset = hasProcessIncident ? tickets.filter(t => (t['Process Incident'] || 'Unknown') === parent) : tickets;
