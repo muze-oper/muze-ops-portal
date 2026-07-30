@@ -114,6 +114,8 @@
     <div id="tab-nissan" class="tab-panel" style="display:none">
       <div id="content">
         <div class="toolbar">
+          <label for="nissan-month-filter">เดือน:</label>
+          <select id="nissan-month-filter" onchange="nissanOnMonthChange()"><option value="all">ทุกเดือน</option></select>
           <button id="nissan-refresh-btn" onclick="nissanLoad(true)">🔄 รีเฟรชข้อมูล</button>
           <div id="nissan-last-updated" class="last-updated">กำลังโหลด...</div>
         </div>
@@ -177,6 +179,31 @@ function renderCountTable(entries, total, labelHeader) {
       <tr><td>${escapeHtml(label)}</td><td>${count}</td><td>${total > 0 ? Math.round(count / total * 100) : 0}%</td></tr>
     `).join('')}</tbody>
   </table>`;
+}
+
+const PIE_COLORS = ['#1a73e8', '#34a853', '#fbbc04', '#ea4335', '#a142f4', '#00acc1', '#ff7043', '#9e9d24', '#5f6368'];
+
+function renderPieChart(entries) {
+  if (!entries.length) return '<div style="color:#aaa;font-size:12px">ไม่มีข้อมูล</div>';
+  const total = entries.reduce((sum, e) => sum + e[1], 0);
+  let acc = 0;
+  const stops = entries.map(([label, count], i) => {
+    const start = total > 0 ? acc / total * 100 : 0;
+    acc += count;
+    const end = total > 0 ? acc / total * 100 : 0;
+    return `${PIE_COLORS[i % PIE_COLORS.length]} ${start}% ${end}%`;
+  }).join(', ');
+  const legend = entries.map(([label, count], i) => `
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:6px">
+      <span style="width:10px;height:10px;border-radius:2px;background:${PIE_COLORS[i % PIE_COLORS.length]};flex-shrink:0"></span>
+      <span style="flex:1;color:#444;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+      <span style="font-weight:700;color:#1a1a2e">${total > 0 ? Math.round(count / total * 100) : 0}%</span>
+    </div>
+  `).join('');
+  return `<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <div style="width:140px;height:140px;border-radius:50%;background:conic-gradient(${stops});flex-shrink:0"></div>
+    <div style="flex:1;min-width:180px">${legend}</div>
+  </div>`;
 }
 
 function groupBy(tickets, field) {
@@ -386,10 +413,34 @@ async function mtsLoad(forceRefresh) {
 let NISSAN_ALL_TICKETS = [];
 let NISSAN_COLUMNS = [];
 let NISSAN_JIRA_BASE_URL = '';
+let NISSAN_CURRENT_TICKETS = [];
 let NISSAN_TABLE_FILTERS = { search: '', status: 'all' };
+let NISSAN_SORT = { column: null, direction: 'asc' };
 
 function humanizeColumn(col) {
   return col.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Nissan summaries use a 2-digit year prefix (e.g. "[17 Jul 26]"), unlike MTS's
+// 4-digit year - kept as its own parser rather than stretching mtsExtractMonth.
+function nissanExtractMonth(summary) {
+  const m = (summary || '').match(/^\[(\d{1,2})\s+([A-Za-z]{3})\s+(\d{2,4})\]/);
+  if (!m || !(m[2] in MONTH_ABBR)) return null;
+  const monthIdx = MONTH_ABBR[m[2]];
+  let year = parseInt(m[3], 10);
+  if (m[3].length === 2) year += 2000;
+  return { key: `${year}-${String(monthIdx + 1).padStart(2, '0')}`, label: `${m[2]} ${year}` };
+}
+
+function nissanPopulateMonthFilter() {
+  const months = {};
+  NISSAN_ALL_TICKETS.forEach(t => { if (t._month) months[t._month.key] = t._month.label; });
+  const select = document.getElementById('nissan-month-filter');
+  const previousValue = select.value || 'all';
+  const sortedKeys = Object.keys(months).sort().reverse();
+  select.innerHTML = '<option value="all">ทุกเดือน</option>' +
+    sortedKeys.map(k => `<option value="${k}">${escapeHtml(months[k])}</option>`).join('');
+  select.value = sortedKeys.includes(previousValue) ? previousValue : 'all';
 }
 
 function nissanRenderTicketRow(t) {
@@ -400,6 +451,14 @@ function nissanRenderTicketRow(t) {
     return `<td>${escapeHtml(val)}</td>`;
   }).join('');
   return `<tr><td style="white-space:nowrap">${keyCell}</td>${cells}</tr>`;
+}
+
+function nissanSortTickets(tickets) {
+  if (!NISSAN_SORT.column) return tickets;
+  const col = NISSAN_SORT.column;
+  const dir = NISSAN_SORT.direction === 'asc' ? 1 : -1;
+  const value = t => col === 'key' ? t.key : t[col];
+  return [...tickets].sort((a, b) => String(value(a) || '').localeCompare(String(value(b) || ''), undefined, { numeric: true }) * dir);
 }
 
 function nissanFilterTickets(tickets) {
@@ -415,9 +474,9 @@ function nissanFilterTickets(tickets) {
 }
 
 function nissanRenderTicketTableBody() {
-  const filtered = nissanFilterTickets(NISSAN_ALL_TICKETS);
+  const filtered = nissanSortTickets(nissanFilterTickets(NISSAN_CURRENT_TICKETS));
   document.getElementById('nissan-ticket-tbody').innerHTML = filtered.map(nissanRenderTicketRow).join('');
-  document.getElementById('nissan-ticket-count').textContent = `แสดง ${filtered.length} จาก ${NISSAN_ALL_TICKETS.length} รายการ`;
+  document.getElementById('nissan-ticket-count').textContent = `แสดง ${filtered.length} จาก ${NISSAN_CURRENT_TICKETS.length} รายการ`;
 }
 
 function nissanOnSearchChange(value) {
@@ -430,8 +489,21 @@ function nissanOnStatusFilterChange(value) {
   nissanRenderTicketTableBody();
 }
 
+// Re-renders the whole tab (not just the table body) so the header's sort
+// arrow stays in sync - same "structural change resets filters" convention
+// already used for month-filter changes.
+function nissanOnSortColumn(column) {
+  if (NISSAN_SORT.column === column) {
+    NISSAN_SORT.direction = NISSAN_SORT.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    NISSAN_SORT.column = column;
+    NISSAN_SORT.direction = 'asc';
+  }
+  nissanRenderDashboard();
+}
+
 function nissanExportCsv() {
-  const rows = nissanFilterTickets(NISSAN_ALL_TICKETS);
+  const rows = nissanSortTickets(nissanFilterTickets(NISSAN_CURRENT_TICKETS));
   const header = ['Key', ...NISSAN_COLUMNS.map(humanizeColumn)];
   const lines = [header.map(csvCell).join(',')];
   rows.forEach(t => {
@@ -440,13 +512,24 @@ function nissanExportCsv() {
   downloadCsv('nissan-mn-tickets.csv', lines);
 }
 
-function nissanRenderTicketTableSection() {
+function nissanRenderTicketTableSection(tickets) {
+  NISSAN_CURRENT_TICKETS = tickets;
+  NISSAN_TABLE_FILTERS = { search: '', status: 'all' };
+
   const hasStatus = NISSAN_COLUMNS.some(c => c.toLowerCase() === 'status');
-  const statuses = hasStatus ? Array.from(new Set(NISSAN_ALL_TICKETS.map(t => t.status || 'Unknown'))).sort() : [];
+  const statuses = hasStatus ? Array.from(new Set(tickets.map(t => t.status || 'Unknown'))).sort() : [];
+  const sorted = nissanSortTickets(tickets);
+
+  // data-sort-col (not an inline onclick string) so column names with
+  // parens/spaces like "Process Incident (Child)" don't need JS-string escaping.
+  const headerCell = (col, label) => {
+    const arrow = NISSAN_SORT.column === col ? (NISSAN_SORT.direction === 'asc' ? ' ▲' : ' ▼') : '';
+    return `<th data-sort-col="${escapeHtml(col)}" style="cursor:pointer">${escapeHtml(label)}${arrow}</th>`;
+  };
 
   return `
     <div class="ticket-table-toolbar">
-      <span id="nissan-ticket-count">แสดง ${NISSAN_ALL_TICKETS.length} จาก ${NISSAN_ALL_TICKETS.length} รายการ</span>
+      <span id="nissan-ticket-count">แสดง ${tickets.length} จาก ${tickets.length} รายการ</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${hasStatus ? `<select onchange="nissanOnStatusFilterChange(this.value)">
           <option value="all">ทุกสถานะ</option>
@@ -459,9 +542,9 @@ function nissanRenderTicketTableSection() {
     <div class="ticket-table">
       <table>
         <thead>
-          <tr><th>Key</th>${NISSAN_COLUMNS.map(c => `<th>${escapeHtml(humanizeColumn(c))}</th>`).join('')}</tr>
+          <tr id="nissan-ticket-thead">${headerCell('key', 'Key')}${NISSAN_COLUMNS.map(c => headerCell(c, humanizeColumn(c))).join('')}</tr>
         </thead>
-        <tbody id="nissan-ticket-tbody">${NISSAN_ALL_TICKETS.map(nissanRenderTicketRow).join('')}</tbody>
+        <tbody id="nissan-ticket-tbody">${sorted.map(nissanRenderTicketRow).join('')}</tbody>
       </table>
     </div>
   `;
@@ -473,21 +556,53 @@ function nissanRenderDashboard() {
     return;
   }
 
+  const monthFilter = document.getElementById('nissan-month-filter').value;
+  const tickets = monthFilter === 'all' ? NISSAN_ALL_TICKETS : NISSAN_ALL_TICKETS.filter(t => t._month && t._month.key === monthFilter);
+
   const hasStatus = NISSAN_COLUMNS.some(c => c.toLowerCase() === 'status');
+  const hasFirstTier = NISSAN_COLUMNS.includes('First Tier');
+  const hasProcessIncident = NISSAN_COLUMNS.includes('Process Incident');
+  const hasProcessIncidentChild = NISSAN_COLUMNS.includes('Process Incident (Child)');
+
   const doneStatuses = new Set(['resolved', 'done', 'closed']);
-  const open = hasStatus ? NISSAN_ALL_TICKETS.filter(t => !doneStatuses.has((t.status || '').toLowerCase())).length : null;
+  const open = hasStatus ? tickets.filter(t => !doneStatuses.has((t.status || '').toLowerCase())).length : null;
+
+  const firstTierTickets = hasFirstTier ? tickets.filter(t => (t['First Tier'] || '').toLowerCase() === 'yes') : [];
+  const firstTierPercent = tickets.length > 0 ? Math.round(firstTierTickets.length / tickets.length * 100) : 0;
 
   document.getElementById('nissan-body').innerHTML = `
     <div class="panels">
       <div class="panel">
         <h2>ทั้งหมด${hasStatus ? ' / สถานะ' : ''}</h2>
-        <div class="value" style="margin-bottom: 4px">${NISSAN_ALL_TICKETS.length}</div>
-        ${hasStatus ? `<div style="margin-bottom: 12px; font-size: 11px; color: #888">ยังไม่ปิด (Open): <strong style="color:#1a1a2e; font-size: 13px">${open}</strong></div>${renderCountTable(groupBy(NISSAN_ALL_TICKETS, 'status'), NISSAN_ALL_TICKETS.length, 'สถานะ')}` : ''}
+        <div class="value" style="margin-bottom: 4px">${tickets.length}</div>
+        ${hasStatus ? `<div style="margin-bottom: 12px; font-size: 11px; color: #888">ยังไม่ปิด (Open): <strong style="color:#1a1a2e; font-size: 13px">${open}</strong></div>${renderCountTable(groupBy(tickets, 'status'), tickets.length, 'สถานะ')}` : ''}
       </div>
-      ${hasStatus ? `<div class="panel"><h2>สถานะ (Chart)</h2>${renderColumnChart(groupBy(NISSAN_ALL_TICKETS, 'status'))}</div>` : ''}
+      ${hasFirstTier ? `
+      <div class="panel">
+        <h2>First Tier</h2>
+        <div class="value" style="margin-bottom: 4px">${firstTierPercent}%</div>
+        <div style="margin-bottom: 12px; font-size: 11px; color: #888">First Tier ทั้งหมด: <strong style="color:#1a1a2e; font-size: 13px">${firstTierTickets.length}</strong> ticket</div>
+        ${hasProcessIncident ? renderBarList(groupBy(firstTierTickets, 'Process Incident')) : ''}
+      </div>` : ''}
     </div>
-    ${nissanRenderTicketTableSection()}
+    <div class="panels">
+      ${hasStatus ? `<div class="panel"><h2>สถานะ (Chart)</h2>${renderColumnChart(groupBy(tickets, 'status'))}</div>` : ''}
+      ${hasProcessIncident ? `<div class="panel"><h2>ประเภท (Process Incident)</h2>${renderColumnChart(groupBy(tickets, 'Process Incident'))}</div>` : ''}
+    </div>
+    ${hasProcessIncidentChild ? `
+    <div class="panels">
+      <div class="panel"><h2>Process Incident แบ่งตาม Child</h2>${renderPieChart(groupBy(tickets, 'Process Incident (Child)'))}</div>
+    </div>` : ''}
+    ${nissanRenderTicketTableSection(tickets)}
   `;
+
+  document.querySelectorAll('#nissan-ticket-thead [data-sort-col]').forEach(th => {
+    th.onclick = () => nissanOnSortColumn(th.dataset.sortCol);
+  });
+}
+
+function nissanOnMonthChange() {
+  nissanRenderDashboard();
 }
 
 async function nissanLoad(forceRefresh) {
@@ -508,9 +623,9 @@ async function nissanLoad(forceRefresh) {
 
   NISSAN_JIRA_BASE_URL = data.jiraBaseUrl;
   NISSAN_COLUMNS = data.columns || [];
-  NISSAN_ALL_TICKETS = data.tickets || [];
-  NISSAN_TABLE_FILTERS = { search: '', status: 'all' };
+  NISSAN_ALL_TICKETS = (data.tickets || []).map(t => ({ ...t, _month: nissanExtractMonth(t.summary) }));
 
+  nissanPopulateMonthFilter();
   nissanRenderDashboard();
 
   if (forceRefresh) { btn.disabled = false; btn.textContent = '🔄 รีเฟรชข้อมูล'; }
