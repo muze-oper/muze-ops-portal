@@ -18,15 +18,21 @@
     header div { display: flex; gap: 16px; align-items: center; }
     header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
 
-    .tab-bar { display: flex; gap: 4px; max-width: 1100px; margin: 20px auto 0; padding: 0 24px; }
-    .tab-btn {
-      padding: 10px 18px; border: none; background: none; cursor: pointer;
-      font-size: 13px; font-weight: 600; color: #666; border-bottom: 3px solid transparent;
+    .layout { display: flex; align-items: flex-start; max-width: 1340px; margin: 0 auto; }
+    .sidebar {
+      width: 240px; flex-shrink: 0; background: white; margin: 24px 0 24px 24px;
+      border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 8px; position: sticky; top: 24px;
     }
-    .tab-btn:hover { color: #1a73e8; }
-    .tab-btn.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+    .tab-btn {
+      display: block; width: 100%; text-align: left; padding: 10px 14px; margin-bottom: 2px;
+      border: none; background: none; cursor: pointer; border-radius: 6px;
+      font-size: 13px; font-weight: 600; color: #555;
+    }
+    .tab-btn:hover { background: #f7f8fa; }
+    .tab-btn.active { background: #e8f0fe; color: #1a73e8; }
 
-    #content { max-width: 1100px; margin: 4px auto 0; padding: 20px 24px 48px; }
+    .main-content { flex: 1; min-width: 0; }
+    #content { margin: 24px 24px 48px; padding: 0; }
     .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
     .toolbar label { font-size: 12px; font-weight: 600; color: #555; }
     .toolbar select { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; background: white; }
@@ -86,30 +92,34 @@
   </div>
 </header>
 
-<div class="tab-bar">
-  <button class="tab-btn" data-tab="mts" onclick="switchTab('mts')">MTS Customer Support</button>
-  <button class="tab-btn" data-tab="nissan" onclick="switchTab('nissan')">🚗 Nissan Mobile Application (ITSM)</button>
-</div>
-
-<div id="tab-mts" class="tab-panel">
-  <div id="content">
-    <div class="toolbar">
-      <label for="month-filter">เดือน:</label>
-      <select id="month-filter" onchange="mtsOnMonthChange()"><option value="all">ทุกเดือน</option></select>
-      <button id="mts-refresh-btn" onclick="mtsLoad(true)">🔄 รีเฟรชข้อมูล</button>
-      <div id="mts-last-updated" class="last-updated">กำลังโหลด...</div>
-    </div>
-    <div id="mts-body"></div>
+<div class="layout">
+  <div class="sidebar">
+    <button class="tab-btn" data-tab="mts" onclick="switchTab('mts')">MTS Customer Support</button>
+    <button class="tab-btn" data-tab="nissan" onclick="switchTab('nissan')">🚗 Nissan Mobile Application (ITSM)</button>
   </div>
-</div>
 
-<div id="tab-nissan" class="tab-panel" style="display:none">
-  <div id="content">
-    <div class="toolbar">
-      <button id="nissan-refresh-btn" onclick="nissanLoad(true)">🔄 รีเฟรชข้อมูล</button>
-      <div id="nissan-last-updated" class="last-updated">กำลังโหลด...</div>
+  <div class="main-content">
+    <div id="tab-mts" class="tab-panel">
+      <div id="content">
+        <div class="toolbar">
+          <label for="month-filter">เดือน:</label>
+          <select id="month-filter" onchange="mtsOnMonthChange()"><option value="all">ทุกเดือน</option></select>
+          <button id="mts-refresh-btn" onclick="mtsLoad(true)">🔄 รีเฟรชข้อมูล</button>
+          <div id="mts-last-updated" class="last-updated">กำลังโหลด...</div>
+        </div>
+        <div id="mts-body"></div>
+      </div>
     </div>
-    <div id="nissan-body"></div>
+
+    <div id="tab-nissan" class="tab-panel" style="display:none">
+      <div id="content">
+        <div class="toolbar">
+          <button id="nissan-refresh-btn" onclick="nissanLoad(true)">🔄 รีเฟรชข้อมูล</button>
+          <div id="nissan-last-updated" class="last-updated">กำลังโหลด...</div>
+        </div>
+        <div id="nissan-body"></div>
+      </div>
+    </div>
   </div>
 </div>
 
