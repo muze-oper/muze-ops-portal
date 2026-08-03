@@ -908,13 +908,12 @@ async function loadHeatmap(year = _heatYear, month = _heatMonth) {
   } catch(e) { console.error('heatmap error', e); }
 }
 
-function heatColor(count, isHoliday) {
-  if (isHoliday) return { bg: '#ffd6d6', border: '1px solid #e53935' };
-  if (!count) return { bg: '#ebedf0', border: 'none' };
-  if (count < 5)  return { bg: '#c6e9c0', border: 'none' };
-  if (count < 15) return { bg: '#7bc67a', border: 'none' };
-  if (count < 30) return { bg: '#2da44e', border: 'none' };
-  return { bg: '#0a6627', border: 'none' };
+function heatColor(count) {
+  if (!count)     return { bg: '#ebedf0', text: '#aaa' };
+  if (count < 5)  return { bg: '#c6e9c0', text: '#1a1a1a' };
+  if (count < 15) return { bg: '#7bc67a', text: '#1a1a1a' };
+  if (count < 30) return { bg: '#2da44e', text: 'white' };
+  return          { bg: '#0a6627', text: 'white' };
 }
 
 function renderHeatmap() {
@@ -957,23 +956,24 @@ function renderHeatmap() {
     const isHoliday = isCurrentMonth && _heatHolidays.has(dateStr);
     const isToday = dateStr === todayStr;
 
-    let cellBg = 'transparent', textColor = isCurrentMonth ? '#1a1a1a' : '#ccc', fontWeight = '400';
-    let dotHtml = '';
+    // Volume fills the whole cell now (was a tiny dot) — holiday/today are
+    // layered on top as a border ring so both signals stay visible together.
+    let cellBg = 'transparent', textColor = isCurrentMonth ? '#ccc' : '#ddd', fontWeight = '400', border = 'none';
 
+    if (isCurrentMonth) {
+      const heat = heatColor(count);
+      cellBg = heat.bg;
+      textColor = heat.text;
+    }
     if (isToday) {
-      cellBg = '#1a73e8'; textColor = 'white'; fontWeight = '700';
+      border = '2px solid #1a73e8'; fontWeight = '700';
     } else if (isHoliday) {
-      cellBg = '#fdecea'; textColor = '#e53935'; fontWeight = '600';
-    } else if (isCurrentMonth && count > 0) {
-      // show heat as a small dot below the number
-      const dotColor = count < 5 ? '#c6e9c0' : count < 15 ? '#7bc67a' : count < 30 ? '#2da44e' : '#0a6627';
-      dotHtml = `<div style="width:4px;height:4px;border-radius:50%;background:${dotColor};margin-top:1px"></div>`;
+      border = '2px solid #e53935'; fontWeight = '600';
     }
 
     const tooltip = (isHoliday ? 'วันหยุด • ' : '') + (isCurrentMonth ? count + ' email' : '') + '\n' + dateStr;
-    html += `<div title="${tooltip}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 0;border-radius:8px;background:${cellBg};cursor:default">
+    html += `<div title="${tooltip}" style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;border-radius:8px;background:${cellBg};border:${border};box-sizing:border-box;cursor:default">
       <span style="font-size:13px;font-weight:${fontWeight};color:${textColor};line-height:1">${cur.getDate()}</span>
-      ${dotHtml}
     </div>`;
   }
   html += '</div>';
