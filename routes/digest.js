@@ -331,14 +331,18 @@ router.get('/api/digest/holidays', async (req, res) => {
   } catch (err) { res.json({ holidays: [] }); }
 });
 
-// POST /api/digest/holidays — save holidays list
+// POST /api/digest/holidays — save holidays list. Each entry is either a
+// plain 'MM-DD'/'YYYY-MM-DD' string (legacy — manual entry, no name) or
+// {date, name} (the calendar sync, which has real names). Normalized to
+// {date, name} on write so every reader gets one consistent shape.
 router.post('/api/digest/holidays', async (req, res) => {
   if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
   try {
-    const { holidays } = req.body; // array of 'MM-DD' or 'YYYY-MM-DD'
+    const { holidays } = req.body;
     if (!Array.isArray(holidays)) return res.status(400).json({ error: 'holidays must be array' });
-    await drive.writeFile('holidays.json', { holidays, updatedAt: new Date().toISOString(), updatedBy: req.user?.email });
-    res.json({ ok: true, count: holidays.length });
+    const normalized = holidays.map(h => typeof h === 'string' ? { date: h, name: '' } : { date: h.date, name: h.name || '' });
+    await drive.writeFile('holidays.json', { holidays: normalized, updatedAt: new Date().toISOString(), updatedBy: req.user?.email });
+    res.json({ ok: true, count: normalized.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

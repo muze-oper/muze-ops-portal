@@ -82,16 +82,12 @@
       </table>
     </div>
 
-    <!-- Calendar heatmap -->
+    <!-- Calendar heatmap + holiday list — merged into one card -->
     <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
       <div style="background:#1a73e8;color:white;padding:10px 14px;font-weight:700;font-size:13px">📅 Email Volume</div>
       <div id="heatmap-container" style="padding:14px 16px"></div>
-    </div>
-
-    <!-- Holiday list -->
-    <div style="margin-top:12px;background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
-      <div style="background:#5f6368;color:white;padding:9px 14px;font-weight:700;font-size:12px">🗓 วันหยุด</div>
-      <div id="holiday-list" style="padding:10px 12px;max-height:200px;overflow-y:auto">
+      <div style="border-top:1px solid #eee;padding:10px 14px;font-weight:700;font-size:12px;color:#555">🗓 วันสำคัญ</div>
+      <div id="holiday-list" style="padding:2px 14px 12px;max-height:200px;overflow-y:auto">
         <div style="color:#aaa;font-size:11px;text-align:center;padding:12px 0">กำลังโหลด…</div>
       </div>
     </div>
@@ -843,7 +839,11 @@ async function loadHolidayPanel() {
     const res = await fetch('/api/digest/holidays');
     if (!res.ok) { el.innerHTML = '<div style="color:#aaa;font-size:11px;text-align:center;padding:8px">ไม่มีข้อมูล</div>'; return; }
     const data = await res.json();
-    const holidays = (data.holidays || []).sort();
+    // entries are {date, name} (calendar sync) or a plain string (manual
+    // legacy entry, no name)
+    const holidays = (data.holidays || [])
+      .map(h => typeof h === 'string' ? { date: h, name: '' } : h)
+      .sort((a, b) => a.date < b.date ? -1 : 1);
     if (!holidays.length) { el.innerHTML = '<div style="color:#aaa;font-size:11px;text-align:center;padding:8px">ยังไม่มีวันหยุด</div>'; return; }
 
     const MONTHS_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -860,17 +860,18 @@ async function loadHolidayPanel() {
       return `${DAYS_EN[d.getDay()]}, ${d.getDate()} ${MONTHS_EN[d.getMonth()]}`;
     }
     const today = new Date().toISOString().substring(0,10);
-    el.innerHTML = holidays.map(h => {
+    el.innerHTML = holidays.map(({ date: h, name }) => {
       const isPast = h < today;
       const isToday = h === today;
-      return `<div data-holiday-row="${h}" style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f5f5f5">
-        <span style="font-size:11px;color:${isToday?'#1a73e8':isPast?'#bbb':'#333'};font-weight:${isToday?'700':'400'}">${fmtDate(h)}</span>
-        <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${isToday?'#e8f0fe':isPast?'#f5f5f5':'#fdecea'};color:${isToday?'#1a73e8':isPast?'#aaa':'#e53935'}">${isToday?'today':isPast?'past':'หยุด'}</span>
+      const label = name || 'วันหยุด';
+      return `<div data-holiday-row="${h}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid #f5f5f5">
+        <span style="font-size:11px;color:${isToday?'#1a73e8':isPast?'#bbb':'#333'};font-weight:${isToday?'700':'400'};white-space:nowrap">${fmtDate(h)}</span>
+        <span title="${label}" style="font-size:10px;padding:1px 8px;border-radius:8px;background:${isToday?'#e8f0fe':isPast?'#f5f5f5':'#fdecea'};color:${isToday?'#1a73e8':isPast?'#aaa':'#e53935'};text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px">${label}</span>
       </div>`;
     }).join('');
 
     // default scroll position: today (or the next upcoming holiday if today isn't one)
-    const anchorDate = holidays.find(h => h >= today) || holidays[holidays.length - 1];
+    const anchorDate = (holidays.find(h => h.date >= today) || holidays[holidays.length - 1]).date;
     const anchorRow = el.querySelector(`[data-holiday-row="${anchorDate}"]`);
     if (anchorRow) anchorRow.scrollIntoView({ block: 'center' });
   } catch(e) { el.innerHTML = '<div style="color:#e53935;font-size:11px;padding:8px">โหลดไม่ได้: ' + e.message + '</div>'; }
@@ -878,7 +879,7 @@ async function loadHolidayPanel() {
 
 // ── Calendar Heatmap ──────────────────────────────────────────
 let _heatData = {};   // { 'YYYY-MM-DD': count }
-let _heatHolidays = new Set();
+let _heatHolidays = new Map(); // 'YYYY-MM-DD' -> name
 let _heatYear = new Date().getFullYear();
 let _heatMonth = new Date().getMonth(); // 0-based
 
@@ -900,20 +901,26 @@ async function loadHeatmap(year = _heatYear, month = _heatMonth) {
     if (!res.ok) return;
     const data = await res.json();
     Object.assign(_heatData, data.daily || {}); // merge — keep previously-viewed months cached
-    _heatHolidays = new Set((data.holidays || []).map(h => {
-      // normalize: if YYYY-MM-DD keep as-is; if MM-DD prefix with current year
-      return h.length === 5 ? _heatYear + '-' + h : h;
+    _heatHolidays = new Map((data.holidays || []).map(h => {
+      // entries are {date, name} (calendar sync) or a plain string (manual
+      // legacy entry, no name); normalize: MM-DD -> prefix with current year
+      const raw = typeof h === 'string' ? h : h.date;
+      const name = typeof h === 'string' ? '' : (h.name || '');
+      const date = raw.length === 5 ? _heatYear + '-' + raw : raw;
+      return [date, name];
     }));
     renderHeatmap();
   } catch(e) { console.error('heatmap error', e); }
 }
 
+// Four clearly-distinct hues instead of a green gradient (adjacent tiers on
+// a same-color scale were hard to tell apart at a glance).
 function heatColor(count) {
-  if (!count)     return { bg: '#ebedf0', text: '#aaa' };
-  if (count < 5)  return { bg: '#c6e9c0', text: '#1a1a1a' };
-  if (count < 15) return { bg: '#7bc67a', text: '#1a1a1a' };
-  if (count < 30) return { bg: '#2da44e', text: 'white' };
-  return          { bg: '#0a6627', text: 'white' };
+  if (!count)     return { bg: '#ebedf0', text: '#aaa' };  // 0
+  if (count < 5)  return { bg: '#fff3b0', text: '#1a1a1a' }; // 1-4   light yellow
+  if (count < 15) return { bg: '#f8bbd0', text: '#1a1a1a' }; // 5-14  pink
+  if (count < 30) return { bg: '#66bb6a', text: '#1a1a1a' }; // 15-29 green
+  return          { bg: '#1b5e20', text: 'white' };          // 30+   dark green
 }
 
 function renderHeatmap() {
@@ -953,7 +960,8 @@ function renderHeatmap() {
     const dateStr = toDateStr(cur);
     const isCurrentMonth = cur.getMonth() === month;
     const count = _heatData[dateStr] || 0;
-    const isHoliday = isCurrentMonth && _heatHolidays.has(dateStr);
+    const holidayName = isCurrentMonth ? _heatHolidays.get(dateStr) : undefined;
+    const isHoliday = holidayName !== undefined;
     const isToday = dateStr === todayStr;
 
     // Volume fills the whole cell now (was a tiny dot) — holiday/today are
@@ -971,7 +979,7 @@ function renderHeatmap() {
       border = '2px solid #e53935'; fontWeight = '600';
     }
 
-    const tooltip = (isHoliday ? 'วันหยุด • ' : '') + (isCurrentMonth ? count + ' email' : '') + '\n' + dateStr;
+    const tooltip = (isHoliday ? (holidayName || 'วันหยุด') + ' • ' : '') + (isCurrentMonth ? count + ' email' : '') + '\n' + dateStr;
     html += `<div title="${tooltip}" style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;border-radius:8px;background:${cellBg};border:${border};box-sizing:border-box;cursor:default">
       <span style="font-size:13px;font-weight:${fontWeight};color:${textColor};line-height:1">${cur.getDate()}</span>
     </div>`;
@@ -982,11 +990,11 @@ function renderHeatmap() {
   html += `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;font-size:10px;color:#888">
     <span>Volume:</span>
     <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#ebedf0;display:inline-block"></span>0</span>
-    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#c6e9c0;display:inline-block"></span>1–4</span>
-    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#7bc67a;display:inline-block"></span>5–14</span>
-    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#2da44e;display:inline-block"></span>15–29</span>
-    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#0a6627;display:inline-block"></span>30+</span>
-    <span style="margin-left:auto;display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:2px;background:#ebedf0;border:2px solid #e53935;display:inline-block"></span>หยุด</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#fff3b0;display:inline-block"></span>1–4</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#f8bbd0;display:inline-block"></span>5–14</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#66bb6a;display:inline-block"></span>15–29</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#1b5e20;display:inline-block"></span>30+</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:2px;background:#ebedf0;border:2px solid #e53935;display:inline-block"></span>วันสำคัญ</span>
   </div>`;
 
   container.innerHTML = html;
