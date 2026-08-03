@@ -855,12 +855,24 @@ let _heatHolidays = new Set();
 let _heatYear = new Date().getFullYear();
 let _heatMonth = new Date().getMonth(); // 0-based
 
-async function loadHeatmap() {
+// Same 42-cell window renderHeatmap() draws — computed once so the fetch
+// only asks the backend for the snapshots it's actually about to display.
+function heatmapGridBounds(year, month) {
+  const pad = n => String(n).padStart(2,'0');
+  const toStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const startOffset = new Date(year, month, 1).getDay();
+  const gridStart = new Date(year, month, 1 - startOffset);
+  const gridEnd = new Date(year, month, 1 - startOffset + 41);
+  return { from: toStr(gridStart), to: toStr(gridEnd) };
+}
+
+async function loadHeatmap(year = _heatYear, month = _heatMonth) {
   try {
-    const res = await fetch('/api/digest/heatmap');
+    const { from, to } = heatmapGridBounds(year, month);
+    const res = await fetch(`/api/digest/heatmap?from=${from}&to=${to}`);
     if (!res.ok) return;
     const data = await res.json();
-    _heatData = data.daily || {};
+    Object.assign(_heatData, data.daily || {}); // merge — keep previously-viewed months cached
     _heatHolidays = new Set((data.holidays || []).map(h => {
       // normalize: if YYYY-MM-DD keep as-is; if MM-DD prefix with current year
       return h.length === 5 ? _heatYear + '-' + h : h;
@@ -950,18 +962,17 @@ function renderHeatmap() {
   container.innerHTML = html;
 }
 
-function heatmapPrev() {
+async function heatmapPrev() {
   _heatMonth--;
   if (_heatMonth < 0) { _heatMonth = 11; _heatYear--; }
-  // re-normalize holidays for new year if needed
-  _heatHolidays = new Set([..._heatHolidays].map(h => h.length === 5 ? _heatYear + '-' + h : h));
-  renderHeatmap();
+  renderHeatmap(); // paint immediately with whatever's cached, counts fill in after fetch
+  await loadHeatmap();
 }
-function heatmapNext() {
+async function heatmapNext() {
   _heatMonth++;
   if (_heatMonth > 11) { _heatMonth = 0; _heatYear++; }
-  _heatHolidays = new Set([..._heatHolidays].map(h => h.length === 5 ? _heatYear + '-' + h : h));
   renderHeatmap();
+  await loadHeatmap();
 }
 
 // pre-fill date pickers with default range

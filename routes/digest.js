@@ -235,24 +235,47 @@ router.get('/api/digest/assignments', async (req, res) => {
 router.get('/api/digest/heatmap', async (req, res) => {
   try {
     const files = await drive.listFiles(SNAPSHOT_PREFIX);
+    let withDates = files
+      .map(f => ({ f, date: (f.name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] })) // digestsnapshot_2026-08-02T...
+      .filter(x => x.date);
+
+    // The calendar only ever shows one 6-week grid at a time — restrict to
+    // that window (free: filename-only, no Drive call) instead of reading
+    // every snapshot ever taken. Falls back to "all" if the caller omits
+    // from/to, but the frontend always sends them.
+    const { from, to } = req.query;
+    if (from) withDates = withDates.filter(x => x.date >= from);
+    if (to) withDates = withDates.filter(x => x.date <= to);
+
+    // One access token reused across every read, and reads run in bounded
+    // parallel batches instead of one-at-a-time — with 300+ snapshot files,
+    // sequential drive.readFile() (each doing its OWN token refresh + a
+    // name-search lookup before the actual read) took 900+ round trips and
+    // reliably timed out the serverless function, leaving the heatmap blank.
+    const accessToken = await drive.getAdminAccessToken();
+    const CONCURRENCY = 20;
     const daily = {};
-    for (const f of files) {
-      // filename: digestsnapshot_2026-08-02T18-00-00-000Z.json
-      const m = f.name.match(/(\d{4}-\d{2}-\d{2})/);
-      if (!m) continue;
-      const date = m[1];
-      try {
-        const data = await drive.readFile(f.name);
-        const accts = data.accounts || [];
-        let count = 0;
-        if (data.emailsByAccount) {
-          for (const emails of Object.values(data.emailsByAccount)) count += (emails || []).length;
-        } else if (data.accounts) {
-          count = accts.length; // fallback
+    for (let i = 0; i < withDates.length; i += CONCURRENCY) {
+      const batch = withDates.slice(i, i + CONCURRENCY);
+      const results = await Promise.all(batch.map(async ({ f, date }) => {
+        try {
+          const data = await drive.readFileById(f.id, accessToken);
+          let count = 0;
+          if (data.emailsByAccount) {
+            for (const emails of Object.values(data.emailsByAccount)) count += (emails || []).length;
+          } else if (data.accounts) {
+            count = data.accounts.length;
+          }
+          return { date, count };
+        } catch {
+          return null;
         }
+      }));
+      results.filter(Boolean).forEach(({ date, count }) => {
         daily[date] = (daily[date] || 0) + count;
-      } catch { /* skip */ }
+      });
     }
+
     const holidayData = await drive.readFile('holidays.json').catch(() => null);
     res.json({ daily, holidays: holidayData?.holidays || [] });
   } catch (err) {
