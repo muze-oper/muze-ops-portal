@@ -17,6 +17,7 @@ const GIT_BACKED_CARDS = {
   // shared backing file alongside their own route.
   mtscs: ['routes/mtscs.js', 'public/mtscs.html'],
   'nissan-mn': ['routes/nissanMn.js', 'public/mtscs.html'],
+  'ktc-chat': ['routes/ktcChat.js', 'public/ktc-chat.html', 'services/jiraKtc.js', 'services/anthropicClient.js', 'data/ktc-handover.md'],
 };
 
 function lastCommitDate(files) {
