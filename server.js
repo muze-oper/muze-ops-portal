@@ -20,6 +20,10 @@ app.use(express.json({ limit: '2mb' }));
 app.post('/api/digest', digestRoutes);
 app.get('/api/digest/debug', digestRoutes);
 app.post('/api/digest/live', digestRoutes);
+app.get('/api/digest/training-rules', digestRoutes);
+app.post('/api/digest/train', digestRoutes);
+app.get('/api/digest/holidays', digestRoutes);
+app.post('/api/digest/holidays', digestRoutes);
 app.post('/api/planner', plannerRoutes);
 
 // Public routes - must be registered before requireAuth
