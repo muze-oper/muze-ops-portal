@@ -416,7 +416,7 @@ function buildSlotRow(slot) {
   } else if (slot.hasEvent) {
     tdTask.innerHTML = slot.eventType === 'start'
       ? `<span class="cal-event">${esc(slot.eventLabel)}</span>`
-      : `<span class="cal-cont">↳ ${esc(slot.eventLabel)}</span>`;
+      : `<span class="cal-cont" title="${esc(slot.eventLabel)}">↳</span>`;
   } else {
     tdTask.contentEditable = 'true';
     tdTask.dataset.ph = 'task...';
