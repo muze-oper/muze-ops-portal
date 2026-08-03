@@ -978,12 +978,15 @@ function renderHeatmap() {
   }
   html += '</div>';
 
-  // legend
-  html += `<div style="display:flex;align-items:center;gap:6px;margin-top:12px;font-size:10px;color:#888">
+  // legend — actual email-count range per color tier, not just "low/high"
+  html += `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;font-size:10px;color:#888">
     <span>Volume:</span>
-    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:#c6e9c0;display:inline-block"></span>น้อย</span>
-    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:#2da44e;display:inline-block"></span>มาก</span>
-    <span style="margin-left:auto;display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:2px;background:#fdecea;border:1px solid #e53935;display:inline-block"></span>หยุด</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#ebedf0;display:inline-block"></span>0</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#c6e9c0;display:inline-block"></span>1–4</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#7bc67a;display:inline-block"></span>5–14</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#2da44e;display:inline-block"></span>15–29</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#0a6627;display:inline-block"></span>30+</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:2px;background:#ebedf0;border:2px solid #e53935;display:inline-block"></span>หยุด</span>
   </div>`;
 
   container.innerHTML = html;
