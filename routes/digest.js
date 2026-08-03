@@ -276,11 +276,50 @@ router.get('/api/digest/heatmap', async (req, res) => {
       });
     }
 
+    // Cached exact daily totals (see /api/digest/daily-totals) override the
+    // snapshot-summing estimate above wherever a date has been backfilled —
+    // summing every same-day snapshot double-counts any email that was
+    // still present the next time live.js ran, so it was never a real
+    // volume number, just a rough proxy for un-backfilled days.
+    const cached = await drive.readFile('dailytotals.json').catch(() => null);
+    if (cached?.totals) {
+      for (const [date, total] of Object.entries(cached.totals)) {
+        if ((!from || date >= from) && (!to || date <= to)) daily[date] = total;
+      }
+    }
+
     const holidayData = await drive.readFile('holidays.json').catch(() => null);
     res.json({ daily, holidays: holidayData?.holidays || [] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// GET /api/digest/daily-totals — cached exact per-day email totals (secret or logged-in)
+router.get('/api/digest/daily-totals', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
+  try {
+    const data = await drive.readFile('dailytotals.json').catch(() => null);
+    res.json(data || { totals: {} });
+  } catch (err) { res.json({ totals: {} }); }
+});
+
+// POST /api/digest/daily-totals — merge in newly-computed per-day totals.
+// Merges rather than replaces: backfills run incrementally over time (one
+// batch of past dates at a time), so a later call must not wipe out totals
+// an earlier call already cached.
+router.post('/api/digest/daily-totals', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
+  try {
+    const { totals } = req.body; // { 'YYYY-MM-DD': number, ... }
+    if (!totals || typeof totals !== 'object' || Array.isArray(totals)) {
+      return res.status(400).json({ error: 'totals must be an object of date -> number' });
+    }
+    const existing = await drive.readFile('dailytotals.json').catch(() => null);
+    const merged = { ...(existing?.totals || {}), ...totals };
+    await drive.writeFile('dailytotals.json', { totals: merged, updatedAt: new Date().toISOString(), updatedBy: req.user?.email });
+    res.json({ ok: true, count: Object.keys(merged).length });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // GET /api/digest/holidays — list holidays (secret or logged-in)

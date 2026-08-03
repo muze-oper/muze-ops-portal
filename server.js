@@ -30,6 +30,8 @@ app.get('/api/digest/training-rules', digestRoutes);
 app.post('/api/digest/train', digestRoutes);
 app.get('/api/digest/holidays', digestRoutes);
 app.post('/api/digest/holidays', digestRoutes);
+app.get('/api/digest/daily-totals', digestRoutes);
+app.post('/api/digest/daily-totals', digestRoutes);
 app.post('/api/planner', plannerRoutes);
 
 // Public routes - must be registered before requireAuth
