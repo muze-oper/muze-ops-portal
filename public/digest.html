@@ -82,14 +82,13 @@
       </table>
     </div>
 
-    <!-- Calendar heatmap + holiday list — merged into one card -->
+    <!-- Calendar heatmap — header shows the next/current important day inline -->
     <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
-      <div style="background:#1a73e8;color:white;padding:10px 14px;font-weight:700;font-size:13px">📅 Email Volume</div>
-      <div id="heatmap-container" style="padding:14px 16px"></div>
-      <div style="border-top:1px solid #eee;padding:10px 14px;font-weight:700;font-size:12px;color:#555">🗓 วันสำคัญ</div>
-      <div id="holiday-list" style="padding:2px 14px 12px;max-height:200px;overflow-y:auto">
-        <div style="color:#aaa;font-size:11px;text-align:center;padding:12px 0">กำลังโหลด…</div>
+      <div style="background:#1a73e8;color:white;padding:10px 14px;text-align:left">
+        <div style="font-weight:700;font-size:13px">📅 Email Volume</div>
+        <div id="next-holiday-line" style="font-weight:400;font-size:11px;opacity:0.9;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       </div>
+      <div id="heatmap-container" style="padding:14px 16px"></div>
     </div>
   </div>
 
@@ -832,49 +831,28 @@ async function loadList() {
   startCountdown();
 }
 
-async function loadHolidayPanel() {
-  const el = document.getElementById('holiday-list');
+// Single-line "next important day" shown under the Email Volume header —
+// replaced the full scrolling list, which took a whole extra panel just to
+// show what one line already covers for the case people actually check.
+function renderNextHolidayLine() {
+  const el = document.getElementById('next-holiday-line');
   if (!el) return;
-  try {
-    const res = await fetch('/api/digest/holidays');
-    if (!res.ok) { el.innerHTML = '<div style="color:#aaa;font-size:11px;text-align:center;padding:8px">ไม่มีข้อมูล</div>'; return; }
-    const data = await res.json();
-    // entries are {date, name} (calendar sync) or a plain string (manual
-    // legacy entry, no name)
-    const holidays = (data.holidays || [])
-      .map(h => typeof h === 'string' ? { date: h, name: '' } : h)
-      .sort((a, b) => a.date < b.date ? -1 : 1);
-    if (!holidays.length) { el.innerHTML = '<div style="color:#aaa;font-size:11px;text-align:center;padding:8px">ยังไม่มีวันหยุด</div>'; return; }
+  if (!_heatHolidays.size) { el.textContent = ''; return; }
 
-    const MONTHS_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const DAYS_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    function fmtDate(h) {
-      // YYYY-MM-DD or MM-DD
-      const parts = h.split('-');
-      let d;
-      if (parts.length === 3) {
-        d = new Date(h);
-      } else {
-        d = new Date(new Date().getFullYear(), parseInt(parts[0]) - 1, parseInt(parts[1]));
-      }
-      return `${DAYS_EN[d.getDay()]}, ${d.getDate()} ${MONTHS_EN[d.getMonth()]}`;
-    }
-    const today = new Date().toISOString().substring(0,10);
-    el.innerHTML = holidays.map(({ date: h, name }) => {
-      const isPast = h < today;
-      const isToday = h === today;
-      const label = name || 'วันหยุด';
-      return `<div data-holiday-row="${h}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid #f5f5f5">
-        <span style="font-size:11px;color:${isToday?'#1a73e8':isPast?'#bbb':'#333'};font-weight:${isToday?'700':'400'};white-space:nowrap">${fmtDate(h)}</span>
-        <span title="${label}" style="font-size:10px;padding:1px 8px;border-radius:8px;background:${isToday?'#e8f0fe':isPast?'#f5f5f5':'#fdecea'};color:${isToday?'#1a73e8':isPast?'#aaa':'#e53935'};text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px">${label}</span>
-      </div>`;
-    }).join('');
+  const MONTHS_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const DAYS_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const pad = n => String(n).padStart(2,'0');
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
 
-    // default scroll position: today (or the next upcoming holiday if today isn't one)
-    const anchorDate = (holidays.find(h => h.date >= today) || holidays[holidays.length - 1]).date;
-    const anchorRow = el.querySelector(`[data-holiday-row="${anchorDate}"]`);
-    if (anchorRow) anchorRow.scrollIntoView({ block: 'center' });
-  } catch(e) { el.innerHTML = '<div style="color:#e53935;font-size:11px;padding:8px">โหลดไม่ได้: ' + e.message + '</div>'; }
+  const upcoming = [...(_heatHolidays.entries())].sort((a, b) => a[0] < b[0] ? -1 : 1);
+  const next = upcoming.find(([date]) => date >= todayStr);
+  if (!next) { el.textContent = ''; return; }
+
+  const [dateStr, name] = next;
+  const d = new Date(dateStr + 'T00:00:00');
+  const fmt = `${DAYS_EN[d.getDay()]}, ${d.getDate()} ${MONTHS_EN[d.getMonth()]}`;
+  el.textContent = `🗓 วันสำคัญ: ${fmt} — ${name || 'วันหยุด'}`;
 }
 
 // ── Calendar Heatmap ──────────────────────────────────────────
@@ -909,6 +887,7 @@ async function loadHeatmap(year = _heatYear, month = _heatMonth) {
       const date = raw.length === 5 ? _heatYear + '-' + raw : raw;
       return [date, name];
     }));
+    renderNextHolidayLine();
     renderHeatmap();
   } catch(e) { console.error('heatmap error', e); }
 }
@@ -1025,7 +1004,6 @@ loadList();
 loadLive();
 loadAssignments();
 loadEmailStatuses(NISSAN_ACCOUNT);
-loadHolidayPanel();
 loadHeatmap();
 </script>
 </body>
