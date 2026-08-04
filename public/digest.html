@@ -118,7 +118,7 @@
         <table id="dm-table" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;min-width:820px">
           <colgroup>
             <col style="width:10%"><!-- Due -->
-            <col style="width:6%"><!-- Time Counting -->
+            <col style="width:7%"><!-- Work Time Counting -->
             <col style="width:7%"><!-- Assignee -->
             <col style="width:7%"><!-- Account -->
             <col style="width:10%"><!-- Sender -->
@@ -129,7 +129,7 @@
           <thead>
             <tr style="background:#f8f9fa">
               <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Due (Arrival+30m)</th>
-              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Time Counting</th>
+              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Work Time Counting</th>
               <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Assignee</th>
               <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Account</th>
               <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Sender</th>
@@ -243,21 +243,21 @@ function fmtReceived(dateStr) {
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}  ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// Elapsed time between two ISO timestamps, compact ("2d 4h", "45m"). Used for
-// the Resolution Time column — start is when status first left "To Do", end
-// is when it reached "Done" (or now, if still open).
+// Elapsed time between two ISO timestamps, stopwatch-style ("00:00:01",
+// "01:23:45", "2d 03:04:05"). Used for the Work Time Counting column —
+// start is the moment status first left "To Do", end is when it reached
+// "Done" (frozen from then on), or now if still open (ticks live — see
+// tickWorkTime()).
 function fmtDuration(startIso, endIso) {
   if (!startIso) return '—';
   const start = new Date(startIso);
   const end = endIso ? new Date(endIso) : new Date();
-  let mins = Math.max(0, Math.floor((end - start) / 60000));
-  const days = Math.floor(mins / 1440); mins -= days * 1440;
-  const hours = Math.floor(mins / 60); mins -= hours * 60;
-  const parts = [];
-  if (days) parts.push(days + 'd');
-  if (hours) parts.push(hours + 'h');
-  if (!days && mins) parts.push(mins + 'm');
-  return parts.length ? parts.join(' ') : '0m';
+  let secs = Math.max(0, Math.floor((end - start) / 1000));
+  const days = Math.floor(secs / 86400); secs -= days * 86400;
+  const hours = Math.floor(secs / 3600); secs -= hours * 3600;
+  const mins = Math.floor(secs / 60); secs -= mins * 60;
+  const pad2 = n => String(n).padStart(2, '0');
+  return (days ? days + 'd ' : '') + `${pad2(hours)}:${pad2(mins)}:${pad2(secs)}`;
 }
 
 function populateFilter() {
@@ -374,8 +374,10 @@ function renderDashboard() {
           '<div style="pointer-events:none;font-size:10px;font-weight:'+dueWeight+';color:'+dueColor+';border:1px solid '+dueBorder+';border-radius:5px;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(dueVal?fmtReceived(dueVal):'—')+'</div>'+
         '</div>'+
       '</td>'+
-      // Time Counting — elapsed since status first left "To Do" (was "Resolution Time")
-      '<td style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:'+(timing?.resolvedAt?'#34a853':'#888')+';font-weight:'+(timing?.resolvedAt?'700':'400')+'">'+fmtDuration(timing?.inProgressSince, timing?.resolvedAt)+'</td>'+
+      // Work Time Counting — elapsed since status first left "To Do", frozen
+      // once Done. data-worktime-msgid + data-resolved let tickWorkTime()
+      // find and update this cell every second without a full re-render.
+      '<td data-worktime-msgid="'+(e.msgId||'')+'" data-in-progress-since="'+(timing?.inProgressSince||'')+'" data-resolved-at="'+(timing?.resolvedAt||'')+'" style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-variant-numeric:tabular-nums;color:'+(timing?.resolvedAt?'#34a853':'#888')+';font-weight:'+(timing?.resolvedAt?'700':'400')+'">'+fmtDuration(timing?.inProgressSince, timing?.resolvedAt)+'</td>'+
       // Assignee
       '<td style="padding:6px 4px;overflow:hidden">'+
         '<select onclick="event.stopPropagation()" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',\'assignee\',this.value,\''+dueId+'\')" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:white;width:100%">'+
@@ -766,6 +768,21 @@ async function pullNow() {
 }
 
 let _countdownTimer = null;
+// Ticks every Work Time Counting cell currently in the DOM once a second —
+// direct DOM text updates, not a renderDashboard() re-render (which would
+// rebuild the whole table every second and could clobber an open dropdown).
+// Cells with no inProgressSince (still "To Do") were rendered as "—" and are
+// harmlessly skipped since fmtDuration('') also returns "—".
+function tickWorkTime() {
+  document.querySelectorAll('[data-worktime-msgid]').forEach(td => {
+    const since = td.dataset.inProgressSince;
+    if (!since) return; // "—", nothing to tick
+    if (td.dataset.resolvedAt) return; // frozen at Done, no need to keep recomputing
+    td.textContent = fmtDuration(since, null);
+  });
+}
+setInterval(tickWorkTime, 1000);
+
 function startCountdown() {
   clearInterval(_countdownTimer);
   let secs = 60;
