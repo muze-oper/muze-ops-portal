@@ -115,17 +115,27 @@
       </div>
       <!-- email table -->
       <div style="overflow-x:auto">
-        <table id="dm-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:820px">
+        <table id="dm-table" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;min-width:820px">
+          <colgroup>
+            <col style="width:10%"><!-- Due -->
+            <col style="width:6%"><!-- Time Counting -->
+            <col style="width:7%"><!-- Assignee -->
+            <col style="width:7%"><!-- Account -->
+            <col style="width:10%"><!-- Sender -->
+            <col style="width:3%"><!-- Cat -->
+            <col style="width:8%"><!-- Status -->
+            <col><!-- Summary — gets whatever's left -->
+          </colgroup>
           <thead>
             <tr style="background:#f8f9fa">
-              <th style="padding:8px 10px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Due (Arrival+30m)</th>
-              <th style="padding:8px 10px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Time Counting</th>
-              <th style="padding:8px 6px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Assignee</th>
-              <th style="padding:8px 8px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Account</th>
-              <th style="padding:8px 10px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Sender</th>
-              <th style="padding:8px 6px;text-align:center;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Cat</th>
-              <th style="padding:8px 8px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Status</th>
-              <th style="padding:8px 10px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0">Summary</th>
+              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Due (Arrival+30m)</th>
+              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Time Counting</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Assignee</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Account</th>
+              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Sender</th>
+              <th style="padding:6px 2px;text-align:center;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0">Cat</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Status</th>
+              <th style="padding:6px 8px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0">Summary</th>
             </tr>
           </thead>
           <tbody id="dm-tbody">
@@ -354,36 +364,39 @@ function renderDashboard() {
       // Due — compact formatted text with a fully transparent native
       // datetime-local input overlaid on top, so clicking anywhere on the
       // text opens the real picker without a native input's own locale-
-      // formatted value ever being shown on screen.
-      '<td style="padding:6px 6px;white-space:nowrap">'+
-        '<div style="position:relative;display:inline-block;width:108px" onclick="event.stopPropagation()">'+
+      // formatted value ever being shown on screen. width:100% (not a fixed
+      // px) so it always fills whatever the <colgroup> gives this column —
+      // table-layout:fixed ignores content size entirely, so a wider fixed
+      // px here would just overflow the column instead of resizing it.
+      '<td style="padding:6px 6px;overflow:hidden">'+
+        '<div style="position:relative;display:block;width:100%" onclick="event.stopPropagation()">'+
           '<input id="'+dueId+'" type="datetime-local" value="'+dueVal+'" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',\'due\',this.value,\'\')" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0">'+
           '<div style="pointer-events:none;font-size:10px;font-weight:'+dueWeight+';color:'+dueColor+';border:1px solid '+dueBorder+';border-radius:5px;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(dueVal?fmtReceived(dueVal):'—')+'</div>'+
         '</div>'+
       '</td>'+
       // Time Counting — elapsed since status first left "To Do" (was "Resolution Time")
-      '<td style="padding:6px 6px;white-space:nowrap;font-size:10px;color:'+(timing?.resolvedAt?'#34a853':'#888')+';font-weight:'+(timing?.resolvedAt?'700':'400')+'">'+fmtDuration(timing?.inProgressSince, timing?.resolvedAt)+'</td>'+
+      '<td style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:'+(timing?.resolvedAt?'#34a853':'#888')+';font-weight:'+(timing?.resolvedAt?'700':'400')+'">'+fmtDuration(timing?.inProgressSince, timing?.resolvedAt)+'</td>'+
       // Assignee
-      '<td style="padding:6px 4px;white-space:nowrap">'+
-        '<select onclick="event.stopPropagation()" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',\'assignee\',this.value,\''+dueId+'\')" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:white;width:66px">'+
+      '<td style="padding:6px 4px;overflow:hidden">'+
+        '<select onclick="event.stopPropagation()" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',\'assignee\',this.value,\''+dueId+'\')" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:white;width:100%">'+
           '<option value="">—</option>'+
           ASSIGNEES.map(a=>'<option value="'+a.email+'"'+(a.email===assigneeVal?' selected':'')+'>'+a.name+'</option>').join('')+
         '</select>'+
       '</td>'+
       // Account
-      '<td style="padding:6px 6px;white-space:nowrap"><span style="font-size:9px;padding:2px 6px;border-radius:10px;background:#e8f0fe;color:#1a73e8;font-weight:700">'+shortAcc+'</span></td>'+
+      '<td style="padding:6px 4px;overflow:hidden;white-space:nowrap"><span style="font-size:9px;padding:2px 5px;border-radius:10px;background:#e8f0fe;color:#1a73e8;font-weight:700">'+shortAcc+'</span></td>'+
       // Sender
-      '<td style="padding:6px 8px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555;font-size:11px">'+e.from+'</td>'+
+      '<td style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555;font-size:11px">'+e.from+'</td>'+
       // Category — color only (red/yellow/grey), no text
-      '<td style="padding:6px 4px;text-align:center" title="'+(e.category||'')+'"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+(CATEGORY_DOT[e.category]||'#ccc')+'"></span></td>'+
+      '<td style="padding:6px 2px;text-align:center;overflow:hidden" title="'+(e.category||'')+'"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+(CATEGORY_DOT[e.category]||'#ccc')+'"></span></td>'+
       // Status
-      '<td style="padding:6px 4px;white-space:nowrap">'+
-        '<select onclick="event.stopPropagation()" onchange="setEmailStatus(event,\''+account+'\',\''+(e.msgId||'')+'\','+i+')" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:'+sb.bg+';color:'+sb.text+';font-weight:600;width:78px">'+
+      '<td style="padding:6px 4px;overflow:hidden">'+
+        '<select onclick="event.stopPropagation()" onchange="setEmailStatus(event,\''+account+'\',\''+(e.msgId||'')+'\','+i+')" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:'+sb.bg+';color:'+sb.text+';font-weight:600;width:100%">'+
           EMAIL_STATUSES.map(s=>'<option value="'+s+'"'+(s===st?' selected':'')+'>'+s+'</option>').join('')+
         '</select>'+
       '</td>'+
-      // Summary
-      '<td style="padding:7px 12px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#222">'+e.subject+'</td>';
+      // Summary — the one column with no fixed <col> width, so table-layout:fixed gives it all the leftover space
+      '<td style="padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#222">'+e.subject+'</td>';
     tbody.appendChild(tr);
   });
   // update status bar
