@@ -18,25 +18,9 @@
     header h1 { font-size: 18px; }
     header div { display: flex; gap: 16px; align-items: center; }
     header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
-    .toolbar {
-      background: white; border-bottom: 1px solid #e0e0e0;
-      padding: 10px 24px; display: flex; align-items: center; gap: 12px;
-      flex-wrap: wrap;
-    }
-    .toolbar label { font-size: 12px; font-weight: 600; color: #555; }
-    .toolbar select { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; }
-    #last-updated { font-size: 11px; color: #999; margin-left: auto; }
     #content { max-width: 1500px; margin: 24px auto; padding: 0 24px; display:flex; gap:20px; align-items:flex-start; }
     #left-col { width: 320px; flex-shrink: 0; position: sticky; top: 20px; }
     #right-col { flex: 1; min-width: 0; }
-    #digest-frame {
-      background: white; border-radius: 10px; padding: 24px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    #empty-state {
-      text-align: center; padding: 80px 24px; color: #666;
-    }
-    #empty-state .icon { font-size: 48px; margin-bottom: 16px; }
   </style>
 </head>
 <body>
@@ -52,14 +36,6 @@
     <a href="/logout">Logout</a>
   </div>
 </header>
-
-<div class="toolbar">
-  <label>เลือก Digest:</label>
-  <select id="digest-select"><option value="">Loading...</option></select>
-  <span id="last-updated"></span>
-  <span id="next-refresh" style="margin-left:auto;font-size:11px;color:#999"></span>
-  <button onclick="refresh()" style="padding:5px 14px;background:#1a73e8;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">🔄 Reload</button>
-</div>
 
 <div id="content">
   <!-- left column: account summary table + calendar heatmap -->
@@ -94,13 +70,6 @@
 
   <!-- right column: only email dashboard -->
   <div id="right-col">
-  <div id="digest-frame" style="display:none">
-    <div id="empty-state">
-      <div class="icon">📭</div>
-      <p>ยังไม่มี digest — จะแสดงเมื่อ digest รันครั้งถัดไป</p>
-    </div>
-  </div>
-
   <!-- email dashboard — always visible, auto-loads below cards -->
   <div id="email-dashboard" style="margin-top:20px">
     <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
@@ -131,6 +100,10 @@
             <span id="db-scoping"    style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;background:rgba(255,255,255,0.2)">🔍 Scoping 0</span>
             <span id="db-done"       style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;background:rgba(0,200,100,0.35)">✅ Done 0</span>
           </div>
+        </div>
+        <div style="margin-top:6px;font-size:11px;opacity:0.85;display:flex;gap:12px">
+          <span id="last-updated"></span>
+          <span id="next-refresh"></span>
         </div>
       </div>
       <!-- email table -->
@@ -176,8 +149,6 @@
 </div>
 
 <script>
-const sel = document.getElementById('digest-select');
-
 const CAT_BORDER = {'🔴 ต้อง Action':'#e53935','🟡 ควรรับรู้':'#f9ab00','⚪ แจ้งเตือนอัตโนมัติ':'#9aa0a6'};
 const CAT_TAG    = {'🔴 ต้อง Action':{bg:'#e53935',text:'white'},'🟡 ควรรับรู้':{bg:'#f9ab00',text:'#333'},'⚪ แจ้งเตือนอัตโนมัติ':{bg:'#9aa0a6',text:'white'}};
 
@@ -188,14 +159,13 @@ let _assignments = {}; // { msgId: assignmentObj }
 let _emailStatuses = {}; // { msgId: status string }
 let _dashAccount = ''; // currently selected dashboard account tab
 
-const EMAIL_STATUSES = ['To Do', 'Scoping', 'Investigating', 'Replying', 'Done', 'Ignore'];
+const EMAIL_STATUSES = ['To Do', 'Scoping', 'Processing', 'Ignore', 'Done'];
 const STATUS_BADGE = {
-  'To Do':        { bg: '#e8f0fe', text: '#1a73e8' },
-  'Scoping':      { bg: '#e8f5e9', text: '#34a853' },
-  'Investigating':{ bg: '#fff3e0', text: '#e65100' },
-  'Replying':     { bg: '#fce4ec', text: '#c62828' },
-  'Done':         { bg: '#f1f3f4', text: '#80868b' },
-  'Ignore':       { bg: '#f1f3f4', text: '#bdbdbd' },
+  'To Do':      { bg: '#e8f0fe', text: '#1a73e8' },
+  'Scoping':    { bg: '#e8f5e9', text: '#34a853' },
+  'Processing': { bg: '#fff3e0', text: '#e65100' },
+  'Ignore':     { bg: '#f1f3f4', text: '#bdbdbd' },
+  'Done':       { bg: '#f1f3f4', text: '#80868b' },
 };
 // Category dot color (red/yellow/grey) for the new Category column.
 const CATEGORY_DOT = {
@@ -280,7 +250,7 @@ function renderDashboard() {
   const tbody = document.getElementById('dm-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  const counts = { 'To Do': 0, 'Scoping': 0, 'Investigating': 0, 'Replying': 0, 'Done': 0, 'Ignore': 0 };
+  const counts = { 'To Do': 0, 'Scoping': 0, 'Processing': 0, 'Ignore': 0, 'Done': 0 };
 
   // flatten all accounts (optionally filtered)
   const rows = [];
@@ -376,9 +346,8 @@ function renderDashboard() {
     tbody.appendChild(tr);
   });
   // update status bar
-  const inProgress = counts['Scoping'] + counts['Investigating'] + counts['Replying'];
   document.getElementById('db-unread').textContent    = '📥 To Do ' + counts['To Do'];
-  document.getElementById('db-processing').textContent= '⚙ In Progress ' + inProgress;
+  document.getElementById('db-processing').textContent= '⚙ Processing ' + counts['Processing'];
   document.getElementById('db-scoping').textContent   = '🔍 Scoping ' + counts['Scoping'];
   document.getElementById('db-done').textContent      = '✅ Done ' + counts['Done'];
 }
@@ -417,23 +386,6 @@ async function saveTblField(account, msgId, rowIdx, field, value, dueId) {
   }).catch(console.error);
 }
 
-async function loadDigest(index) {
-  const res = await fetch(`/api/digest/${index}`);
-  if (!res.ok) return;
-  const data = await res.json();
-
-  document.getElementById('last-updated').textContent =
-    'อัปเดต: ' + new Date(data.sentAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
-
-  // server already filtered emailsByAccount — render from structured data
-  const byAccount = data.emailsByAccount || {};
-  const accounts  = data.accounts || Object.keys(byAccount);
-  _detailData = accounts.map(acc => ({ account: acc, emails: byAccount[acc] || [] }));
-
-  renderSummary(data.title, _detailData);
-}
-
-const SHARED_ACCOUNTS = ['support@muze.co.th','support-mea@muze.co.th','support-tvn@muze.co.th','nissan-ma@muze.co.th','ktc@muze.co.th'];
 
 function renderSummary(title, accountList) {
   _lastTitle = title || _lastTitle;
@@ -487,89 +439,6 @@ function renderCard(d, account) {
 </div>`;
 }
 
-// ---- modal ----
-function renderEmailRow(account, e, i) {
-  const border   = CAT_BORDER[e.category] || '#9aa0a6';
-  const tag      = CAT_TAG[e.category]    || {bg:'#9aa0a6',text:'white'};
-  const initials = (e.from||'?')[0].toUpperCase();
-  const status   = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
-  const sb       = STATUS_BADGE[status] || STATUS_BADGE['To Do'];
-  const div = document.createElement('div');
-  div.id = 'dm-row-'+i;
-  div.style.cssText = 'padding:10px 14px;border-left:3px solid '+border+';border-bottom:1px solid #f0f0f0;cursor:pointer;display:flex;gap:10px;align-items:flex-start';
-  div.innerHTML =
-    '<div style="width:32px;height:32px;border-radius:50%;background:#1a73e8;color:white;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+initials+'</div>'+
-    '<div style="flex:1;min-width:0">'+
-      '<div style="display:flex;justify-content:space-between;gap:4px">'+
-        '<div style="font-weight:600;font-size:12px;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">'+e.from+'</div>'+
-        '<div style="font-size:10px;color:'+(status!=='To Do'?'#34a853':'#aaa')+';font-weight:'+(status!=='To Do'?'700':'400')+';white-space:nowrap">'+fmtReceived(e.date)+'</div>'+
-      '</div>'+
-      '<div style="font-size:12px;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px">'+e.subject+(e.carried?' 🔁':'')+'</div>'+
-      '<div style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">'+(e.snippet||'').substring(0,80)+'…</div>'+
-      '<div style="display:flex;gap:6px;margin-top:5px;align-items:center">'+
-        '<span style="background:'+tag.bg+';color:'+tag.text+';font-size:9px;font-weight:600;padding:1px 6px;border-radius:8px">'+e.category.split(' ')[0]+'</span>'+
-        '<select onclick="event.stopPropagation()" onchange="setEmailStatus(event,\''+account+'\',\''+(e.msgId||'')+'\','+i+')" style="font-size:9px;padding:1px 4px;border-radius:6px;border:1px solid #ddd;background:'+sb.bg+';color:'+sb.text+';font-weight:600;cursor:pointer">'+
-          EMAIL_STATUSES.map(s => '<option value="'+s+'"'+(s===status?' selected':'')+'>'+s+'</option>').join('')+
-        '</select>'+
-      '</div>'+
-    '</div>';
-  div.onclick = function() { showEmailDetail(account, i); };
-  return div;
-}
-
-function closeDashboard() {
-  document.getElementById('email-dashboard').style.display = 'none';
-  document.getElementById('digest-frame').style.display = '';
-}
-
-function openDetail(account) {
-  const d = _detailData.find(function(x) { return x.account === account; });
-  if (!d) return;
-  const emails = d.emails || [];
-  document.getElementById('dm-title').textContent = '📧 ' + d.account + ' (' + emails.length + ' emails)';
-  const list = document.getElementById('dm-list');
-  list.innerHTML = '';
-
-  // Group: Unread = To Do, others = in-progress statuses
-  const unread = [], inProgress = [];
-  emails.forEach(function(e, i) {
-    const st = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
-    if (st === 'To Do') unread.push({ e, i });
-    else inProgress.push({ e, i, st });
-  });
-
-  function addGroupHeader(label) {
-    const h = document.createElement('div');
-    h.style.cssText = 'padding:8px 14px 4px;font-size:10px;font-weight:700;color:#888;letter-spacing:0.08em;text-transform:uppercase;background:#f8f9fa;border-bottom:1px solid #e0e0e0';
-    h.textContent = label;
-    list.appendChild(h);
-  }
-
-  if (unread.length) {
-    addGroupHeader('📥 Unread (' + unread.length + ')');
-    unread.forEach(function(item) { list.appendChild(renderEmailRow(account, item.e, item.i)); });
-  }
-  const statusGroups = {};
-  inProgress.forEach(function(item) {
-    if (!statusGroups[item.st]) statusGroups[item.st] = [];
-    statusGroups[item.st].push(item);
-  });
-  Object.entries(statusGroups).forEach(function([st, items]) {
-    addGroupHeader(st + ' (' + items.length + ')');
-    items.forEach(function(item) { list.appendChild(renderEmailRow(account, item.e, item.i)); });
-  });
-
-  if (!emails.length) {
-    list.innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:12px">ไม่มี email</div>';
-  }
-
-  renderDashboard(account, emails);
-  // show inline dashboard, hide account cards
-  document.getElementById('digest-frame').style.display = 'none';
-  document.getElementById('email-dashboard').style.display = 'block';
-  document.getElementById('email-dashboard').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 async function setEmailStatus(event, account, msgId, rowIdx) {
   const status = event.target.value;
   if (msgId) {
@@ -585,8 +454,8 @@ async function setEmailStatus(event, account, msgId, rowIdx) {
       body: JSON.stringify({ msgId, account, status }),
     }).catch(console.error);
   }
-  // re-render list with new grouping
-  openDetail(account);
+  // re-render the dashboard so the status-bar counts and sort reflect the change
+  renderDashboard();
 }
 
 function showEmailDetail(account, emailIdx) {
@@ -758,8 +627,6 @@ async function loadEmailStatuses(account) {
 
 function closeDetail() { document.getElementById('digest-overlay').style.display='none'; }
 
-let _currentIndex = 0;
-
 async function loadLive() {
   try {
     const res = await fetch('/api/digest/live');
@@ -801,24 +668,6 @@ async function pullNow() {
   }
 }
 
-async function refresh() {
-  const res = await fetch('/api/digest/list');
-  const list = await res.json();
-  if (!list.length) return;
-
-  // rebuild dropdown
-  sel.innerHTML = list.map(d => {
-    const dt = new Date(d.uploadedAt).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
-    return `<option value="${d.index}">${dt}</option>`;
-  }).join('');
-  sel.value = _currentIndex;
-
-  await loadDigest(_currentIndex);
-
-  // update countdown
-  startCountdown();
-}
-
 let _countdownTimer = null;
 function startCountdown() {
   clearInterval(_countdownTimer);
@@ -836,25 +685,6 @@ function startCountdown() {
       el.textContent = `รีเฟรชใน ${secs}s`;
     }
   }, 1000);
-}
-
-async function loadList() {
-  const res = await fetch('/api/digest/list');
-  const list = await res.json();
-  if (!list.length) {
-    sel.innerHTML = '<option>ยังไม่มีข้อมูล</option>';
-    return;
-  }
-  sel.innerHTML = list.map(d => {
-    const dt = new Date(d.uploadedAt).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
-    return `<option value="${d.index}">${dt}</option>`;
-  }).join('');
-  sel.addEventListener('change', () => {
-    _currentIndex = parseInt(sel.value);
-    loadDigest(_currentIndex);
-  });
-  await loadDigest(0);
-  startCountdown();
 }
 
 // Single-line "next important day" shown under the Email Volume header —
@@ -1026,7 +856,7 @@ async function heatmapNext() {
   if (t) t.value = _filterDateTo;
 })();
 
-loadList();
+startCountdown();
 loadLive();
 loadAssignments();
 loadEmailStatuses(NISSAN_ACCOUNT);
