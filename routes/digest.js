@@ -96,10 +96,12 @@ const SHARED_ACCOUNTS = ['support@muze.co.th','support-mea@muze.co.th','support-
 
 // POST /api/digest/live — store live unread counts + email list (no SSO, secret-protected)
 //
-// Carries forward any 🔴 ต้อง Action email that drops out of the new fetch
-// (read on Gmail, aged past maxResults, etc.) as long as its status is still
-// not Done/Ignore — otherwise an action item a user hasn't finished with yet
-// could silently vanish from the dashboard just because someone opened it.
+// Carries forward ANY email that drops out of the new fetch (read on Gmail,
+// aged past maxResults, etc.) as long as its status isn't Done/Ignore yet —
+// otherwise an item a user hasn't finished triaging could silently vanish
+// from the dashboard just because someone opened it or a day rolled over.
+// "Ignore" is the intended way to stop carrying something that never needed
+// action in the first place.
 router.post('/api/digest/live', async (req, res) => {
   const secret = req.headers['x-digest-secret'];
   if (secret !== DIGEST_SECRET) return res.status(403).json({ error: 'Forbidden' });
@@ -113,9 +115,7 @@ router.post('/api/digest/live', async (req, res) => {
       const newEmails = entry.emails || [];
       const newIds = new Set(newEmails.map(e => e.msgId));
       const oldEmails = existing?.counts?.[acc]?.emails || [];
-      const candidates = oldEmails.filter(e =>
-        e.category === '🔴 ต้อง Action' && e.msgId && !newIds.has(e.msgId)
-      );
+      const candidates = oldEmails.filter(e => e.msgId && !newIds.has(e.msgId));
 
       const carried = (await Promise.all(candidates.map(async e => {
         const statusData = await drive.readFile(statusKey(acc, e.msgId)).catch(() => null);
@@ -196,22 +196,42 @@ router.post('/api/digest/train', async (req, res) => {
   }
 });
 
-// POST /api/digest/emailstatus — save per-email status
+// POST /api/digest/emailstatus — save per-email status, tracking resolution timing:
+// inProgressSince is stamped the moment status first leaves "To Do", resolvedAt
+// when it reaches "Done". Moving back to "To Do" resets both — a genuine restart,
+// not a continuation. Reopening from "Done" to anything else clears resolvedAt
+// only, since the item is no longer considered resolved but has been in progress
+// the whole time.
 router.post('/api/digest/emailstatus', async (req, res) => {
   try {
     const { msgId, account, status } = req.body;
     if (!msgId || !account) return res.status(400).json({ error: 'msgId and account required' });
     const key = statusKey(account, msgId);
     const previous = await drive.readFile(key).catch(() => null);
-    await drive.writeFile(key, { msgId, account, status, updatedAt: new Date().toISOString(), updatedBy: req.user?.email });
-    appendLog({ type: 'status', by: req.user?.email, account, msgId, from: previous?.status || 'To Do', to: status });
+    const previousStatus = previous?.status || 'To Do';
+
+    let inProgressSince = previous?.inProgressSince || null;
+    let resolvedAt = previous?.resolvedAt || null;
+    if (status === 'To Do') {
+      inProgressSince = null;
+      resolvedAt = null;
+    } else {
+      if (previousStatus === 'To Do' && !inProgressSince) inProgressSince = new Date().toISOString();
+      resolvedAt = status === 'Done' ? new Date().toISOString() : null;
+    }
+
+    await drive.writeFile(key, {
+      msgId, account, status, inProgressSince, resolvedAt,
+      updatedAt: new Date().toISOString(), updatedBy: req.user?.email,
+    });
+    appendLog({ type: 'status', by: req.user?.email, account, msgId, from: previousStatus, to: status });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/digest/emailstatus — get all email statuses for an account
+// GET /api/digest/emailstatus — get all email statuses (+ resolution timing) for an account
 router.get('/api/digest/emailstatus', async (req, res) => {
   try {
     const account = req.query.account;
@@ -219,9 +239,14 @@ router.get('/api/digest/emailstatus', async (req, res) => {
     const prefix = `emailstatus_${account.replace(/@|\./g, '_')}_`;
     const files = await drive.listFiles(prefix);
     const statuses = await Promise.all(files.map(f => drive.readFile(f.name).catch(() => null)));
-    const map = {};
-    statuses.filter(Boolean).forEach(s => { map[s.msgId] = s.status; });
-    res.json({ statuses: map });
+    const map = {}, timings = {};
+    statuses.filter(Boolean).forEach(s => {
+      map[s.msgId] = s.status;
+      if (s.inProgressSince || s.resolvedAt) {
+        timings[s.msgId] = { inProgressSince: s.inProgressSince || null, resolvedAt: s.resolvedAt || null };
+      }
+    });
+    res.json({ statuses: map, timings });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

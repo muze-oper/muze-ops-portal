@@ -118,11 +118,12 @@
               <th style="padding:10px 14px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Sender</th>
               <th style="padding:10px 8px;text-align:center;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Category</th>
               <th style="padding:10px 14px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Status</th>
+              <th style="padding:10px 14px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Resolution Time</th>
               <th style="padding:10px 14px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0">Summary</th>
             </tr>
           </thead>
           <tbody id="dm-tbody">
-            <tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">กำลังโหลด…</td></tr>
+            <tr><td colspan="9" style="padding:32px;text-align:center;color:#aaa;font-size:13px">กำลังโหลด…</td></tr>
           </tbody>
         </table>
       </div>
@@ -159,6 +160,7 @@ let _lastTitle = '';
 let _lastUpdatedAt = null; // raw ISO timestamp from the live payload, for reuse in the Accounts header
 let _assignments = {}; // { msgId: assignmentObj }
 let _emailStatuses = {}; // { msgId: status string }
+let _emailTimings = {}; // { msgId: { inProgressSince, resolvedAt } }
 let _dashAccount = ''; // currently selected dashboard account tab
 
 const EMAIL_STATUSES = ['To Do', 'Scoping', 'Processing', 'Ignore', 'Done'];
@@ -225,6 +227,23 @@ function fmtReceived(dateStr) {
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}  ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Elapsed time between two ISO timestamps, compact ("2d 4h", "45m"). Used for
+// the Resolution Time column — start is when status first left "To Do", end
+// is when it reached "Done" (or now, if still open).
+function fmtDuration(startIso, endIso) {
+  if (!startIso) return '—';
+  const start = new Date(startIso);
+  const end = endIso ? new Date(endIso) : new Date();
+  let mins = Math.max(0, Math.floor((end - start) / 60000));
+  const days = Math.floor(mins / 1440); mins -= days * 1440;
+  const hours = Math.floor(mins / 60); mins -= hours * 60;
+  const parts = [];
+  if (days) parts.push(days + 'd');
+  if (hours) parts.push(hours + 'h');
+  if (!days && mins) parts.push(mins + 'm');
+  return parts.length ? parts.join(' ') : '0m';
+}
+
 function populateFilter() {
   const sel = document.getElementById('db-filter');
   if (!sel) return;
@@ -281,12 +300,12 @@ function renderDashboard() {
   });
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
     return;
   }
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
     document.getElementById('db-unread').textContent    = '📥 Unread 0';
     document.getElementById('db-processing').textContent= '⚙ Processing 0';
     document.getElementById('db-scoping').textContent   = '🔍 Scoping 0';
@@ -317,12 +336,24 @@ function renderDashboard() {
     const dueVal = asg?.dueDate || emailInboxDue(e.date);
     const dueId  = 'tbl-due-'+account.replace(/[@.]/g,'_')+'-'+i;
     const shortAcc = account.split('@')[0];
+    const inProgress = st !== 'To Do';
     const isPast = dueVal && new Date(dueVal) < new Date();
-    const dueStyle = 'font-size:11px;padding:2px 5px;border:1px solid '+(isPast?'#e53935':'#ddd')+';border-radius:5px;width:152px;color:'+(isPast?'#e53935':'inherit')+';font-weight:'+(isPast?'700':'400');
+    // in-progress takes visual priority over overdue — green means "someone's
+    // on it", which matters more than the deadline once that's true
+    const dueColor  = inProgress ? '#34a853' : (isPast ? '#e53935' : '#333');
+    const dueWeight = (inProgress || isPast) ? '700' : '400';
+    const dueBorder = (isPast && !inProgress) ? '#e53935' : '#ddd';
+    const timing = e.msgId ? _emailTimings[e.msgId] : null;
     tr.innerHTML =
-      // Due
+      // Due — compact formatted text with a fully transparent native
+      // datetime-local input overlaid on top, so clicking anywhere on the
+      // text opens the real picker without a native input's own locale-
+      // formatted value ever being shown on screen.
       '<td style="padding:7px 8px;white-space:nowrap">'+
-        '<input id="'+dueId+'" type="datetime-local" onclick="event.stopPropagation()" value="'+dueVal+'" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',\'due\',this.value,\'\')" style="'+dueStyle+'">'+
+        '<div style="position:relative;display:inline-block;width:140px" onclick="event.stopPropagation()">'+
+          '<input id="'+dueId+'" type="datetime-local" value="'+dueVal+'" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',\'due\',this.value,\'\')" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0">'+
+          '<div style="pointer-events:none;font-size:11px;font-weight:'+dueWeight+';color:'+dueColor+';border:1px solid '+dueBorder+';border-radius:5px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(dueVal?fmtReceived(dueVal):'—')+'</div>'+
+        '</div>'+
       '</td>'+
       // Assignee
       '<td style="padding:7px 8px;white-space:nowrap">'+
@@ -343,6 +374,8 @@ function renderDashboard() {
           EMAIL_STATUSES.map(s=>'<option value="'+s+'"'+(s===st?' selected':'')+'>'+s+'</option>').join('')+
         '</select>'+
       '</td>'+
+      // Resolution Time — elapsed since status first left "To Do"
+      '<td style="padding:7px 8px;white-space:nowrap;font-size:11px;color:'+(timing?.resolvedAt?'#34a853':'#888')+';font-weight:'+(timing?.resolvedAt?'700':'400')+'">'+fmtDuration(timing?.inProgressSince, timing?.resolvedAt)+'</td>'+
       // Summary
       '<td style="padding:7px 12px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#222">'+e.subject+'</td>';
     tbody.appendChild(tr);
@@ -643,7 +676,20 @@ async function loadEmailStatuses(account) {
     if (!res.ok) return;
     const data = await res.json();
     Object.assign(_emailStatuses, data.statuses || {});
+    Object.assign(_emailTimings, data.timings || {});
   } catch(e) { /* ignore */ }
+}
+
+// _emailStatuses/_emailTimings are keyed by msgId only (not per-account), but
+// loadEmailStatuses() fetches one account at a time — call this once accounts
+// are known so every account's status/timing loads on page open, not just
+// nissan-ma's. Without this, any other account's saved status silently
+// reverted to "To Do" on every reload despite being correct server-side.
+// Re-renders once loaded, since the dashboard/account table may already have
+// rendered with whatever was cached from a previous tick.
+async function loadAllEmailStatuses() {
+  await Promise.all(_detailData.map(d => loadEmailStatuses(d.account)));
+  renderDashboard();
 }
 
 function closeDetail() { document.getElementById('digest-overlay').style.display='none'; }
@@ -673,6 +719,7 @@ async function loadLive() {
       const ts = data.updatedAt ? new Date(data.updatedAt).toLocaleString('th-TH', { timeStyle: 'short' }) : '';
       document.getElementById('last-updated').textContent = `อัปเดต: ${ts} · live`;
       renderAcctMeta();
+      loadAllEmailStatuses();
     }
   } catch { /* silent */ }
 }
@@ -880,9 +927,8 @@ async function heatmapNext() {
 })();
 
 startCountdown();
-loadLive();
+loadLive(); // also triggers loadAllEmailStatuses() once accounts are known
 loadAssignments();
-loadEmailStatuses(NISSAN_ACCOUNT);
 loadHeatmap();
 </script>
 </body>
