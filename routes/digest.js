@@ -241,7 +241,12 @@ router.get('/api/digest/emailstatus', async (req, res) => {
     if (!account) return res.status(400).json({ error: 'account required' });
     const prefix = `emailstatus_${account.replace(/@|\./g, '_')}_`;
     const files = await drive.listFiles(prefix);
-    const statuses = await Promise.all(files.map(f => drive.readFile(f.name).catch(() => null)));
+    // One shared access token + read-by-id (listFiles already returns id) —
+    // drive.readFile(name) does its OWN token refresh + a redundant name
+    // search per call, which measured ~1-2s for an account with a handful of
+    // files (mostly token-refresh overhead, not file count).
+    const accessToken = await drive.getAdminAccessToken();
+    const statuses = await Promise.all(files.map(f => drive.readFileById(f.id, accessToken).catch(() => null)));
     const map = {}, timings = {};
     statuses.filter(Boolean).forEach(s => {
       map[s.msgId] = s.status;
@@ -329,7 +334,10 @@ router.get('/api/digest/assignments', async (req, res) => {
     const account = req.query.account || 'nissan-ma@muze.co.th';
     const prefix = `assignment_${account.replace(/@|\./g, '_')}_`;
     const files = await drive.listFiles(prefix);
-    const assignments = await Promise.all(files.map(f => drive.readFile(f.name).catch(() => null)));
+    // Same fix as emailstatus: one shared token + read-by-id instead of each
+    // read doing its own token refresh + redundant name search.
+    const accessToken = await drive.getAdminAccessToken();
+    const assignments = await Promise.all(files.map(f => drive.readFileById(f.id, accessToken).catch(() => null)));
     res.json({ assignments: assignments.filter(Boolean), assignees: ASSIGNEES, expectedActions: EXPECTED_ACTIONS });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -339,6 +347,27 @@ router.get('/api/digest/assignments', async (req, res) => {
 // GET /api/digest/heatmap — daily email counts from snapshots
 router.get('/api/digest/heatmap', async (req, res) => {
   try {
+    const { from, to } = req.query;
+    const daily = {};
+
+    // Cached exact daily totals (see /api/digest/daily-totals) — read these
+    // FIRST so the dates they already cover can be excluded before doing any
+    // expensive per-snapshot-file work below, not just overridden after the
+    // fact. Computing-then-discarding was wasted work on every single
+    // request for every already-backfilled date in the window, and was the
+    // actual reason this endpoint got slower/more inconsistent over time as
+    // more days got backfilled — not the file count itself.
+    const cached = await drive.readFile('dailytotals.json').catch(() => null);
+    const cachedDates = new Set();
+    if (cached?.totals) {
+      for (const [date, total] of Object.entries(cached.totals)) {
+        if ((!from || date >= from) && (!to || date <= to)) {
+          daily[date] = total;
+          cachedDates.add(date);
+        }
+      }
+    }
+
     const files = await drive.listFiles(SNAPSHOT_PREFIX);
     let withDates = files
       .map(f => ({ f, date: (f.name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] })) // digestsnapshot_2026-08-02T...
@@ -347,49 +376,40 @@ router.get('/api/digest/heatmap', async (req, res) => {
     // The calendar only ever shows one 6-week grid at a time — restrict to
     // that window (free: filename-only, no Drive call) instead of reading
     // every snapshot ever taken. Falls back to "all" if the caller omits
-    // from/to, but the frontend always sends them.
-    const { from, to } = req.query;
+    // from/to, but the frontend always sends them. Also skip anything the
+    // cache above already answered — only un-backfilled dates (normally
+    // just today) still need the per-snapshot summing.
     if (from) withDates = withDates.filter(x => x.date >= from);
     if (to) withDates = withDates.filter(x => x.date <= to);
+    withDates = withDates.filter(x => !cachedDates.has(x.date));
 
     // One access token reused across every read, and reads run in bounded
     // parallel batches instead of one-at-a-time — with 300+ snapshot files,
     // sequential drive.readFile() (each doing its OWN token refresh + a
     // name-search lookup before the actual read) took 900+ round trips and
     // reliably timed out the serverless function, leaving the heatmap blank.
-    const accessToken = await drive.getAdminAccessToken();
-    const CONCURRENCY = 20;
-    const daily = {};
-    for (let i = 0; i < withDates.length; i += CONCURRENCY) {
-      const batch = withDates.slice(i, i + CONCURRENCY);
-      const results = await Promise.all(batch.map(async ({ f, date }) => {
-        try {
-          const data = await drive.readFileById(f.id, accessToken);
-          let count = 0;
-          if (data.emailsByAccount) {
-            for (const emails of Object.values(data.emailsByAccount)) count += (emails || []).length;
-          } else if (data.accounts) {
-            count = data.accounts.length;
+    if (withDates.length) {
+      const accessToken = await drive.getAdminAccessToken();
+      const CONCURRENCY = 20;
+      for (let i = 0; i < withDates.length; i += CONCURRENCY) {
+        const batch = withDates.slice(i, i + CONCURRENCY);
+        const results = await Promise.all(batch.map(async ({ f, date }) => {
+          try {
+            const data = await drive.readFileById(f.id, accessToken);
+            let count = 0;
+            if (data.emailsByAccount) {
+              for (const emails of Object.values(data.emailsByAccount)) count += (emails || []).length;
+            } else if (data.accounts) {
+              count = data.accounts.length;
+            }
+            return { date, count };
+          } catch {
+            return null;
           }
-          return { date, count };
-        } catch {
-          return null;
-        }
-      }));
-      results.filter(Boolean).forEach(({ date, count }) => {
-        daily[date] = (daily[date] || 0) + count;
-      });
-    }
-
-    // Cached exact daily totals (see /api/digest/daily-totals) override the
-    // snapshot-summing estimate above wherever a date has been backfilled —
-    // summing every same-day snapshot double-counts any email that was
-    // still present the next time live.js ran, so it was never a real
-    // volume number, just a rough proxy for un-backfilled days.
-    const cached = await drive.readFile('dailytotals.json').catch(() => null);
-    if (cached?.totals) {
-      for (const [date, total] of Object.entries(cached.totals)) {
-        if ((!from || date >= from) && (!to || date <= to)) daily[date] = total;
+        }));
+        results.filter(Boolean).forEach(({ date, count }) => {
+          daily[date] = (daily[date] || 0) + count;
+        });
       }
     }
 
