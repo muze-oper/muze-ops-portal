@@ -96,12 +96,13 @@ const SHARED_ACCOUNTS = ['support@muze.co.th','support-mea@muze.co.th','support-
 
 // POST /api/digest/live — store live unread counts + email list (no SSO, secret-protected)
 //
-// Carries forward ANY email that drops out of the new fetch (read on Gmail,
-// aged past maxResults, etc.) as long as its status isn't Done/Ignore yet —
-// otherwise an item a user hasn't finished triaging could silently vanish
-// from the dashboard just because someone opened it or a day rolled over.
-// "Ignore" is the intended way to stop carrying something that never needed
-// action in the first place.
+// Carries forward any 🔴/🟡 email that drops out of the new fetch (read on
+// Gmail, aged past maxResults, etc.) as long as its status isn't Done/Ignore
+// yet — otherwise an item a user hasn't finished triaging could silently
+// vanish from the dashboard just because someone opened it or a day rolled
+// over. ⚪ แจ้งเตือนอัตโนมัติ is excluded entirely — automated notifications
+// don't need triage, so they should just disappear normally instead of
+// piling up. "Ignore" remains the escape valve for the other two categories.
 router.post('/api/digest/live', async (req, res) => {
   const secret = req.headers['x-digest-secret'];
   if (secret !== DIGEST_SECRET) return res.status(403).json({ error: 'Forbidden' });
@@ -115,7 +116,9 @@ router.post('/api/digest/live', async (req, res) => {
       const newEmails = entry.emails || [];
       const newIds = new Set(newEmails.map(e => e.msgId));
       const oldEmails = existing?.counts?.[acc]?.emails || [];
-      const candidates = oldEmails.filter(e => e.msgId && !newIds.has(e.msgId));
+      const candidates = oldEmails.filter(e =>
+        e.msgId && !newIds.has(e.msgId) && e.category !== '⚪ แจ้งเตือนอัตโนมัติ'
+      );
 
       const carried = (await Promise.all(candidates.map(async e => {
         const statusData = await drive.readFile(statusKey(acc, e.msgId)).catch(() => null);
