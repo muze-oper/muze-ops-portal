@@ -125,7 +125,7 @@
           const when = date
             ? new Date(date).toLocaleDateString('th-TH', { dateStyle: 'medium' })
             : null;
-          const parts = [creator ? `Created by ${creator}` : null, when ? `Latest update: ${when}` : null].filter(Boolean);
+          const parts = [creator ? `Created by ${creator}` : null, when ? `Last update: ${when}` : null].filter(Boolean);
           if (parts.length) card.querySelector('.card-meta').innerHTML = parts.map(escapeHtml).join('<br>');
         });
       })
