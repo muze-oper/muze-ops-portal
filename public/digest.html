@@ -142,12 +142,13 @@
               <th style="padding:10px 14px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Assignee</th>
               <th style="padding:10px 14px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Account</th>
               <th style="padding:10px 14px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Sender</th>
+              <th style="padding:10px 8px;text-align:center;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Category</th>
               <th style="padding:10px 14px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0;white-space:nowrap">Status</th>
               <th style="padding:10px 14px;text-align:left;color:#555;font-weight:700;border-bottom:2px solid #e0e0e0">Summary</th>
             </tr>
           </thead>
           <tbody id="dm-tbody">
-            <tr><td colspan="7" style="padding:32px;text-align:center;color:#aaa;font-size:13px">กำลังโหลด…</td></tr>
+            <tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">กำลังโหลด…</td></tr>
           </tbody>
         </table>
       </div>
@@ -187,13 +188,20 @@ let _assignments = {}; // { msgId: assignmentObj }
 let _emailStatuses = {}; // { msgId: status string }
 let _dashAccount = ''; // currently selected dashboard account tab
 
-const EMAIL_STATUSES = ['To Do', 'Scoping', 'Investigating', 'Replying', 'Done'];
+const EMAIL_STATUSES = ['To Do', 'Scoping', 'Investigating', 'Replying', 'Done', 'Ignore'];
 const STATUS_BADGE = {
   'To Do':        { bg: '#e8f0fe', text: '#1a73e8' },
   'Scoping':      { bg: '#e8f5e9', text: '#34a853' },
   'Investigating':{ bg: '#fff3e0', text: '#e65100' },
   'Replying':     { bg: '#fce4ec', text: '#c62828' },
   'Done':         { bg: '#f1f3f4', text: '#80868b' },
+  'Ignore':       { bg: '#f1f3f4', text: '#bdbdbd' },
+};
+// Category dot color (red/yellow/grey) for the new Category column.
+const CATEGORY_DOT = {
+  '🔴 ต้อง Action': '#e53935',
+  '🟡 ควรรับรู้': '#f9ab00',
+  '⚪ แจ้งเตือนอัตโนมัติ': '#9aa0a6',
 };
 
 const NISSAN_ACCOUNT = 'nissan-ma@muze.co.th';
@@ -230,6 +238,21 @@ function emailInboxDue(dateStr) {
   } catch(e) { return ''; }
 }
 
+// "Date Received" display format — e.g. "Fri 13 Aug 26  16:04". e.date is
+// stored by live.js as a compact string ("03Aug26 16:04") that Date() parses
+// fine but isn't meant for display; this reformats it without touching the
+// stored value (emailInboxDue()/date-range filtering already depend on the
+// original format being parseable).
+function fmtReceived(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const pad = n => String(n).padStart(2,'0');
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}  ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function populateFilter() {
   const sel = document.getElementById('db-filter');
   if (!sel) return;
@@ -257,7 +280,7 @@ function renderDashboard() {
   const tbody = document.getElementById('dm-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  const counts = { 'To Do': 0, 'Scoping': 0, 'Investigating': 0, 'Replying': 0, 'Done': 0 };
+  const counts = { 'To Do': 0, 'Scoping': 0, 'Investigating': 0, 'Replying': 0, 'Done': 0, 'Ignore': 0 };
 
   // flatten all accounts (optionally filtered)
   const rows = [];
@@ -286,12 +309,12 @@ function renderDashboard() {
   });
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
     return;
   }
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
     document.getElementById('db-unread').textContent    = '📥 Unread 0';
     document.getElementById('db-processing').textContent= '⚙ Processing 0';
     document.getElementById('db-scoping').textContent   = '🔍 Scoping 0';
@@ -340,6 +363,8 @@ function renderDashboard() {
       '<td style="padding:7px 8px;white-space:nowrap"><span style="font-size:10px;padding:2px 8px;border-radius:10px;background:#e8f0fe;color:#1a73e8;font-weight:700">'+shortAcc+'</span></td>'+
       // Sender
       '<td style="padding:7px 12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555;font-size:11px">'+e.from+'</td>'+
+      // Category — color only (red/yellow/grey), no text
+      '<td style="padding:7px 8px;text-align:center" title="'+(e.category||'')+'"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+(CATEGORY_DOT[e.category]||'#ccc')+'"></span></td>'+
       // Status
       '<td style="padding:7px 8px;white-space:nowrap">'+
         '<select onclick="event.stopPropagation()" onchange="setEmailStatus(event,\''+account+'\',\''+(e.msgId||'')+'\','+i+')" style="font-size:11px;padding:3px 6px;border:1px solid #ddd;border-radius:5px;background:'+sb.bg+';color:'+sb.text+';font-weight:600">'+
@@ -477,7 +502,7 @@ function renderEmailRow(account, e, i) {
     '<div style="flex:1;min-width:0">'+
       '<div style="display:flex;justify-content:space-between;gap:4px">'+
         '<div style="font-weight:600;font-size:12px;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">'+e.from+'</div>'+
-        '<div style="font-size:10px;color:#aaa;white-space:nowrap">'+e.date+'</div>'+
+        '<div style="font-size:10px;color:'+(status!=='To Do'?'#34a853':'#aaa')+';font-weight:'+(status!=='To Do'?'700':'400')+';white-space:nowrap">'+fmtReceived(e.date)+'</div>'+
       '</div>'+
       '<div style="font-size:12px;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px">'+e.subject+(e.carried?' 🔁':'')+'</div>'+
       '<div style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">'+(e.snippet||'').substring(0,80)+'…</div>'+
@@ -570,6 +595,7 @@ function showEmailDetail(account, emailIdx) {
   const e      = d.emails[emailIdx];
   const border = CAT_BORDER[e.category] || '#9aa0a6';
   const tag    = CAT_TAG[e.category]    || {bg:'#9aa0a6',text:'white'};
+  const status = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
   document.querySelectorAll('[id^="dm-row-"]').forEach(el => el.style.background='white');
   const row = document.getElementById('dm-row-'+emailIdx);
   if (row) row.style.background='#f0f7ff';
@@ -630,7 +656,7 @@ function showEmailDetail(account, emailIdx) {
       '<div style="margin-bottom:6px"><span style="background:'+tag.bg+';color:'+tag.text+';font-size:10px;font-weight:600;padding:2px 8px;border-radius:8px">'+e.category+'</span></div>'+
       '<table style="font-size:12px;color:#555;margin-bottom:16px;border-collapse:collapse">'+
         '<tr><td style="padding:2px 10px 2px 0;color:#888">จาก</td><td style="font-weight:600;color:#222">'+e.from+'</td></tr>'+
-        '<tr><td style="padding:2px 10px 2px 0;color:#888">วันเวลา</td><td>'+e.date+'</td></tr>'+
+        '<tr><td style="padding:2px 10px 2px 0;color:#888">วันเวลา</td><td style="color:'+(status!=='To Do'?'#34a853':'inherit')+';font-weight:'+(status!=='To Do'?'700':'400')+'">'+fmtReceived(e.date)+'</td></tr>'+
       '</table>'+
       '<div style="background:#f8f9fa;border-radius:8px;padding:16px;font-size:13px;line-height:1.7;color:#333;white-space:pre-wrap">'+e.snippet+'</div>'+
     reclassifySection(account, e)+

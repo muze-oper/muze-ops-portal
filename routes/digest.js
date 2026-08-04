@@ -21,6 +21,29 @@ function digestFilename(timestamp) {
   return `${SNAPSHOT_PREFIX}${timestamp.replace(/[:.]/g, '-')}.json`;
 }
 
+function statusKey(account, msgId) {
+  return `emailstatus_${account.replace(/@|\./g, '_')}_${msgId}`;
+}
+
+// Activity log — who changed what, when. One file per day so reads/writes
+// stay small regardless of how much history accumulates.
+function logFilename(date) {
+  return `activitylog_${date}.json`;
+}
+
+async function appendLog(entry) {
+  try {
+    const date = new Date().toISOString().slice(0, 10);
+    const file = logFilename(date);
+    const existing = await drive.readFile(file).catch(() => null);
+    const entries = existing?.entries || [];
+    entries.push({ ...entry, at: new Date().toISOString() });
+    await drive.writeFile(file, { entries });
+  } catch (e) {
+    console.error('appendLog failed:', e.message); // never block the actual mutation on log failure
+  }
+}
+
 // POST /api/digest — no SSO, protected by shared secret
 router.post('/api/digest', async (req, res) => {
   const secret = req.headers['x-digest-secret'];
@@ -72,12 +95,38 @@ router.get('/api/digest/list', async (req, res) => {
 const SHARED_ACCOUNTS = ['support@muze.co.th','support-mea@muze.co.th','support-tvn@muze.co.th','nissan-ma@muze.co.th','ktc@muze.co.th'];
 
 // POST /api/digest/live — store live unread counts + email list (no SSO, secret-protected)
+//
+// Carries forward any 🔴 ต้อง Action email that drops out of the new fetch
+// (read on Gmail, aged past maxResults, etc.) as long as its status is still
+// not Done/Ignore — otherwise an action item a user hasn't finished with yet
+// could silently vanish from the dashboard just because someone opened it.
 router.post('/api/digest/live', async (req, res) => {
   const secret = req.headers['x-digest-secret'];
   if (secret !== DIGEST_SECRET) return res.status(403).json({ error: 'Forbidden' });
   try {
     const { counts, updatedAt } = req.body;
-    await drive.writeFile(LIVE_FILENAME, { counts, updatedAt });
+    const existing = await drive.readFile(LIVE_FILENAME).catch(() => null);
+
+    const merged = {};
+    for (const [acc, entry] of Object.entries(counts || {})) {
+      if (!entry) { merged[acc] = entry; continue; }
+      const newEmails = entry.emails || [];
+      const newIds = new Set(newEmails.map(e => e.msgId));
+      const oldEmails = existing?.counts?.[acc]?.emails || [];
+      const candidates = oldEmails.filter(e =>
+        e.category === '🔴 ต้อง Action' && e.msgId && !newIds.has(e.msgId)
+      );
+
+      const carried = (await Promise.all(candidates.map(async e => {
+        const statusData = await drive.readFile(statusKey(acc, e.msgId)).catch(() => null);
+        const status = statusData?.status || 'To Do';
+        return (status === 'Done' || status === 'Ignore') ? null : { ...e, carried: true };
+      }))).filter(Boolean);
+
+      merged[acc] = { counts: entry.counts, emails: [...newEmails, ...carried] };
+    }
+
+    await drive.writeFile(LIVE_FILENAME, { counts: merged, updatedAt });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -140,6 +189,7 @@ router.post('/api/digest/train', async (req, res) => {
     else rules.push(newRule);
 
     await drive.writeFile('trainingrules.json', { rules });
+    appendLog({ type: 'train', by: req.user?.email, from, subjectKeyword, category, applyToSimilar: !!applyToSimilar });
     res.json({ ok: true, rule: newRule, totalRules: rules.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -151,8 +201,10 @@ router.post('/api/digest/emailstatus', async (req, res) => {
   try {
     const { msgId, account, status } = req.body;
     if (!msgId || !account) return res.status(400).json({ error: 'msgId and account required' });
-    const key = `emailstatus_${account.replace(/@|\./g, '_')}_${msgId}`;
+    const key = statusKey(account, msgId);
+    const previous = await drive.readFile(key).catch(() => null);
     await drive.writeFile(key, { msgId, account, status, updatedAt: new Date().toISOString(), updatedBy: req.user?.email });
+    appendLog({ type: 'status', by: req.user?.email, account, msgId, from: previous?.status || 'To Do', to: status });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -183,6 +235,7 @@ router.post('/api/digest/assign', async (req, res) => {
 
     const assignee = ASSIGNEES.find(a => a.email === assigneeEmail);
     const key = `assignment_${account.replace(/@|\./g, '_')}_${msgId}`;
+    const previous = await drive.readFile(key).catch(() => null);
     const data = {
       msgId, account, assigneeEmail,
       assigneeName: assignee?.name || assigneeEmail,
@@ -192,6 +245,11 @@ router.post('/api/digest/assign', async (req, res) => {
       updatedBy: req.user?.email,
     };
     await drive.writeFile(key, data);
+    appendLog({
+      type: 'assign', by: req.user?.email, account, msgId,
+      from: previous ? { assigneeEmail: previous.assigneeEmail, expectedAction: previous.expectedAction, dueDate: previous.dueDate } : null,
+      to: { assigneeEmail, expectedAction, dueDate },
+    });
 
     // send email notification to assignee (non-blocking)
     if (assigneeEmail) {
@@ -214,6 +272,25 @@ router.post('/api/digest/assign', async (req, res) => {
     res.json({ ok: true, data });
   } catch (err) {
     console.error('Assign error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/digest/activitylog — who changed what, when (last N days, newest first)
+router.get('/api/digest/activitylog', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
+  try {
+    const days = Math.min(parseInt(req.query.days) || 7, 30);
+    const dates = Array.from({ length: days }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toISOString().slice(0, 10);
+    });
+    const files = await Promise.all(dates.map(d => drive.readFile(logFilename(d)).catch(() => null)));
+    const entries = files.filter(Boolean).flatMap(f => f.entries || []);
+    entries.sort((a, b) => a.at < b.at ? 1 : -1); // newest first
+    res.json({ entries });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
