@@ -1,4 +1,3 @@
-const { OAuth2Client } = require('google-auth-library');
 const { google } = require('googleapis');
 const drive = require('../storage/googleDrive');
 const { decryptToken } = require('../auth/tokenCrypto');
@@ -28,7 +27,14 @@ async function getOAuthClient(account) {
   if (!blob) return null;
   const refreshToken = decryptToken(blob, process.env.SESSION_SECRET);
   if (!refreshToken) return null;
-  const client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET);
+  // Must be googleapis' OWN bundled OAuth2 class, not the standalone
+  // google-auth-library package — they're separate class identities even
+  // though npm hoists both into node_modules, and google.gmail({auth}) only
+  // recognizes its own. Passing the standalone class's instance silently
+  // sends requests with no Authorization header at all instead of throwing
+  // (confirmed via a real 401 "Login Required" — Google's error for a
+  // request missing the auth header entirely, not an invalid-token error).
+  const client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
   client.setCredentials({ refresh_token: refreshToken });
   return client;
 }
