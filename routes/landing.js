@@ -13,6 +13,10 @@ router.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'landing.html'));
 });
 
+router.get('/muze-mark-blue.png', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'muze-mark-blue.png'));
+});
+
 router.get('/api/me', (req, res) => {
   res.json({ email: req.user?.email || null });
 });
