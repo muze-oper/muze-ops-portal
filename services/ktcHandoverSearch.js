@@ -85,4 +85,23 @@ function findRelevantSections(question, markdown, maxSections = 2) {
     .slice(0, maxSections);
 }
 
-module.exports = { findRelevantSections };
+// Splits a section's body into its Root Cause / Resolution halves so the
+// route can lead with "what to do" instead of dumping the whole block —
+// the raw text already has both, just not visually prioritized.
+function splitRootCauseResolution(body) {
+  const lines = body.split('\n');
+  const resolutionStart = lines.findIndex((l) => /^resolution/i.test(l.trim()));
+  if (resolutionStart === -1) return { rootCause: body.trim(), resolution: null };
+
+  const rootCause = lines.slice(0, resolutionStart).join('\n').trim()
+    // Strip the bare "Root Cause:" label — redundant once shown under its
+    // own bolded Thai header. Keep parenthetical variants like
+    // "Resolution (ถาวร):" as-is below, since the distinction matters there.
+    .replace(/^root cause\s*:\s*/i, '');
+  const resolution = lines.slice(resolutionStart).join('\n').trim()
+    .replace(/^resolution\s*:\s*/i, '');
+
+  return { rootCause, resolution };
+}
+
+module.exports = { findRelevantSections, splitRootCauseResolution };
