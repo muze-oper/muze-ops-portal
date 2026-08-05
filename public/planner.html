@@ -85,7 +85,6 @@
   .todo-cb { cursor: pointer; font-size: 13px; flex-shrink: 0; color: #555; user-select: none; line-height: 1.3; margin-top: 0; }
   .todo-text { flex: 1; min-width: 0; word-break: break-word; color: #111; line-height: 1.4; font-weight: 400; cursor: text; border-radius: 2px; padding: 0 2px; }
   .todo-text:focus { outline: none; background: #fffef0; box-shadow: 0 0 0 1px #a8cfc8; }
-  .todo-item.done .todo-text { text-decoration: line-through; color: #b0b0b0; }
   .p-badge { font-size: 8.5px; padding: 0 4px; border-radius: 2px; font-weight: 500; white-space: nowrap; line-height: 1.6; cursor: pointer; }
   .p-high { background: #fee2e2; color: #b91c1c; border: 0.5px solid #fca5a5; }
   .p-med  { background: #fef3c7; color: #92400e; border: 0.5px solid #fde68a; }
@@ -119,7 +118,6 @@
   }
   .subitem-inline-cb { cursor: pointer; font-size: 11px; flex-shrink: 0; user-select: none; }
   .subitem-inline-text { flex: 1; word-break: break-word; }
-  .subitem-inline.done .subitem-inline-text { text-decoration: line-through; color: #c3b0d8; }
 
   .add-task-area {
     display: flex; flex-wrap: wrap; gap: 3px; align-items: center;
@@ -175,7 +173,6 @@
   .subitem { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
   .subitem-cb { cursor: pointer; user-select: none; }
   .subitem-text { flex: 1; word-break: break-word; }
-  .subitem.done .subitem-text { text-decoration: line-through; color: #aaa; }
   .subitem-del { cursor: pointer; color: #ccc; }
   .subitem-del:hover { color: #e57373; }
   #project-subitem-area { display: flex; gap: 4px; padding: 8px 14px; border-top: 1px solid #eee; }
@@ -542,9 +539,10 @@ function projectSubitemsInlineHtml(t) {
   if (!t.projectId) return '';
   const p = projects.find(p => p.id === t.projectId);
   if (!p) return '';
-  const items = p.subItems.map((s, si) => `
-    <div class="subitem-inline${s.done ? ' done' : ''}">
-      <span class="subitem-inline-cb" onclick="toggleSubItemFor('${p.id}',${si})">${s.done ? '☑' : '☐'}</span>
+  const items = p.subItems.map((s, si) => ({ s, si })).filter(({ s }) => !s.done)
+    .map(({ s, si }) => `
+    <div class="subitem-inline">
+      <span class="subitem-inline-cb" onclick="toggleSubItemFor('${p.id}',${si})">☐</span>
       <span class="subitem-inline-text">${esc(s.text)}</span>
       <span class="subitem-inline-del" onclick="delSubItemFor('${p.id}',${si})">✕</span>
     </div>`).join('');
@@ -608,20 +606,34 @@ function renderTodos() {
   renderCompletedPanel();
 }
 
-function completedItemHtml(t) {
-  const p = t.projectId ? projects.find(p => p.id === t.projectId) : null;
-  const prefix = p ? `<span class="completed-project">${esc(p.name)}</span> - ` : '';
-  const dateLabel = t.completedAt ? fmtDateDisplay(t.completedAt) : '—';
-  return `<div class="completed-item">${prefix}${esc(t.text)} - Completed on ${dateLabel}</div>`;
+// Gathers both finished to-dos and finished project sub-items into one
+// list for the Completed panel, since either can be "checked off".
+function completedEntries() {
+  const todoEntries = todos.filter(t => t.done).map(t => {
+    const p = t.projectId ? projects.find(p => p.id === t.projectId) : null;
+    return { projectName: p ? p.name : '', text: t.text, completedAt: t.completedAt || '' };
+  });
+  const subitemEntries = [];
+  projects.forEach(p => {
+    (p.subItems || []).forEach(s => {
+      if (s.done) subitemEntries.push({ projectName: p.name, text: s.text, completedAt: s.completedAt || '' });
+    });
+  });
+  return [...todoEntries, ...subitemEntries].sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+}
+
+function completedItemHtml(e) {
+  const prefix = e.projectName ? `<span class="completed-project">${esc(e.projectName)}</span> - ` : '';
+  const dateLabel = e.completedAt ? fmtDateDisplay(e.completedAt) : '—';
+  return `<div class="completed-item">${prefix}${esc(e.text)} - Completed on ${dateLabel}</div>`;
 }
 
 function renderCompletedPanel() {
   const el = document.getElementById('completed-grid');
   if (!el) return;
-  const done = todos.filter(t => t.done)
-    .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
-  el.innerHTML = done.length
-    ? done.map(completedItemHtml).join('')
+  const entries = completedEntries();
+  el.innerHTML = entries.length
+    ? entries.map(completedItemHtml).join('')
     : '<div class="completed-empty">ยังไม่มี task ที่เสร็จแล้ว</div>';
 }
 
@@ -731,13 +743,14 @@ function renderProjectModalList() {
   const p = projects.find(x => x.id === currentProjectId);
   const el = document.getElementById('project-modal-list');
   if (!p) return;
-  if (!p.subItems.length) {
+  const open = p.subItems.map((s, i) => ({ s, i })).filter(({ s }) => !s.done);
+  if (!open.length) {
     el.innerHTML = '<div style="color:#aaa;font-size:12px;text-align:center;padding:20px 0;">ยังไม่มีขั้นตอน — เพิ่มด้านล่าง</div>';
     return;
   }
-  el.innerHTML = p.subItems.map((s, i) => `
-    <div class="subitem${s.done ? ' done' : ''}">
-      <span class="subitem-cb" onclick="toggleSubItem(${i})">${s.done ? '☑' : '☐'}</span>
+  el.innerHTML = open.map(({ s, i }) => `
+    <div class="subitem">
+      <span class="subitem-cb" onclick="toggleSubItem(${i})">☐</span>
       <span class="subitem-text">${esc(s.text)}</span>
       <span class="subitem-del" onclick="delSubItem(${i})">✕</span>
     </div>`).join('');
@@ -746,6 +759,7 @@ function renderProjectModalList() {
 function toggleSubItem(i) {
   const p = projects.find(x => x.id === currentProjectId); if (!p) return;
   p.subItems[i].done = !p.subItems[i].done;
+  p.subItems[i].completedAt = p.subItems[i].done ? todayStr() : null;
   saveProjects(); renderProjectModalList(); renderTodos();
 }
 
@@ -754,6 +768,7 @@ function toggleSubItem(i) {
 function toggleSubItemFor(projectId, si) {
   const p = projects.find(x => x.id === projectId); if (!p) return;
   p.subItems[si].done = !p.subItems[si].done;
+  p.subItems[si].completedAt = p.subItems[si].done ? todayStr() : null;
   saveProjects(); renderTodos();
   if (currentProjectId === projectId) renderProjectModalList();
 }
