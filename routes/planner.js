@@ -4,9 +4,9 @@ const { OAuth2Client } = require('google-auth-library');
 const drive = require('../storage/googleDrive');
 
 const PLANNER_SECRET = process.env.PLANNER_SECRET;
-const START_HOUR = 9;
-const END_HOUR = 18;
-const TOTAL_SLOTS = (END_HOUR - START_HOUR) * 4 + 1; // 09:00-18:00 inclusive, 15-min steps
+const START_HOUR = 7;
+const END_HOUR = 20;
+const TOTAL_SLOTS = (END_HOUR - START_HOUR) * 4 + 1; // 07:00-20:00 inclusive, 15-min steps
 
 // Vercel functions run in UTC - compute "today" explicitly in Asia/Bangkok
 // (this gateway is muze.co.th-only) rather than the UTC calendar date.
