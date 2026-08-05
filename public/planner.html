@@ -335,7 +335,7 @@ function buildDefaultSlots() {
       note: lunch && m === 0 ? '12:00–13:00' : null,
       noteFixed: lunch,
     });
-    m += 15;
+    m += 30;
     if (m === 60) { m = 0; h++; }
   }
   return slots;
@@ -384,7 +384,7 @@ function todoPanelHtml(category, label, icon) {
         <option value="low">⚪ L</option>
       </select>
       <input type="date" id="new-task-due-${category}" class="new-task-due" value="${DATE}">
-      <input type="time" id="new-task-time-${category}" class="new-task-time" step="900" value="09:00">
+      <input type="time" id="new-task-time-${category}" class="new-task-time" step="1800" value="09:00">
       <select id="new-task-project-${category}" class="new-task-project" onchange="onProjectSelectChange(this,'${category}')">
         <option value="">🔗 —</option>
         ${projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
@@ -533,7 +533,7 @@ function todoItemHtml(t, i) {
         <option value="personal"${todoCategory(t) === 'personal' ? ' selected' : ''}>🏠</option>
       </select>
       <input type="date" class="todo-due-input${over ? ' due-overdue' : ''}" value="${t.dueDate || ''}" onchange="updateTodoField(${i},'dueDate',this.value)">
-      <input type="time" class="todo-time-input" step="900" value="${t.time || ''}" onchange="updateTodoField(${i},'time',this.value)">
+      <input type="time" class="todo-time-input" step="1800" value="${t.time || ''}" onchange="updateTodoField(${i},'time',this.value)">
       <select class="todo-project-select" onchange="onTodoProjectChange(${i},this)">
         <option value="">🔗 —</option>
         ${projects.map(p => `<option value="${p.id}"${p.id === t.projectId ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}
