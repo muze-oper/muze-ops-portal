@@ -613,7 +613,12 @@ router.get('/api/digest/range', async (req, res) => {
 
     res.json({ counts, skipped });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message,
+      code: err.code,
+      status: err.response?.status,
+      detail: err.response?.data,
+    });
   }
 });
 
