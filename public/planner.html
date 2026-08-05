@@ -199,7 +199,36 @@
     z-index: 1;
   }
 
+  /* COMPLETED TASKS PANEL (collapsed by default, slides in from the right) */
+  #completed-tab {
+    position: fixed; top: 50%; right: 0; transform: translateY(-50%);
+    writing-mode: vertical-rl; background: #4a7c6f; color: white;
+    font-family: 'Mitr', sans-serif; font-size: 11px; letter-spacing: 1px;
+    padding: 10px 5px; border-radius: 4px 0 0 4px; cursor: pointer;
+    z-index: 600; user-select: none; box-shadow: -1px 0 4px rgba(0,0,0,0.15);
+  }
+  #completed-tab:hover { background: #3a6a5f; }
+  #completed-panel {
+    position: fixed; top: 0; right: 0; height: 100vh; width: 560px; max-width: 90vw;
+    background: white; box-shadow: -2px 0 12px rgba(0,0,0,0.2);
+    transform: translateX(100%); transition: transform 0.25s ease;
+    z-index: 700; display: flex; flex-direction: column; font-family: 'Mitr', sans-serif;
+  }
+  #completed-panel.open { transform: translateX(0); }
+  #completed-panel-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; background: #4a7c6f; color: white; flex-shrink: 0;
+  }
+  #completed-panel-header h2 { font-size: 14px; font-weight: 600; }
+  #completed-panel-close { cursor: pointer; font-size: 18px; line-height: 1; }
+  #completed-panel-body { padding: 12px 14px; overflow-y: auto; flex: 1; }
+  .completed-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 14px; align-content: start; }
+  .completed-item { font-size: 10px; line-height: 1.4; color: #333; padding-bottom: 4px; border-bottom: 0.5px solid #eee; word-break: break-word; }
+  .completed-item .completed-project { color: #6b3fa0; font-weight: 600; }
+  .completed-empty { color: #bbb; font-size: 11px; grid-column: 1 / -1; }
+
   @media print {
+    #completed-tab, #completed-panel { display: none !important; }
     .daisy { display: none; }
     .breadcrumb { display: none; }
     @page { size: A4 landscape; margin: 0.5cm; }
@@ -282,6 +311,17 @@
 </div>
 </div>
 
+<div id="completed-tab" onclick="toggleCompletedPanel()">✓ Completed</div>
+<div id="completed-panel">
+  <div id="completed-panel-header">
+    <h2>✓ Completed Tasks</h2>
+    <span id="completed-panel-close" onclick="toggleCompletedPanel()">✕</span>
+  </div>
+  <div id="completed-panel-body">
+    <div class="completed-grid" id="completed-grid"></div>
+  </div>
+</div>
+
 <div id="project-overlay" onclick="if(event.target===this)closeProjectModal()">
   <div id="project-modal">
     <div id="project-modal-header">
@@ -302,7 +342,6 @@ const DATE = new URLSearchParams(location.search).get('date') || todayStr();
 let scheduleSlots = null;
 let cells = {};
 let todos = [];
-let lastMondayCleanup = null;
 let projects = [];
 let currentProjectId = null;
 
@@ -354,22 +393,10 @@ async function init() {
   scheduleSlots = scheduleRes.slots;
   cells = cellsRes.cells || {};
   todos = todosRes.todos || [];
-  lastMondayCleanup = todosRes.lastMondayCleanup || null;
   projects = projectsRes.projects || [];
 
-  applyMondayCleanup();
   renderTable();
   renderTodos();
-}
-
-function applyMondayCleanup() {
-  const today = new Date();
-  if (today.getDay() === 1 && lastMondayCleanup !== todayStr()) {
-    const before = todos.length;
-    todos = todos.filter(t => !t.done);
-    lastMondayCleanup = todayStr();
-    if (todos.length !== before) saveTodos();
-  }
 }
 
 function todoPanelHtml(category, label, icon) {
@@ -560,9 +587,8 @@ function renderTodos() {
   if (!workEl || !personalEl) return;
 
   function entriesFor(category) {
-    return todos.map((t, i) => ({ t, i })).filter(({ t }) => todoCategory(t) === category)
+    return todos.map((t, i) => ({ t, i })).filter(({ t }) => todoCategory(t) === category && !t.done)
       .sort((a, b) => {
-        if (a.t.done !== b.t.done) return a.t.done ? 1 : -1;
         if (!a.t.dueDate && !b.t.dueDate) return 0;
         if (!a.t.dueDate) return 1;
         if (!b.t.dueDate) return -1;
@@ -578,9 +604,36 @@ function renderTodos() {
   personalEl.innerHTML = personal.length
     ? personal.map(({ t, i }) => todoItemHtml(t, i)).join('')
     : '<div style="font-size:8px;color:#bbb;padding:2px 0;">ยังไม่มี task</div>';
+
+  renderCompletedPanel();
 }
 
-function toggleTodo(i) { todos[i].done = !todos[i].done; saveTodos(); renderTable(); renderTodos(); }
+function completedItemHtml(t) {
+  const p = t.projectId ? projects.find(p => p.id === t.projectId) : null;
+  const prefix = p ? `<span class="completed-project">${esc(p.name)}</span> - ` : '';
+  const dateLabel = t.completedAt ? fmtDateDisplay(t.completedAt) : '—';
+  return `<div class="completed-item">${prefix}${esc(t.text)} - Completed on ${dateLabel}</div>`;
+}
+
+function renderCompletedPanel() {
+  const el = document.getElementById('completed-grid');
+  if (!el) return;
+  const done = todos.filter(t => t.done)
+    .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
+  el.innerHTML = done.length
+    ? done.map(completedItemHtml).join('')
+    : '<div class="completed-empty">ยังไม่มี task ที่เสร็จแล้ว</div>';
+}
+
+function toggleCompletedPanel() {
+  document.getElementById('completed-panel').classList.toggle('open');
+}
+
+function toggleTodo(i) {
+  todos[i].done = !todos[i].done;
+  todos[i].completedAt = todos[i].done ? todayStr() : null;
+  saveTodos(); renderTable(); renderTodos();
+}
 function delTodo(i) { todos.splice(i, 1); saveTodos(); renderTable(); renderTodos(); }
 function editTodo(i, el) {
   const newText = el.innerText.trim();
@@ -631,7 +684,7 @@ async function saveTodos() {
   await fetch('/api/planner/todos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ todos, lastMondayCleanup }),
+    body: JSON.stringify({ todos }),
   });
   flashSaved();
 }

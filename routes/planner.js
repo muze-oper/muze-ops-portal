@@ -186,7 +186,7 @@ router.post('/api/planner/cells', async (req, res) => {
 router.get('/api/planner/todos', async (req, res) => {
   try {
     const data = await drive.readFile(todosFilename(req.user.email));
-    res.json(data || { todos: [], lastMondayCleanup: null });
+    res.json(data || { todos: [] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -194,9 +194,9 @@ router.get('/api/planner/todos', async (req, res) => {
 
 router.post('/api/planner/todos', async (req, res) => {
   try {
-    const { todos, lastMondayCleanup } = req.body;
+    const { todos } = req.body;
     if (!Array.isArray(todos)) return res.status(400).json({ error: 'todos required' });
-    await drive.writeFile(todosFilename(req.user.email), { todos, lastMondayCleanup: lastMondayCleanup || null });
+    await drive.writeFile(todosFilename(req.user.email), { todos });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
