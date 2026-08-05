@@ -3,7 +3,7 @@ const path = require('path');
 const drive = require('../storage/googleDrive');
 const { sendMail } = require('../utils/mailer');
 const { encryptToken } = require('../auth/tokenCrypto');
-const { getGmailClient } = require('../utils/gmailAccounts');
+const { getGmailClient, getOAuthClient } = require('../utils/gmailAccounts');
 const { classify, loadTrainingRules, CAT_LABEL, formatDate, bangkokMidnightUTC, gmailQueryYMD } = require('../utils/gmailClassify');
 
 const ASSIGNEES = [
@@ -503,11 +503,25 @@ router.post('/api/digest/gmail-tokens', async (req, res) => {
 
 // GET /api/digest/gmail-tokens — list which accounts have a stored token (never
 // returns the encrypted blob itself over HTTP — no reason to, even encrypted).
+// ?diag=1 additionally decrypts and exchanges each refresh_token for a fresh
+// access token (no Gmail data touched) to confirm the whole chain actually works.
 router.get('/api/digest/gmail-tokens', async (req, res) => {
   if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
   try {
     const data = await drive.readFile('gmailtokens.json').catch(() => null);
-    res.json({ accounts: Object.keys(data?.tokens || {}), updatedAt: data?.updatedAt || null });
+    const accounts = Object.keys(data?.tokens || {});
+    if (!req.query.diag) return res.json({ accounts, updatedAt: data?.updatedAt || null });
+
+    const diag = {};
+    for (const acc of accounts) {
+      try {
+        const client = await getOAuthClient(acc);
+        if (!client) { diag[acc] = 'no client (decrypt failed or missing)'; continue; }
+        await client.getAccessToken();
+        diag[acc] = 'ok';
+      } catch (e) { diag[acc] = e.message; }
+    }
+    res.json({ accounts, updatedAt: data?.updatedAt || null, diag });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

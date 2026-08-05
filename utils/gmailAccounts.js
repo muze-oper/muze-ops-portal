@@ -20,9 +20,9 @@ async function loadTokens() {
   return _cache;
 }
 
-// Returns an authorized gmail v1 client for the given mailbox, or null if no
-// token has been migrated for it yet.
-async function getGmailClient(account) {
+// Returns an authorized OAuth2Client for the given mailbox, or null if no
+// token has been migrated for it yet / decryption failed.
+async function getOAuthClient(account) {
   const tokens = await loadTokens();
   const blob = tokens[account];
   if (!blob) return null;
@@ -30,6 +30,14 @@ async function getGmailClient(account) {
   if (!refreshToken) return null;
   const client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET);
   client.setCredentials({ refresh_token: refreshToken });
+  return client;
+}
+
+// Returns an authorized gmail v1 client for the given mailbox, or null if no
+// token has been migrated for it yet.
+async function getGmailClient(account) {
+  const client = await getOAuthClient(account);
+  if (!client) return null;
   return google.gmail({ version: 'v1', auth: client });
 }
 
@@ -37,4 +45,4 @@ async function listMigratedAccounts() {
   return Object.keys(await loadTokens());
 }
 
-module.exports = { getGmailClient, listMigratedAccounts };
+module.exports = { getGmailClient, getOAuthClient, listMigratedAccounts };
