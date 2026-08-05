@@ -138,7 +138,7 @@
         <div style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <span style="background:rgba(255,255,255,0.25);font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔍 FILTER</span>
-            <select id="db-filter" onchange="_filterAccount=this.value;renderDashboard()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
+            <select id="db-filter" onchange="_filterAccount=this.value; _mode==='filter' ? loadFilterData() : renderDashboard()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
               <option value="">ทุก account</option>
             </select>
             <select id="db-cat-filter" onchange="_filterCat=this.value;renderDashboard()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
@@ -150,9 +150,9 @@
             </select>
             <div id="filter-daterange" style="display:none;align-items:center;gap:10px">
               <span style="font-size:11px;opacity:0.8">ตั้งแต่</span>
-              <input id="db-date-from" type="date" onchange="_filterDateFrom=this.value;renderDashboard();renderAccountTable(_detailData);renderAcctMeta()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
+              <input id="db-date-from" type="date" onchange="_filterDateFrom=this.value;loadFilterData()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
               <span style="font-size:11px;opacity:0.8">ถึง</span>
-              <input id="db-date-to" type="date" onchange="_filterDateTo=this.value;renderDashboard();renderAccountTable(_detailData);renderAcctMeta()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
+              <input id="db-date-to" type="date" onchange="_filterDateTo=this.value;loadFilterData()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -233,6 +233,13 @@ const CAT_TAG    = {'🔴 ต้อง Action':{bg:'#e53935',text:'white'},'🟡
 
 let _detailData = [];
 let _liveCounts = {}; // { 'email@': { action, mustRead, auto, total } }
+// Filter mode's own dataset — populated by a live Gmail query (/api/digest/range)
+// scoped to whatever account+date-range is picked. Kept separate from _detailData
+// (Live mode's schedule-driven dataset) so switching back to Live never loses it,
+// and vice versa.
+let _filterData = [];
+let _filterLoading = false;
+function currentData() { return _mode === 'filter' ? _filterData : _detailData; }
 let _lastTitle = '';
 let _lastUpdatedAt = null; // raw ISO timestamp from the live payload, for reuse in the Accounts header
 let _assignments = {}; // { msgId: assignmentObj }
@@ -389,9 +396,42 @@ function setMode(mode) {
   if (fromEl) fromEl.value = _filterDateFrom;
   if (toEl)   toEl.value   = _filterDateTo;
 
+  if (mode === 'filter') {
+    loadFilterData(); // live Gmail query for the (just-defaulted) range
+  } else {
+    renderDashboard();
+    renderAccountTable(_detailData);
+    renderAcctMeta();
+  }
+}
+
+// Filter mode's live query — fetches Gmail directly for the picked account(s)
+// + date range via /api/digest/range, rather than filtering whatever happens
+// to already be in the Live dataset (which only ever holds today's fetch +
+// carried-forward pending items — a resolved or Auto email from an earlier
+// date can never reappear there no matter what range is picked).
+async function loadFilterData() {
+  if (_mode !== 'filter' || !_filterDateFrom || !_filterDateTo) return;
+  _filterLoading = true;
   renderDashboard();
-  renderAccountTable(_detailData);
-  renderAcctMeta();
+  try {
+    const acc = _filterAccount || 'all';
+    const url = '/api/digest/range?account=' + encodeURIComponent(acc) +
+      '&from=' + encodeURIComponent(_filterDateFrom) + '&to=' + encodeURIComponent(_filterDateTo);
+    const res = await fetch(url);
+    const data = await res.json();
+    _filterData = Object.entries(data.counts || {}).map(([account, entry]) => ({ account, emails: entry.emails || [] }));
+    if (data.skipped && data.skipped.length) {
+      console.warn('Filter mode: no migrated Gmail token for', data.skipped.join(', '));
+    }
+  } catch (e) {
+    console.error('loadFilterData failed', e);
+  } finally {
+    _filterLoading = false;
+    renderDashboard();
+    renderAccountTable(_filterData);
+    renderAcctMeta();
+  }
 }
 
 function renderDashboard() {
@@ -400,9 +440,14 @@ function renderDashboard() {
   tbody.innerHTML = '';
   const counts = { 'To Do': 0, 'Scoping': 0, 'Processing': 0, 'Ignore': 0, 'Done': 0 };
 
+  if (_filterLoading) {
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;color:#888;font-size:13px">⏳ กำลังดึงอีเมลจาก Gmail...</td></tr>';
+    return;
+  }
+
   // flatten all accounts (optionally filtered)
   const rows = [];
-  _detailData.forEach(function(d) {
+  currentData().forEach(function(d) {
     if (_filterAccount && d.account !== _filterAccount) return;
     (d.emails || []).forEach(function(e, i) {
       // category filter
@@ -517,7 +562,7 @@ async function saveTblField(account, msgId, rowIdx, field, value, dueId) {
   }
   // merge with existing assignment
   const existing = _assignments[msgId] || {};
-  const d = _detailData.find(x => x.account === account);
+  const d = currentData().find(x => x.account === account);
   const e = d?.emails?.[rowIdx] || {};
   const updates = { ...existing,
     msgId, account,
@@ -616,7 +661,7 @@ async function setEmailStatus(event, account, msgId, rowIdx) {
 }
 
 function showEmailDetail(account, emailIdx) {
-  const d      = _detailData.find(function(x) { return x.account === account; });
+  const d      = currentData().find(function(x) { return x.account === account; });
   if (!d) return;
   const e      = d.emails[emailIdx];
   const border = CAT_BORDER[e.category] || '#9aa0a6';

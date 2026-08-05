@@ -1,35 +1,13 @@
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
+const { encryptToken, decryptToken } = require('./tokenCrypto');
 
 const COOKIE_NAME = 'portal_session';
 
-// Derives a 32-byte AES-256 key from SESSION_SECRET - avoids needing a
-// separate secret just to encrypt the Calendar refresh_token riding along
-// inside the session JWT.
-function encryptionKey() {
-  return crypto.createHash('sha256').update(process.env.SESSION_SECRET).digest();
-}
-
-function encryptRefreshToken(token) {
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey(), iv);
-  const encrypted = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
-  return Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString('base64');
-}
-
-function decryptRefreshToken(blob) {
-  try {
-    const buf = Buffer.from(blob, 'base64');
-    const iv = buf.subarray(0, 12);
-    const authTag = buf.subarray(12, 28);
-    const encrypted = buf.subarray(28);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', encryptionKey(), iv);
-    decipher.setAuthTag(authTag);
-    return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
-  } catch {
-    return null;
-  }
-}
+// Thin wrappers over the shared AES-256-GCM helper (auth/tokenCrypto.js),
+// keyed by SESSION_SECRET — kept as named functions here since that's what
+// the rest of this file already calls them.
+function encryptRefreshToken(token) { return encryptToken(token, process.env.SESSION_SECRET); }
+function decryptRefreshToken(blob)  { return decryptToken(blob, process.env.SESSION_SECRET); }
 
 // Stateless signed JWT in an httpOnly cookie - no server-side session store.
 // Vercel functions are ephemeral/multi-instance, so an in-memory store would

@@ -2,6 +2,9 @@ const router = require('express').Router();
 const path = require('path');
 const drive = require('../storage/googleDrive');
 const { sendMail } = require('../utils/mailer');
+const { encryptToken } = require('../auth/tokenCrypto');
+const { getGmailClient } = require('../utils/gmailAccounts');
+const { classify, loadTrainingRules, CAT_LABEL, formatDate, bangkokMidnightUTC, gmailQueryYMD } = require('../utils/gmailClassify');
 
 const ASSIGNEES = [
   { name: 'Aum',   email: 'thiranattada.n@muze.co.th' },
@@ -469,6 +472,133 @@ router.post('/api/digest/holidays', async (req, res) => {
     await drive.writeFile('holidays.json', { holidays: normalized, updatedAt: new Date().toISOString(), updatedBy: req.user?.email });
     res.json({ ok: true, count: normalized.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/digest/gmail-tokens — store Gmail refresh tokens (secret-protected,
+// used once by the local migration script in muze-email-digest). Tokens arrive
+// as plaintext in the request body (same trust model as /api/digest/live,
+// which already carries email content this way — TLS + shared-secret auth)
+// and are encrypted HERE with SESSION_SECRET before ever touching Drive,
+// since SESSION_SECRET is a Vercel "Sensitive" var and can't be read back out
+// to a local script — only the running server process has it in memory.
+// Merge-only: a partial body (e.g. one account being re-authorized) never
+// wipes the other accounts' tokens.
+router.post('/api/digest/gmail-tokens', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET) return res.status(403).end();
+  try {
+    const { tokens } = req.body;
+    if (!tokens || typeof tokens !== 'object' || Array.isArray(tokens)) {
+      return res.status(400).json({ error: 'tokens must be an object of account -> refresh_token' });
+    }
+    const encrypted = {};
+    for (const [account, token] of Object.entries(tokens)) {
+      if (typeof token === 'string' && token) encrypted[account] = encryptToken(token, process.env.SESSION_SECRET);
+    }
+    const existing = await drive.readFile('gmailtokens.json').catch(() => null);
+    const merged = { ...(existing?.tokens || {}), ...encrypted };
+    await drive.writeFile('gmailtokens.json', { tokens: merged, updatedAt: new Date().toISOString() });
+    res.json({ ok: true, accounts: Object.keys(merged) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/digest/gmail-tokens — list which accounts have a stored token (never
+// returns the encrypted blob itself over HTTP — no reason to, even encrypted).
+router.get('/api/digest/gmail-tokens', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
+  try {
+    const data = await drive.readFile('gmailtokens.json').catch(() => null);
+    res.json({ accounts: Object.keys(data?.tokens || {}), updatedAt: data?.updatedAt || null });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/digest/range — Filter mode's live query: fetches Gmail directly
+// for an account (or all 5) over an arbitrary date range and classifies every
+// matching message, rather than filtering the already-loaded Live dataset
+// (which only ever contains today's fetch + carried-forward pending items,
+// so a resolved or Auto-category email from an earlier date can never
+// reappear there no matter what range is picked). Session-auth only — this
+// is a dashboard action, not something the local live.js script calls.
+router.get('/api/digest/range', async (req, res) => {
+  try {
+    const { account, from, to } = req.query;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(to || '')) {
+      return res.status(400).json({ error: 'from and to must be YYYY-MM-DD' });
+    }
+    const targetAccounts = account && account !== 'all' ? [account] : SHARED_ACCOUNTS;
+
+    const rules = await loadTrainingRules();
+
+    // Same wide-net-then-precise-filter approach as live.js: Gmail's own
+    // after:/before: day boundary isn't Bangkok-local, so query a day of
+    // margin on each side and enforce the real cutoff from each message's
+    // internalDate afterward.
+    const marginBefore = new Date(`${from}T12:00:00Z`); marginBefore.setUTCDate(marginBefore.getUTCDate() - 1);
+    const marginAfter = new Date(`${to}T12:00:00Z`); marginAfter.setUTCDate(marginAfter.getUTCDate() + 1);
+    const rangeStartMs = bangkokMidnightUTC(new Date(`${from}T12:00:00Z`)).getTime();
+    const rangeEndMs = bangkokMidnightUTC(new Date(`${to}T12:00:00Z`)).getTime() + 24 * 3600 * 1000;
+    const q = `after:${gmailQueryYMD(marginBefore)} before:${gmailQueryYMD(marginAfter)} in:inbox`;
+
+    const skipped = [];
+    const counts = {};
+
+    await Promise.all(targetAccounts.map(async acc => {
+      const gmail = await getGmailClient(acc);
+      if (!gmail) { skipped.push(acc); return; }
+
+      const listRes = await gmail.users.messages.list({ userId: 'me', q, maxResults: 500 });
+      const messages = listRes.data.messages || [];
+
+      const CONCURRENCY = 20;
+      const withDates = [];
+      for (let i = 0; i < messages.length; i += CONCURRENCY) {
+        const batch = messages.slice(i, i + CONCURRENCY);
+        const results = await Promise.all(batch.map(async msg => {
+          try {
+            const min = await gmail.users.messages.get({ userId: 'me', id: msg.id, format: 'minimal' });
+            return { id: msg.id, internalDate: Number(min.data.internalDate) };
+          } catch { return null; }
+        }));
+        withDates.push(...results.filter(Boolean));
+      }
+      const inRange = withDates
+        .filter(m => m.internalDate >= rangeStartMs && m.internalDate < rangeEndMs)
+        .sort((a, b) => b.internalDate - a.internalDate);
+
+      const emails = [];
+      const tally = { action: 0, mustRead: 0, auto: 0, total: inRange.length };
+      for (let i = 0; i < inRange.length; i += CONCURRENCY) {
+        const batch = inRange.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map(async ({ id }) => {
+          try {
+            const detail = await gmail.users.messages.get({
+              userId: 'me', id, format: 'metadata', metadataHeaders: ['Subject', 'From', 'Date'],
+            });
+            const h = detail.data.payload.headers;
+            const subject = h.find(x => x.name === 'Subject')?.value || '(no subject)';
+            const from_ = h.find(x => x.name === 'From')?.value || '';
+            const date = h.find(x => x.name === 'Date')?.value || '';
+            const snippet = detail.data.snippet || '';
+            const cat = classify(subject, snippet, from_, rules);
+            tally[cat]++;
+            emails.push({
+              msgId: id, subject, from: from_.replace(/<.*?>/g, '').trim(),
+              date: formatDate(date), snippet, category: CAT_LABEL[cat], carried: false,
+            });
+          } catch { /* skip individual message errors */ }
+        }));
+      }
+      emails.sort((a, b) => {
+        const order = { '🔴 ต้อง Action': 0, '🟡 ควรรับรู้': 1, '⚪ แจ้งเตือนอัตโนมัติ': 2 };
+        return (order[a.category] ?? 3) - (order[b.category] ?? 3);
+      });
+
+      counts[acc] = { counts: tally, emails };
+    }));
+
+    res.json({ counts, skipped });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/digest/:index — get digest content by index (filtered by logged-in user)
