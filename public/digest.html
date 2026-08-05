@@ -477,11 +477,15 @@ function renderAccountTable(accountList) {
     return;
   }
   tbody.innerHTML = accountList.map(function(d) {
-    const live     = _liveCounts[d.account];
+    // Always count from the actual email list, never _liveCounts — that's
+    // the server's tally for THIS round's fetch only, computed before the
+    // carry-forward merge, so any carried-over item (still pending, not
+    // Done) was invisible here even though it's plainly shown in the
+    // Dashboard table below, which reads from this same d.emails array.
     const emails   = d.emails || [];
-    const action   = live ? live.action   : emails.filter(e => e.category === '🔴 ต้อง Action').length;
-    const mustRead = live ? live.mustRead : emails.filter(e => e.category === '🟡 ควรรับรู้').length;
-    const auto     = live ? live.auto     : emails.filter(e => e.category === '⚪ แจ้งเตือนอัตโนมัติ').length;
+    const action   = emails.filter(e => e.category === '🔴 ต้อง Action').length;
+    const mustRead = emails.filter(e => e.category === '🟡 ควรรับรู้').length;
+    const auto     = emails.filter(e => e.category === '⚪ แจ้งเตือนอัตโนมัติ').length;
     const shortAcc = d.account.split('@')[0];
     return '<tr style="border-bottom:1px solid #f0f0f0">' +
       '<td style="padding:7px 10px;font-size:11px;font-weight:600;color:#333">' + shortAcc + '</td>' +
@@ -490,28 +494,6 @@ function renderAccountTable(accountList) {
       '<td style="padding:7px 6px;text-align:center;font-weight:700;font-size:12px;color:#9aa0a6">' + auto + '</td>' +
       '</tr>';
   }).join('');
-}
-
-function renderCard(d, account) {
-  const emails   = d.emails || [];
-  // prefer live unread counts; fall back to digest snapshot counts
-  const live     = _liveCounts[d.account];
-  const action   = live ? live.action   : emails.filter(e => e.category === '🔴 ต้อง Action').length;
-  const mustRead = live ? live.mustRead : emails.filter(e => e.category === '🟡 ควรรับรู้').length;
-  const auto     = live ? live.auto     : emails.filter(e => e.category === '⚪ แจ้งเตือนอัตโนมัติ').length;
-  const total    = live ? live.total    : emails.length;
-  const carried  = emails.filter(e => e.carried).length;
-  return `<div style="background:white;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.1);overflow:hidden">
-  <div style="background:#1a73e8;color:white;padding:10px 14px;font-size:12px;font-weight:600">
-    📧 ${d.account}<br><span style="font-weight:400;opacity:0.85;font-size:11px">${total} ใน 24 ชม.${live ? ' · live' : ''}</span>
-  </div>
-  <div style="padding:12px 14px;display:flex;flex-direction:column;gap:7px">
-    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">🔴 ต้อง Action</span><span style="font-weight:700;font-size:14px;color:${action>0?'#e53935':'#aaa'}">${action}</span></div>
-    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">🟡 ควรรับรู้</span><span style="font-weight:700;font-size:14px;color:${mustRead>0?'#f9ab00':'#aaa'}">${mustRead}</span></div>
-    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">⚪ แจ้งเตือนอัตโนมัติ</span><span style="font-weight:700;font-size:14px;color:#9aa0a6">${auto}</span></div>
-    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#888">🔁 ยังไม่ได้อ่าน (carried)</span><span style="font-weight:700;font-size:13px;color:${carried>0?'#e53935':'#aaa'}">${carried}</span></div>
-  </div>
-</div>`;
 }
 
 async function setEmailStatus(event, account, msgId, rowIdx) {
