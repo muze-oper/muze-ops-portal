@@ -399,6 +399,12 @@ function renderTodoPanel() {
   document.getElementById('todo-panel-personal').innerHTML = todoPanelHtml('personal', 'Personal', '🏠');
 }
 
+function projectSubitemsSummary(projectId) {
+  const p = projects.find(p => p.id === projectId);
+  if (!p || !p.subItems || !p.subItems.length) return '';
+  return p.subItems.map(s => esc(s.text)).join('<br>');
+}
+
 function buildSlotRow(slot) {
   const tr = document.createElement('tr');
   tr.className = [slot.hourMark ? 'hour-mark' : '', slot.hasEvent ? 'has-event' : '', slot.lunch ? 'lunch' : ''].filter(Boolean).join(' ');
@@ -406,6 +412,10 @@ function buildSlotRow(slot) {
   const tdTime = document.createElement('td');
   tdTime.textContent = slot.time;
   tr.appendChild(tdTime);
+
+  const timedTodo = (DATE === todayStr())
+    ? todos.find(t => t.time === slot.time && t.dueDate === DATE)
+    : null;
 
   const tdTask = document.createElement('td');
   tdTask.className = 'task-cell';
@@ -423,9 +433,6 @@ function buildSlotRow(slot) {
     tdTask.dataset.time = slot.time;
     tdTask.dataset.field = 'task';
     const explicitTask = cells[slot.time] && cells[slot.time].task;
-    const timedTodo = (DATE === todayStr())
-      ? todos.find(t => t.time === slot.time && t.dueDate === DATE)
-      : null;
     tdTask.innerHTML = explicitTask || (timedTodo ? esc(timedTodo.text) : '');
     tdTask.addEventListener('blur', onCellBlur);
   }
@@ -440,7 +447,9 @@ function buildSlotRow(slot) {
     tdNote.dataset.ph = 'note...';
     tdNote.dataset.time = slot.time;
     tdNote.dataset.field = 'note';
-    tdNote.innerHTML = (cells[slot.time] && cells[slot.time].note) || '';
+    const explicitNote = cells[slot.time] && cells[slot.time].note;
+    const briefFromTodo = timedTodo ? projectSubitemsSummary(timedTodo.projectId) : '';
+    tdNote.innerHTML = explicitNote || briefFromTodo;
     tdNote.addEventListener('blur', onCellBlur);
   }
   tr.appendChild(tdNote);
