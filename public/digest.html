@@ -88,8 +88,8 @@
              Dashboard table below them is scoped to the date-range filter,
              so both facts need to be visible here too. -->
         <div style="font-size:10px;margin-top:4px;display:flex;flex-direction:column;gap:2px">
-          <div><span style="background:#e53935;font-weight:700;padding:1px 6px;border-radius:7px;letter-spacing:0.03em;margin-right:5px">🔴 LIVE</span><span id="acct-live-meta" style="opacity:0.9"></span></div>
-          <div><span style="background:rgba(255,255,255,0.25);font-weight:700;padding:1px 6px;border-radius:7px;letter-spacing:0.03em;margin-right:5px">🔍 FILTER</span><span id="acct-filter-meta" style="opacity:0.9"></span></div>
+          <div id="acct-live-line"><span style="background:#e53935;font-weight:700;padding:1px 6px;border-radius:7px;letter-spacing:0.03em;margin-right:5px">🔴 LIVE</span><span id="acct-live-meta" style="opacity:0.9"></span></div>
+          <div id="acct-filter-line" style="display:none"><span style="background:rgba(255,255,255,0.25);font-weight:700;padding:1px 6px;border-radius:7px;letter-spacing:0.03em;margin-right:5px">🔍 FILTER</span><span id="acct-filter-meta" style="opacity:0.9"></span></div>
         </div>
       </div>
       <table id="acct-table" style="width:100%;border-collapse:collapse;font-size:11px">
@@ -124,20 +124,25 @@
              🔴 LIVE   = driven by the fetch schedule (data freshness)
              🔍 FILTER = driven by the account/category/date-range filters (what's shown) -->
       <div style="background:#1a73e8;color:white">
-        <!-- Zone A: LIVE — schedule-driven data freshness -->
+        <!-- Zone A: LIVE — schedule-driven data freshness. Hidden entirely in
+             Filter mode (via #dash-live-info), since none of it means
+             anything once the data on screen came from a one-off Gmail
+             query instead of the fetch schedule. -->
         <div style="padding:10px 20px;background:rgba(0,0,0,0.15);display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,0.15)">
           <button id="left-col-toggle" onclick="toggleLeftCol()" title="ซ่อน/แสดง panel ด้านซ้าย">◀</button>
           <span style="font-weight:700;font-size:14px">📋 Email Dashboard</span>
-          <span style="background:#e53935;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔴 LIVE</span>
-          <span id="last-updated" style="font-size:11px;opacity:0.9"></span>
-          <span id="next-refresh" style="font-size:11px;opacity:0.9"></span>
-          <button id="db-pull-now" onclick="pullNow()" style="font-size:11px;font-weight:700;padding:4px 12px;border:none;border-radius:6px;background:white;color:#1a73e8;cursor:pointer;white-space:nowrap;margin-left:auto">⟳ Pull Now</button>
-          <button onclick="toggleScheduleInfo()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:10px;padding:4px 8px;border-radius:10px;cursor:pointer">ⓘ ตารางเวลาดึงอีเมล</button>
+          <div id="dash-live-info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1">
+            <span style="background:#e53935;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔴 LIVE</span>
+            <span id="last-updated" style="font-size:11px;opacity:0.9"></span>
+            <span id="next-refresh" style="font-size:11px;opacity:0.9"></span>
+            <button id="db-pull-now" onclick="pullNow()" style="font-size:11px;font-weight:700;padding:4px 12px;border:none;border-radius:6px;background:white;color:#1a73e8;cursor:pointer;white-space:nowrap;margin-left:auto">⟳ Pull Now</button>
+            <button onclick="toggleScheduleInfo()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:10px;padding:4px 8px;border-radius:10px;cursor:pointer">ⓘ ตารางเวลาดึงอีเมล</button>
+          </div>
         </div>
         <!-- Zone B: FILTER — what's currently shown (account/category/date range) -->
         <div style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <span style="background:rgba(255,255,255,0.25);font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔍 FILTER</span>
+            <span id="dash-filter-badge" style="background:rgba(255,255,255,0.25);font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em;display:none">🔍 FILTER</span>
             <select id="db-filter" onchange="_filterAccount=this.value; _mode==='filter' ? loadFilterData() : renderDashboard()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
               <option value="">ทุก account</option>
             </select>
@@ -376,6 +381,19 @@ function setMode(mode) {
   document.getElementById('mode-live').classList.toggle('active', mode === 'live');
   document.getElementById('mode-filter').classList.toggle('active', mode === 'filter');
   document.getElementById('filter-daterange').style.display = mode === 'filter' ? 'flex' : 'none';
+
+  // Each header shows ONLY the badge/info for the mode currently selected —
+  // no more "🔴 LIVE" sitting next to a picked date range that has nothing
+  // to do with the fetch schedule, or "🔍 FILTER" showing during Live mode
+  // when nothing is actually date-filtered.
+  const dashLiveInfo   = document.getElementById('dash-live-info');
+  const dashFilterTag  = document.getElementById('dash-filter-badge');
+  const acctLiveLine   = document.getElementById('acct-live-line');
+  const acctFilterLine = document.getElementById('acct-filter-line');
+  if (dashLiveInfo)   dashLiveInfo.style.display   = mode === 'live'   ? 'flex' : 'none';
+  if (dashFilterTag)  dashFilterTag.style.display  = mode === 'filter' ? 'inline-block' : 'none';
+  if (acctLiveLine)   acctLiveLine.style.display   = mode === 'live'   ? 'block' : 'none';
+  if (acctFilterLine) acctFilterLine.style.display = mode === 'filter' ? 'block' : 'none';
 
   if (mode === 'live') {
     _filterCat = '__important__';
