@@ -49,7 +49,14 @@
     <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden;margin-bottom:12px">
       <div style="background:#1a73e8;color:white;padding:10px 14px;text-align:left">
         <div style="font-weight:700;font-size:13px">📬 Accounts</div>
-        <div id="acct-meta" style="font-weight:400;font-size:11px;opacity:0.85;margin-top:2px"></div>
+        <!-- Same 🔴 LIVE / 🔍 FILTER split as the Dashboard header — these
+             counts come from the live fetch (updated on schedule) but the
+             Dashboard table below them is scoped to the date-range filter,
+             so both facts need to be visible here too. -->
+        <div style="font-size:10px;margin-top:4px;display:flex;flex-direction:column;gap:2px">
+          <div><span style="background:#e53935;font-weight:700;padding:1px 6px;border-radius:7px;letter-spacing:0.03em;margin-right:5px">🔴 LIVE</span><span id="acct-live-meta" style="opacity:0.9"></span></div>
+          <div><span style="background:rgba(255,255,255,0.25);font-weight:700;padding:1px 6px;border-radius:7px;letter-spacing:0.03em;margin-right:5px">🔍 FILTER</span><span id="acct-filter-meta" style="opacity:0.9"></span></div>
+        </div>
       </div>
       <table id="acct-table" style="width:100%;border-collapse:collapse;font-size:11px">
         <thead>
@@ -79,12 +86,24 @@
   <!-- email dashboard — always visible, auto-loads below cards -->
   <div id="email-dashboard" style="margin-top:20px">
     <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
-      <!-- header with filter + status pills -->
-      <div style="background:#1a73e8;color:white;padding:12px 20px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-          <div style="display:flex;align-items:center;gap:10px">
-            <button id="left-col-toggle" onclick="toggleLeftCol()" title="ซ่อน/แสดง panel ด้านซ้าย">◀</button>
-            <span style="font-weight:700;font-size:14px">📋 Email Dashboard</span>
+      <!-- header — two clearly separated zones:
+             🔴 LIVE   = driven by the fetch schedule (data freshness)
+             🔍 FILTER = driven by the account/category/date-range filters (what's shown) -->
+      <div style="background:#1a73e8;color:white">
+        <!-- Zone A: LIVE — schedule-driven data freshness -->
+        <div style="padding:10px 20px;background:rgba(0,0,0,0.15);display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,0.15)">
+          <button id="left-col-toggle" onclick="toggleLeftCol()" title="ซ่อน/แสดง panel ด้านซ้าย">◀</button>
+          <span style="font-weight:700;font-size:14px">📋 Email Dashboard</span>
+          <span style="background:#e53935;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔴 LIVE</span>
+          <span id="last-updated" style="font-size:11px;opacity:0.9"></span>
+          <span id="next-refresh" style="font-size:11px;opacity:0.9"></span>
+          <button id="db-pull-now" onclick="pullNow()" style="font-size:11px;font-weight:700;padding:4px 12px;border:none;border-radius:6px;background:white;color:#1a73e8;cursor:pointer;white-space:nowrap;margin-left:auto">⟳ Pull Now</button>
+          <button onclick="toggleScheduleInfo()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:10px;padding:4px 8px;border-radius:10px;cursor:pointer">ⓘ ตารางเวลาดึงอีเมล</button>
+        </div>
+        <!-- Zone B: FILTER — what's currently shown (account/category/date range) -->
+        <div style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="background:rgba(255,255,255,0.25);font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔍 FILTER</span>
             <select id="db-filter" onchange="_filterAccount=this.value;renderDashboard()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
               <option value="">ทุก account</option>
             </select>
@@ -99,7 +118,6 @@
             <input id="db-date-from" type="date" onchange="_filterDateFrom=this.value;renderDashboard();renderAcctMeta()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
             <span style="font-size:11px;opacity:0.8">ถึง</span>
             <input id="db-date-to" type="date" onchange="_filterDateTo=this.value;renderDashboard();renderAcctMeta()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
-            <button id="db-pull-now" onclick="pullNow()" style="font-size:11px;font-weight:700;padding:4px 12px;border:none;border-radius:6px;background:white;color:#1a73e8;cursor:pointer;white-space:nowrap">⟳ Pull Now</button>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <span id="db-unread"     style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;background:rgba(255,255,255,0.2)">📥 Unread 0</span>
@@ -108,12 +126,7 @@
             <span id="db-done"       style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;background:rgba(0,200,100,0.35)">✅ Done 0</span>
           </div>
         </div>
-        <div style="margin-top:6px;font-size:11px;opacity:0.85;display:flex;align-items:center;gap:12px">
-          <span id="last-updated"></span>
-          <span id="next-refresh"></span>
-          <button onclick="toggleScheduleInfo()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:10px;padding:2px 8px;border-radius:10px;cursor:pointer">ⓘ ตารางเวลาดึงอีเมล</button>
-        </div>
-        <div id="schedule-info" style="display:none;margin-top:8px;background:rgba(255,255,255,0.97);border-radius:8px;padding:10px 12px;color:#333">
+        <div id="schedule-info" style="display:none;margin:0 20px 10px;background:rgba(255,255,255,0.97);border-radius:8px;padding:10px 12px;color:#333">
           <div style="font-size:11px;font-weight:700;color:#555;letter-spacing:0.03em;text-transform:uppercase;margin-bottom:8px">📆 ตารางเวลาดึงอีเมล</div>
           <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;font-size:12px">
             <span style="background:#e8f5e9;color:#2e7d32;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;justify-self:start">ทุก 30 นาที</span>
@@ -158,7 +171,6 @@
       </div>
     </div>
   </div>
-</div>
 
   </div><!-- /right-col -->
 </div><!-- /content -->
@@ -467,19 +479,21 @@ function renderSummary(title, accountList) {
 // Accounts panel header, so the numbers there are read alongside the same
 // context the detailed table below already shows.
 function renderAcctMeta() {
-  const el = document.getElementById('acct-meta');
-  if (!el) return;
+  const liveEl = document.getElementById('acct-live-meta');
+  const filterEl = document.getElementById('acct-filter-meta');
+  if (!liveEl || !filterEl) return;
+
+  const ts = _lastUpdatedAt ? new Date(_lastUpdatedAt).toLocaleString('th-TH', { timeStyle: 'short' }) : '';
+  liveEl.textContent = ts ? `อัปเดต: ${ts}` : 'กำลังโหลด…';
+
   const fmt = ymd => {
     if (!ymd) return '';
     const [y, m, d] = ymd.split('-');
     return `${d}/${m}/${y}`;
   };
-  const range = (_filterDateFrom || _filterDateTo)
-    ? `ช่วง: ${fmt(_filterDateFrom)} – ${fmt(_filterDateTo)}`
-    : '';
-  const ts = _lastUpdatedAt ? new Date(_lastUpdatedAt).toLocaleString('th-TH', { timeStyle: 'short' }) : '';
-  const updated = ts ? `อัปเดต: ${ts}` : '';
-  el.textContent = [range, updated].filter(Boolean).join('  ·  ');
+  filterEl.textContent = (_filterDateFrom || _filterDateTo)
+    ? `${fmt(_filterDateFrom)} – ${fmt(_filterDateTo)}`
+    : 'ทุกช่วงเวลา';
 }
 
 function renderAccountTable(accountList) {
