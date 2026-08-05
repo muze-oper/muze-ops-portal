@@ -9,6 +9,7 @@ const plannerRoutes = require('./routes/planner');
 const mtscsRoutes = require('./routes/mtscs');
 const nissanMnRoutes = require('./routes/nissanMn');
 const ktcChatRoutes = require('./routes/ktcChat');
+const kbRoutes = require('./routes/kb');
 
 const app = express();
 app.use(cookieParser());
@@ -46,6 +47,7 @@ app.use(plannerRoutes);
 app.use(mtscsRoutes);
 app.use(nissanMnRoutes);
 app.use(ktcChatRoutes);
+app.use(kbRoutes);
 
 module.exports = app;
 if (require.main === module) {
