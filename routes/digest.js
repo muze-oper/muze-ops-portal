@@ -516,9 +516,11 @@ router.get('/api/digest/gmail-tokens', async (req, res) => {
 // matching message, rather than filtering the already-loaded Live dataset
 // (which only ever contains today's fetch + carried-forward pending items,
 // so a resolved or Auto-category email from an earlier date can never
-// reappear there no matter what range is picked). Session-auth only — this
-// is a dashboard action, not something the local live.js script calls.
+// reappear there no matter what range is picked). Secret or logged-in, same
+// convention as holidays/daily-totals — the dashboard calls it with a
+// session cookie, but the shared secret lets it be exercised directly too.
 router.get('/api/digest/range', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
   try {
     const { account, from, to } = req.query;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(to || '')) {

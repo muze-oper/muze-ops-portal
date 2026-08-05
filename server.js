@@ -34,6 +34,7 @@ app.get('/api/digest/daily-totals', digestRoutes);
 app.post('/api/digest/daily-totals', digestRoutes);
 app.post('/api/digest/gmail-tokens', digestRoutes);
 app.get('/api/digest/gmail-tokens', digestRoutes);
+app.get('/api/digest/range', digestRoutes);
 app.post('/api/planner', plannerRoutes);
 
 // Public routes - must be registered before requireAuth
