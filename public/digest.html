@@ -18,7 +18,7 @@
     header h1 { font-size: 18px; }
     header div { display: flex; gap: 16px; align-items: center; }
     header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
-    #content { max-width: 1900px; margin: 16px auto; padding: 0 12px; display:flex; gap:14px; align-items:flex-start; }
+    #content { max-width: 1900px; margin: 12px auto 16px; padding: 0 12px; display:flex; gap:14px; align-items:flex-start; }
     #left-col { width: 280px; flex-shrink: 0; position: sticky; top: 16px; transition: width 0.15s, opacity 0.15s; }
     #left-col.collapsed { width: 0; opacity: 0; overflow: hidden; pointer-events: none; margin-right: -14px; }
     #right-col { flex: 1; min-width: 0; }
@@ -26,6 +26,24 @@
       background: rgba(255,255,255,0.2); border: none; color: white; width: 24px; height: 24px;
       border-radius: 5px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center;
     }
+    /* Top-level mode switcher — the single control everything else follows */
+    #mode-bar { max-width: 1900px; margin: 16px auto 0; padding: 0 12px; }
+    #mode-bar-card {
+      background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    #mode-bar-label { font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.05em; text-transform: uppercase; }
+    #mode-switch { display: inline-flex; background: #f1f3f4; border-radius: 10px; padding: 4px; gap: 3px; }
+    .mode-btn {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+      padding: 7px 16px; border: none; border-radius: 8px; cursor: pointer;
+      background: transparent; color: #5f6368; text-align: left;
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    }
+    .mode-btn-title { font-size: 13px; font-weight: 700; }
+    .mode-btn-sub { font-size: 10px; font-weight: 400; opacity: 0.8; }
+    .mode-btn.active { background: #1a73e8; color: white; box-shadow: 0 1px 4px rgba(26,115,232,0.45); }
+    .mode-btn:not(.active):hover { background: rgba(0,0,0,0.05); }
   </style>
 </head>
 <body>
@@ -41,6 +59,22 @@
     <a href="/logout">Logout</a>
   </div>
 </header>
+
+<div id="mode-bar">
+  <div id="mode-bar-card">
+    <span id="mode-bar-label">โหมดการแสดงผล</span>
+    <div id="mode-switch">
+      <button id="mode-live" class="mode-btn active" onclick="setMode('live')">
+        <span class="mode-btn-title">🔴 LIVE</span>
+        <span class="mode-btn-sub">ตามตารางเวลา · default: Action + ควรรับรู้</span>
+      </button>
+      <button id="mode-filter" class="mode-btn" onclick="setMode('filter')">
+        <span class="mode-btn-title">🔍 FILTER</span>
+        <span class="mode-btn-sub">ตามช่วงเวลาที่เลือก · ทุก category</span>
+      </button>
+    </div>
+  </div>
+</div>
 
 <div id="content">
   <!-- left column: account summary table + calendar heatmap -->
@@ -114,10 +148,12 @@
               <option value="🟡 ควรรับรู้">🟡 ควรรับรู้</option>
               <option value="⚪ แจ้งเตือนอัตโนมัติ">⚪ แจ้งอัตโนมัติ</option>
             </select>
-            <span style="font-size:11px;opacity:0.8">ตั้งแต่</span>
-            <input id="db-date-from" type="date" onchange="_filterDateFrom=this.value;renderDashboard();renderAcctMeta()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
-            <span style="font-size:11px;opacity:0.8">ถึง</span>
-            <input id="db-date-to" type="date" onchange="_filterDateTo=this.value;renderDashboard();renderAcctMeta()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
+            <div id="filter-daterange" style="display:none;align-items:center;gap:10px">
+              <span style="font-size:11px;opacity:0.8">ตั้งแต่</span>
+              <input id="db-date-from" type="date" onchange="_filterDateFrom=this.value;renderDashboard();renderAccountTable(_detailData);renderAcctMeta()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
+              <span style="font-size:11px;opacity:0.8">ถึง</span>
+              <input id="db-date-to" type="date" onchange="_filterDateTo=this.value;renderDashboard();renderAccountTable(_detailData);renderAcctMeta()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
+            </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <span id="db-unread"     style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;background:rgba(255,255,255,0.2)">📥 Unread 0</span>
@@ -296,16 +332,66 @@ function populateFilter() {
     }).join('');
 }
 
+// ── Mode: the top-level control everything else follows ──
+//   live   = schedule-driven, always "right now" — no date slicing, default
+//            category is Action + ควรรับรู้ (the stuff that needs attention)
+//   filter = date-range driven — every category, scoped to whatever range
+//            is picked (a comprehensive/historical view, not a live one)
+let _mode = 'live';
 let _filterAccount = '';
 let _filterCat = '__important__';
 const _pad = n => String(n).padStart(2,'0');
-const _now = new Date();
-const _d72 = new Date(_now - 72 * 60 * 60 * 1000);
-let _filterDateFrom = `${_d72.getFullYear()}-${_pad(_d72.getMonth()+1)}-${_pad(_d72.getDate())}`;
-let _filterDateTo   = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
+const _ymd = d => `${d.getFullYear()}-${_pad(d.getMonth()+1)}-${_pad(d.getDate())}`;
+let _filterDateFrom = ''; // empty in Live mode — no date restriction at all
+let _filterDateTo   = '';
+
 function filterDashboard(account) {
   _filterAccount = account;
   renderDashboard();
+}
+
+// Shared by renderDashboard() (rows) and renderAccountTable() (per-account
+// tallies) so both panels apply date scoping identically — only meaningful
+// in Filter mode; Live mode has no date axis at all.
+function withinDateFilter(e) {
+  if (_mode !== 'filter') return true;
+  if (!_filterDateFrom && !_filterDateTo) return true;
+  const d = new Date(e.date); // e.date is a display string ("03Aug26 16:04"), not ISO — Date() parses it fine
+  if (isNaN(d)) return false;
+  const eDate = _ymd(d);
+  if (_filterDateFrom && eDate < _filterDateFrom) return false;
+  if (_filterDateTo   && eDate > _filterDateTo)   return false;
+  return true;
+}
+
+function setMode(mode) {
+  _mode = mode;
+  document.getElementById('mode-live').classList.toggle('active', mode === 'live');
+  document.getElementById('mode-filter').classList.toggle('active', mode === 'filter');
+  document.getElementById('filter-daterange').style.display = mode === 'filter' ? 'flex' : 'none';
+
+  if (mode === 'live') {
+    _filterCat = '__important__';
+    _filterDateFrom = '';
+    _filterDateTo = '';
+  } else {
+    _filterCat = ''; // all categories
+    if (!_filterDateFrom && !_filterDateTo) {
+      const now = new Date();
+      _filterDateFrom = _ymd(new Date(now - 72 * 3600 * 1000));
+      _filterDateTo = _ymd(now);
+    }
+  }
+  const catEl = document.getElementById('db-cat-filter');
+  const fromEl = document.getElementById('db-date-from');
+  const toEl = document.getElementById('db-date-to');
+  if (catEl)  catEl.value  = _filterCat;
+  if (fromEl) fromEl.value = _filterDateFrom;
+  if (toEl)   toEl.value   = _filterDateTo;
+
+  renderDashboard();
+  renderAccountTable(_detailData);
+  renderAcctMeta();
 }
 
 function renderDashboard() {
@@ -325,25 +411,10 @@ function renderDashboard() {
       } else if (_filterCat && e.category !== _filterCat) {
         return;
       }
-      // date range filter — e.date is a display string like "03Aug26 16:04",
-      // not ISO, so it must go through Date() before comparing against the
-      // YYYY-MM-DD picker values (a raw substring() never matched anything).
-      if (_filterDateFrom || _filterDateTo) {
-        const d = new Date(e.date);
-        if (isNaN(d)) return;
-        const pad = n => String(n).padStart(2,'0');
-        const eDate = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-        if (_filterDateFrom && eDate < _filterDateFrom) return;
-        if (_filterDateTo   && eDate > _filterDateTo)   return;
-      }
+      if (!withinDateFilter(e)) return;
       rows.push({ account: d.account, e: e, i: i });
     });
   });
-
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
-    return;
-  }
 
   if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
@@ -509,7 +580,9 @@ function renderAccountTable(accountList) {
     // carry-forward merge, so any carried-over item (still pending, not
     // Done) was invisible here even though it's plainly shown in the
     // Dashboard table below, which reads from this same d.emails array.
-    const emails   = d.emails || [];
+    // withinDateFilter() is a no-op in Live mode (mode has no date axis) and
+    // scopes to the picked range in Filter mode, matching the Dashboard.
+    const emails   = (d.emails || []).filter(withinDateFilter);
     const action   = emails.filter(e => e.category === '🔴 ต้อง Action').length;
     const mustRead = emails.filter(e => e.category === '🟡 ควรรับรู้').length;
     const auto     = emails.filter(e => e.category === '⚪ แจ้งเตือนอัตโนมัติ').length;
@@ -976,13 +1049,11 @@ async function heatmapNext() {
   await loadHeatmap();
 }
 
-// pre-fill date pickers with default range
-(function() {
-  const f = document.getElementById('db-date-from');
-  const t = document.getElementById('db-date-to');
-  if (f) f.value = _filterDateFrom;
-  if (t) t.value = _filterDateTo;
-})();
+// Sync the mode UI (date-range visibility, dropdown values) to the default
+// 'live' state — renderDashboard()/renderAccountTable() themselves run once
+// real data loads via loadLive() below, so this is just the static setup.
+document.getElementById('filter-daterange').style.display = 'none';
+document.getElementById('db-cat-filter').value = _filterCat;
 
 if (localStorage.getItem('digestLeftColCollapsed') === '1') {
   document.getElementById('left-col').classList.add('collapsed');
