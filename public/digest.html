@@ -108,9 +108,22 @@
             <span id="db-done"       style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;background:rgba(0,200,100,0.35)">✅ Done 0</span>
           </div>
         </div>
-        <div style="margin-top:6px;font-size:11px;opacity:0.85;display:flex;gap:12px">
+        <div style="margin-top:6px;font-size:11px;opacity:0.85;display:flex;align-items:center;gap:12px">
           <span id="last-updated"></span>
           <span id="next-refresh"></span>
+          <button onclick="toggleScheduleInfo()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:10px;padding:2px 8px;border-radius:10px;cursor:pointer">ⓘ ตารางเวลาดึงอีเมล</button>
+        </div>
+        <div id="schedule-info" style="display:none;margin-top:8px;background:rgba(255,255,255,0.97);border-radius:8px;padding:10px 12px;color:#333">
+          <div style="font-size:11px;font-weight:700;color:#555;letter-spacing:0.03em;text-transform:uppercase;margin-bottom:8px">📆 ตารางเวลาดึงอีเมล</div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;font-size:12px">
+            <span style="background:#e8f5e9;color:#2e7d32;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;justify-self:start">ทุก 30 นาที</span>
+            <span>วันธรรมดา 06:00–18:00 (ไม่ใช่วันหยุด)</span>
+            <span style="background:#e3f2fd;color:#1565c0;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;justify-self:start">ทุก 3 ชม.</span>
+            <span>คืนวันธรรมดาปกติ (วันถัดไปไม่ใช่วันหยุด)</span>
+            <span style="background:#fff3e0;color:#e65100;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;justify-self:start">ทุก 6 ชม.</span>
+            <span>วันหยุดเต็มวัน (เสาร์-อาทิตย์ + วันหยุดนักขัตฤกษ์) และเย็นวันธรรมดาก่อนวันหยุด</span>
+          </div>
+          <div style="font-size:10px;color:#999;margin-top:8px">holidays = เสาร์-อาทิตย์ + วันหยุดนักขัตฤกษ์ที่ตั้งไว้ในปฏิทิน (ดูที่ Email Volume ด้านซ้าย)</div>
         </div>
       </div>
       <!-- email table -->
@@ -725,6 +738,11 @@ async function loadLive() {
       loadAllEmailStatuses();
     }
   } catch { /* silent */ }
+}
+
+function toggleScheduleInfo() {
+  const el = document.getElementById('schedule-info');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
 function toggleLeftCol() {
