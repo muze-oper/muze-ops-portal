@@ -5,107 +5,222 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Muze Tech Ops Portal</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
-    header {
-      background: #1a73e8; color: white; padding: 16px 24px;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    header h1 { font-size: 18px; }
-    header .header-right { display: flex; align-items: center; gap: 16px; }
-    header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
-    #last-updated { font-size: 11px; color: white; opacity: 0.7; }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 20px;
-      padding: 32px 24px;
-      max-width: 900px;
-      margin: 0 auto;
-    }
-    .card {
-      background: white; border-radius: 12px; padding: 24px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      text-decoration: none; color: inherit;
-      transition: box-shadow 0.15s;
-    }
-    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    .card .icon { font-size: 28px; margin-bottom: 12px; }
-    .card h2 { font-size: 15px; margin-bottom: 6px; color: #1a73e8; }
-    .card p { font-size: 12px; color: #666; }
-    .card .card-meta { font-size: 10px; color: #999; margin-top: 12px; line-height: 1.6; }
+    @import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap');
 
-    .card-links { margin-top: 16px; display: flex; flex-direction: column; gap: 2px; }
-    .card-links a {
-      display: block; padding: 10px 12px; margin: 0 -12px;
-      border-radius: 8px; text-decoration: none; color: inherit;
+    :root {
+      --muze-blue: #1737C8;
+      --sky-blue: #0090FF;
+      --night-blue: #00103C;
+      --accent-soft: #E6EAFB;
+      --accent-hover: #1229A8;
+      --ink-700: #1B2A5C;
+      --ink-500: #4A5680;
+      --ink-400: #8A92B2;
+      --ink-300: #C6CBDC;
+      --ink-200: #E3E6F0;
+      --ink-100: #F2F4FA;
+      --ink-050: #F8F9FC;
+      --font-sans: 'General Sans', 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
+      --font-thai: 'IBM Plex Sans Thai', 'General Sans', ui-sans-serif, system-ui, sans-serif;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 2px 6px rgba(0, 16, 60, 0.08);
+      --shadow-md: 0 8px 24px rgba(0, 16, 60, 0.10);
+      --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
     }
-    .card-links a:hover { background: #f7f8fa; }
-    .card-links .card-link-title { font-size: 13px; font-weight: 600; color: #1a73e8; }
-    .card-links .card-meta { margin-top: 4px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      color: var(--night-blue);
+      background: var(--ink-050);
+      -webkit-font-smoothing: antialiased;
+    }
+    [lang="th"] { font-family: var(--font-thai); letter-spacing: -0.01em; line-height: 1.6; }
+    a { color: var(--muze-blue); text-decoration: none; }
+    a:hover { color: var(--accent-hover); }
+    .icon { flex: none; }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between; gap: 24px;
+      height: 72px; padding: 0 32px;
+      background: #fff; border-bottom: 1px solid var(--ink-200);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand img { height: 26px; width: auto; display: block; }
+    .brand .rule { width: 1px; height: 24px; background: var(--ink-200); }
+    .brand .name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+    .topbar-right { display: flex; align-items: center; gap: 20px; }
+    .stamp { font-size: 12.5px; color: var(--ink-500); }
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 34px; padding: 0 14px;
+      border: 1px solid var(--ink-200); border-radius: var(--radius-md);
+      background: #fff; font: inherit; font-size: 13px; font-weight: 500;
+      color: var(--ink-700); cursor: pointer; text-decoration: none;
+      transition: background 120ms var(--ease), border-color 120ms var(--ease);
+    }
+    .btn-ghost:hover { background: var(--ink-050); border-color: var(--ink-300); color: var(--ink-700); }
+
+    .page { max-width: 1216px; margin: 0 auto; padding: 40px 32px 64px; }
+    .page-head { display: flex; flex-direction: column; gap: 6px; margin-bottom: 28px; }
+    .page-head h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.015em; }
+    .page-head p { font-size: 14px; color: var(--ink-500); }
+
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    @media (max-width: 1080px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 720px)  {
+      .grid { grid-template-columns: 1fr; }
+      .page { padding: 24px 16px 48px; }
+      .topbar-right .stamp { display: none; }
+    }
+
+    .card {
+      position: relative; display: flex; flex-direction: column; gap: 16px;
+      padding: 24px; background: #fff;
+      border: 1px solid var(--ink-200); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm); overflow: hidden; color: inherit;
+      transition: box-shadow 200ms var(--ease), transform 200ms var(--ease);
+    }
+    a.card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); color: inherit; }
+    .card::before { content: ''; position: absolute; top: 0; left: 0; width: 56px; height: 3px; background: var(--muze-blue); }
+    .card-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 44px; height: 44px; border-radius: var(--radius-md);
+      background: var(--accent-soft); color: var(--muze-blue);
+    }
+    .card-body { display: flex; flex-direction: column; gap: 7px; flex: 1; }
+    .card-title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+    .card-desc { font-size: 13.5px; line-height: 1.6; color: var(--ink-500); text-wrap: pretty; }
+    .card-meta {
+      display: none; align-items: center; gap: 10px;
+      padding-top: 14px; border-top: 1px solid var(--ink-100);
+    }
+    .card-meta.has-content { display: flex; }
+    .avatar {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 999px;
+      background: var(--ink-100); color: var(--ink-700); font-size: 10px; font-weight: 600;
+    }
+    .card-meta .owner { font-size: 12px; color: var(--ink-500); }
+    .card-meta .dot { width: 3px; height: 3px; border-radius: 999px; background: var(--ink-300); }
+    .card-meta .date { font-size: 12px; color: var(--ink-400); }
+
+    .sublist { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+    .subrow {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; border: 1px solid var(--ink-200); border-radius: var(--radius-md);
+      color: inherit; transition: background 120ms var(--ease), border-color 120ms var(--ease);
+    }
+    .subrow:hover { background: var(--ink-050); border-color: var(--ink-300); color: inherit; }
+    .subrow > .icon:first-child { color: var(--ink-400); }
+    .subrow-text { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .subrow-title { font-size: 14px; font-weight: 500; }
+    .subrow-meta { font-size: 11.5px; color: var(--ink-400); }
+    .subrow .chev { color: var(--ink-300); }
+
+    :focus-visible { outline: 2px solid var(--sky-blue); outline-offset: 2px; border-radius: 4px; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>📊 Muze Tech Ops Portal</h1>
-    <div class="header-right">
-      <div id="last-updated"></div>
-      <a href="/logout">Logout</a>
+  <header class="topbar">
+    <div class="brand">
+      <img src="/muze-mark-blue.png" alt="Muze Innovation">
+      <span class="rule"></span>
+      <span class="name">Tech Ops Portal</span>
+    </div>
+    <div class="topbar-right">
+      <span class="stamp" id="last-updated" lang="th"></span>
+      <a class="btn-ghost" href="/logout">
+        <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+        Logout
+      </a>
     </div>
   </header>
-  <div class="grid">
-    <a class="card" href="/digest" data-card="digest">
-      <div class="icon">📬</div>
-      <h2>Email Digest</h2>
-      <p>สรุป email จาก 5 accounts รายชั่วโมง แยกหมวด ต้อง Action / ควรรับรู้ / แจ้งอัตโนมัติ</p>
-      <div class="card-meta"></div>
-    </a>
-    <a class="card" href="/planner" data-card="planner">
-      <div class="icon">🗓️</div>
-      <h2>Daily Planner</h2>
-      <p>ตารางเวลารายวัน ผูกกับ Google Calendar พร้อม To-Do List ส่วนตัว</p>
-      <div class="card-meta"></div>
-    </a>
-    <a class="card" href="https://script.google.com/a/macros/muze.co.th/s/AKfycbwPc1DfCOObcz_XgHQvGte9G2iUktpVZ7z8W3KikjEpvmSGHs_Pga9U7qFrAmm2fjEE0A/exec" target="_blank" rel="noopener" data-card="tvn">
-      <div class="icon">📺</div>
-      <h2>TVN Case Monitoring</h2>
-      <p>Live case monitoring dashboard for TVN incidents and tickets.</p>
-      <div class="card-meta"></div>
-    </a>
-    <a class="card" href="/tvs-error-code-kb" target="_blank" rel="noopener" data-card="tvn">
-      <div class="icon">📕</div>
-      <h2>TVS Error Code KB</h2>
-      <p>Knowledge Base ถอดรหัส error code (root / SDK / PlaybackException / CDN / Streamer) + 29 curated errors + ตารางอ้างอิง + Root Cause Log พร้อมโหมดแก้ไข</p>
-      <div class="card-meta"></div>
-    </a>
-    <a class="card" href="https://script.google.com/macros/s/AKfycbynl_yG-XHhGupSjCzBANJ-kQH-AvO72iH6zEx6RR_tCbssc03qfLLloMxgT320AgpO/exec" target="_blank" rel="noopener" data-card="ktc">
-      <div class="icon">📋</div>
-      <h2>KTC Support Report</h2>
-      <p>Monthly ticket report dashboard for the KTC Jira project.</p>
-      <div class="card-meta"></div>
-    </a>
-    <a class="card" href="/ktc-chat" data-card="ktc-chat">
-      <div class="icon">🤖</div>
-      <h2>KTC Support Chat</h2>
-      <p>พิมพ์คำถาม/ปัญหาลูกค้า รับคำตอบจากเคส Jira ของ KTC + Handover Document</p>
-      <div class="card-meta"></div>
-    </a>
-    <div class="card">
-      <div class="icon">📊</div>
-      <h2>Customer Support Dashboards</h2>
-      <p>สรุปสถานะ ticket จาก Jira Service Desk ของแต่ละทีม</p>
-      <div class="card-links">
-        <a href="/mtscs" data-card="mtscs">
-          <div class="card-link-title">MTS Customer Support</div>
-          <div class="card-meta"></div>
-        </a>
-        <a href="/mtscs?tab=nissan" data-card="nissan-mn">
-          <div class="card-link-title">🚗 Nissan Mobile Application (ITSM)</div>
-          <div class="card-meta"></div>
-        </a>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Workspaces</h1>
+      <p lang="th">เครื่องมือและแดชบอร์ดของทีม Tech Ops</p>
+    </div>
+    <div class="grid">
+      <a class="card" href="/digest" data-card="digest">
+        <span class="card-icon"><svg class="icon" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span>
+        <div class="card-body">
+          <span class="card-title">Email Digest</span>
+          <span class="card-desc" lang="th">สรุป email จาก 5 accounts รายชั่วโมง แยกหมวด ต้อง Action / ควรรับรู้ / แจ้งอัตโนมัติ</span>
+        </div>
+        <div class="card-meta"></div>
+      </a>
+      <a class="card" href="/planner" data-card="planner">
+        <span class="card-icon"><svg class="icon" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></span>
+        <div class="card-body">
+          <span class="card-title">Daily Planner</span>
+          <span class="card-desc" lang="th">ตารางเวลารายวัน ผูกกับ Google Calendar พร้อม To-Do List ส่วนตัว</span>
+        </div>
+        <div class="card-meta"></div>
+      </a>
+      <a class="card" href="https://script.google.com/a/macros/muze.co.th/s/AKfycbwPc1DfCOObcz_XgHQvGte9G2iUktpVZ7z8W3KikjEpvmSGHs_Pga9U7qFrAmm2fjEE0A/exec" target="_blank" rel="noopener" data-card="tvn">
+        <span class="card-icon"><svg class="icon" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+        <div class="card-body">
+          <span class="card-title">TVN Case Monitoring</span>
+          <span class="card-desc">Live case monitoring dashboard for TVN incidents and tickets.</span>
+        </div>
+        <div class="card-meta"></div>
+      </a>
+      <a class="card" href="/tvs-error-code-kb" target="_blank" rel="noopener" data-card="tvn">
+        <span class="card-icon"><svg class="icon" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+        <div class="card-body">
+          <span class="card-title">TVS Error Code KB</span>
+          <span class="card-desc" lang="th">Knowledge Base ถอดรหัส error code (root / SDK / PlaybackException / CDN / Streamer) + 29 curated errors + ตารางอ้างอิง + Root Cause Log พร้อมโหมดแก้ไข</span>
+        </div>
+        <div class="card-meta"></div>
+      </a>
+      <a class="card" href="https://script.google.com/macros/s/AKfycbynl_yG-XHhGupSjCzBANJ-kQH-AvO72iH6zEx6RR_tCbssc03qfLLloMxgT320AgpO/exec" target="_blank" rel="noopener" data-card="ktc">
+        <span class="card-icon"><svg class="icon" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M8 18v-2M12 18v-5M16 18v-3"/></svg></span>
+        <div class="card-body">
+          <span class="card-title">KTC Support Report</span>
+          <span class="card-desc">Monthly ticket report dashboard for the KTC Jira project.</span>
+        </div>
+        <div class="card-meta"></div>
+      </a>
+      <a class="card" href="/ktc-chat" data-card="ktc-chat">
+        <span class="card-icon"><svg class="icon" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+        <div class="card-body">
+          <span class="card-title">KTC Support Chat</span>
+          <span class="card-desc" lang="th">พิมพ์คำถาม/ปัญหาลูกค้า รับคำตอบจากเคส Jira ของ KTC + Handover Document</span>
+        </div>
+        <div class="card-meta"></div>
+      </a>
+      <div class="card">
+        <span class="card-icon"><svg class="icon" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span>
+        <div class="card-body">
+          <span class="card-title">Customer Support Dashboards</span>
+          <span class="card-desc" lang="th">สรุปสถานะ ticket จาก Jira Service Desk ของแต่ละทีม</span>
+        </div>
+        <div class="sublist">
+          <a class="subrow" href="/mtscs" data-card="mtscs">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5a9 9 0 0 1 18 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/></svg>
+            <span class="subrow-text">
+              <span class="subrow-title">MTS Customer Support</span>
+              <span class="subrow-meta" lang="th"></span>
+            </span>
+            <svg class="icon chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+          </a>
+          <a class="subrow" href="/mtscs?tab=nissan" data-card="nissan-mn">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18.4 7.5A2 2 0 0 0 16.6 6H7.4a2 2 0 0 0-1.8 1.5L3.5 11.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+            <span class="subrow-text">
+              <span class="subrow-title">Nissan Mobile Application (ITSM)</span>
+              <span class="subrow-meta" lang="th"></span>
+            </span>
+            <svg class="icon chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+          </a>
+        </div>
       </div>
     </div>
-  </div>
+  </main>
+
   <script>
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -131,8 +246,25 @@
           const when = date
             ? new Date(date).toLocaleDateString('th-TH', { dateStyle: 'medium' })
             : null;
-          const parts = [creator ? `Created by ${creator}` : null, when ? `Last update: ${when}` : null].filter(Boolean);
-          if (parts.length) card.querySelector('.card-meta').innerHTML = parts.map(escapeHtml).join('<br>');
+
+          const metaEl = card.querySelector(':scope > .card-meta');
+          if (metaEl) {
+            if (!creator && !when) return;
+            const initial = creator ? creator.charAt(0).toUpperCase() : '?';
+            metaEl.innerHTML = `
+              <span class="avatar">${escapeHtml(initial)}</span>
+              ${creator ? `<span class="owner">${escapeHtml(creator)}</span>` : ''}
+              ${creator && when ? '<span class="dot"></span>' : ''}
+              ${when ? `<span class="date" lang="th">${escapeHtml(when)}</span>` : ''}
+            `;
+            metaEl.classList.add('has-content');
+            return;
+          }
+
+          const subMetaEl = card.querySelector('.subrow-meta');
+          if (subMetaEl) {
+            subMetaEl.textContent = [creator, when].filter(Boolean).join(' · ');
+          }
         });
       })
       .catch(() => {});
