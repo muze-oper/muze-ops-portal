@@ -37,8 +37,7 @@
   .save-planner-btn:hover { background: #222; }
   .save-status { font-size: 7px; color: #4a7c6f; margin-top: 3px; text-align: right; height: 9px; }
 
-  .schedule-columns { display: flex; gap: 10px; }
-  .schedule-table { flex: 1; min-width: 0; }
+  .schedule-table { min-width: 0; }
 
   table { width: 100%; border-collapse: collapse; font-size: 10px; }
   thead tr th { background: #4a7c6f; color: white; padding: 2px 5px; text-align: left; font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 600; }
@@ -56,107 +55,103 @@
   td[contenteditable="true"]:focus { outline: none; background: #fffef0 !important; }
   td[contenteditable="true"] { cursor: text; }
 
-  .cal-event { background: #d4eaf8; border-radius: 2px; padding: 0 4px; font-size: 9.5px; color: #1a4a6b; display: inline-block; font-weight: 600; border-left: 2px solid #4a90b8; }
+  .cal-event { background: #d4eaf8; border-radius: 2px; padding: 0 4px; font-size: 9.5px; color: #1a4a6b; display: inline-block; font-weight: 400; border-left: 2px solid #4a90b8; }
   .cal-cont { font-size: 8.5px; color: #4a7c6f; padding-left: 8px; }
   .cal-note { font-size: 8.5px; color: #555; }
   tr.has-event td { background: #eaf4fb !important; }
   tr.lunch td { background: inherit; }
   .lunch-label { font-size: 10px; font-weight: 700; color: #8a6200; letter-spacing: 0.3px; }
 
+  /* 3-COLUMN LAYOUT: Daily | Work | Personal */
+  .main-layout { display: flex; gap: 10px; align-items: flex-start; }
+  .col-daily    { flex: 1.3; min-width: 0; }
+  .col-work     { flex: 1; min-width: 0; }
+  .col-personal { flex: 1; min-width: 0; }
+
   /* TODO LIST */
   .todo-panel {
     background: #fafafa; border: 1px solid #eee; border-radius: 4px;
-    padding: 6px 8px; margin-top: 8px;
+    padding: 6px 8px;
   }
   .todo-header {
-    font-size: 9px; font-weight: 600; color: #555;
+    font-size: 10px; font-weight: 600; color: #555;
     letter-spacing: 0.8px; text-transform: uppercase;
     border-bottom: 0.5px solid #ccc; padding-bottom: 2px; margin-bottom: 3px;
     display: flex; justify-content: space-between; align-items: center;
   }
-  .todo-columns { display: flex; gap: 10px; }
-  .todo-col-work     { flex: 1; min-width: 0; }
-  .todo-col-personal { flex: 1; min-width: 0; border-left: 0.5px solid #e0e0e0; padding-left: 8px; column-count: 2; column-gap: 8px; }
-  .todo-col-header { font-size: 7.5px; font-weight: 600; color: #888; letter-spacing: 0.8px; text-transform: uppercase; border-bottom: 0.5px solid #e0e0e0; padding-bottom: 1px; margin-bottom: 2px; }
-  .todo-item { display: flex; align-items: flex-start; gap: 3px; font-size: 9.5px; font-weight: 400; line-height: 1.4; margin: 2px 0; break-inside: avoid; }
+  .todo-panel-list { column-count: 1; }
+  .todo-item { display: flex; align-items: flex-start; gap: 4px; font-size: 11.5px; font-weight: 400; line-height: 1.4; margin: 2px 0; break-inside: avoid; }
   .todo-item.overdue-item { border-left: 2px solid #dc2626; padding-left: 2px; background: #fff5f5; border-radius: 2px; }
-  .todo-cb { cursor: pointer; font-size: 11px; flex-shrink: 0; color: #555; user-select: none; line-height: 1.3; margin-top: 0; }
+  .todo-cb { cursor: pointer; font-size: 13px; flex-shrink: 0; color: #555; user-select: none; line-height: 1.3; margin-top: 0; }
   .todo-text { flex: 1; min-width: 0; word-break: break-word; color: #111; line-height: 1.4; font-weight: 400; cursor: text; border-radius: 2px; padding: 0 2px; }
   .todo-text:focus { outline: none; background: #fffef0; box-shadow: 0 0 0 1px #a8cfc8; }
-  .todo-item.done .todo-text { text-decoration: line-through; color: #b0b0b0; }
-  .p-badge { font-size: 6.5px; padding: 0 3px; border-radius: 2px; font-weight: 500; white-space: nowrap; line-height: 1.6; cursor: pointer; }
+  .p-badge { font-size: 8.5px; padding: 0 4px; border-radius: 2px; font-weight: 500; white-space: nowrap; line-height: 1.6; cursor: pointer; }
   .p-high { background: #fee2e2; color: #b91c1c; border: 0.5px solid #fca5a5; }
   .p-med  { background: #fef3c7; color: #92400e; border: 0.5px solid #fde68a; }
   .p-low  { background: #f3f4f6; color: #6b7280; border: 0.5px solid #d1d5db; }
   .due-overdue { border-color: #dc2626 !important; color: #dc2626 !important; }
-  .todo-del { cursor: pointer; color: #ccc; font-size: 10px; flex-shrink: 0; line-height: 1.5; margin-top: 1px; }
+  .todo-del { cursor: pointer; color: #ccc; font-size: 12px; flex-shrink: 0; line-height: 1.5; margin-top: 1px; }
   .todo-del:hover { color: #e57373; }
   .todo-item-wrap { margin: 2px 0; break-inside: avoid; }
   .todo-item-wrap .todo-item { margin: 0; }
   .todo-item-row2 { display: flex; flex-wrap: wrap; gap: 2px 3px; margin: 1px 0 0 15px; }
   .todo-category-select {
-    font-size: 7px; padding: 0 1px; border: 0.5px solid #ccc; border-radius: 2px;
-    font-family: 'Mitr', sans-serif; background: white; width: 24px; flex-shrink: 0;
+    font-size: 9px; padding: 0 1px; border: 0.5px solid #ccc; border-radius: 2px;
+    font-family: 'Mitr', sans-serif; background: white; width: 28px; flex-shrink: 0;
   }
   .todo-due-input, .todo-time-input {
-    font-size: 6.5px; padding: 0 1px; border: 0.5px solid #ccc; border-radius: 2px;
-    font-family: 'Mitr', sans-serif; color: #555; background: white; width: 64px;
+    font-size: 9px; padding: 0 1px; border: 0.5px solid #ccc; border-radius: 2px;
+    font-family: 'Mitr', sans-serif; color: #555; background: white; width: 76px;
   }
-  .todo-time-input { width: 42px; }
+  .todo-time-input { width: 52px; }
   .todo-project-select {
-    font-size: 6.5px; padding: 0 1px; border: 0.5px solid #d9c2f0; border-radius: 2px;
-    font-family: 'Mitr', sans-serif; color: #6b3fa0; background: #f8f2ff; max-width: 80px; flex-shrink: 1;
+    font-size: 9px; padding: 0 1px; border: 0.5px solid #d9c2f0; border-radius: 2px;
+    font-family: 'Mitr', sans-serif; color: #6b3fa0; background: #f8f2ff; max-width: 90px; flex-shrink: 1;
   }
   .project-subitems { margin: 1px 0 2px 15px; border-left: 1.5px solid #e3d1f5; padding-left: 5px; }
-  .subitem-inline { display: flex; align-items: flex-start; gap: 3px; font-size: 8px; color: #6b3fa0; line-height: 1.35; }
+  .subitem-inline { display: flex; align-items: flex-start; gap: 3px; font-size: 10px; color: #6b3fa0; line-height: 1.35; }
   .subitem-inline-del { cursor: pointer; color: #d9c2f0; flex-shrink: 0; }
   .subitem-inline-del:hover { color: #e57373; }
   .subitem-inline-input {
-    font-size: 7.5px; padding: 1px 3px; border: 0.5px dashed #d9c2f0; border-radius: 2px;
+    font-size: 9.5px; padding: 1px 3px; border: 0.5px dashed #d9c2f0; border-radius: 2px;
     font-family: 'Mitr', sans-serif; color: #6b3fa0; background: transparent; width: 100%; margin-top: 1px;
   }
-  .subitem-inline-cb { cursor: pointer; font-size: 9px; flex-shrink: 0; user-select: none; }
+  .subitem-inline-cb { cursor: pointer; font-size: 11px; flex-shrink: 0; user-select: none; }
   .subitem-inline-text { flex: 1; word-break: break-word; }
-  .subitem-inline.done .subitem-inline-text { text-decoration: line-through; color: #c3b0d8; }
 
-  #add-task-area {
-    display: flex; gap: 3px; align-items: center;
+  .add-task-area {
+    display: flex; flex-wrap: wrap; gap: 3px; align-items: center;
     margin-top: 5px; border-top: 0.5px solid #d5e8e4; padding-top: 4px;
   }
-  #new-task-input {
-    flex: 2; min-width: 0; font-size: 11px; padding: 2px 4px;
+  .new-task-input {
+    flex: 2; min-width: 60px; font-size: 11px; padding: 2px 4px;
     border: 0.5px solid #a8cfc8; border-radius: 2px;
     font-family: 'Mitr', sans-serif; color: #111; background: white; outline: none;
   }
-  #new-task-input:focus { border-color: #4a7c6f; }
-  #new-task-category {
+  .new-task-input:focus { border-color: #4a7c6f; }
+  .new-task-priority {
     font-size: 9px; padding: 1px 2px; border: 0.5px solid #a8cfc8;
     border-radius: 2px; background: white; color: #111; font-family: 'Mitr', sans-serif;
     flex-shrink: 0;
   }
-  #new-task-priority {
-    font-size: 9px; padding: 1px 2px; border: 0.5px solid #a8cfc8;
-    border-radius: 2px; background: white; color: #111; font-family: 'Mitr', sans-serif;
-    flex-shrink: 0;
-  }
-  #new-task-due {
+  .new-task-due {
     flex: 1; min-width: 0; font-size: 9px; padding: 1px 3px;
     border: 0.5px solid #a8cfc8; border-radius: 2px; background: white; color: #111;
   }
-  #new-task-time {
+  .new-task-time {
     flex: 1; min-width: 0; font-size: 9px; padding: 1px 3px;
     border: 0.5px solid #a8cfc8; border-radius: 2px; background: white; color: #111;
   }
-  #new-task-project {
+  .new-task-project {
     font-size: 9px; padding: 1px 2px; border: 0.5px solid #a8cfc8;
     border-radius: 2px; background: white; color: #111; font-family: 'Mitr', sans-serif;
-    flex-shrink: 0; max-width: 60px;
+    flex-shrink: 0; max-width: 70px;
   }
-  #add-task-btn {
+  .add-task-btn {
     font-size: 15px; font-weight: 700; padding: 1px 7px; flex-shrink: 0;
     background: #4a7c6f; color: white; border: none; border-radius: 2px; cursor: pointer; line-height: 1.4;
   }
-  #add-task-btn:hover { background: #3a6a5f; }
+  .add-task-btn:hover { background: #3a6a5f; }
 
   /* PROJECT CHECKLIST MODAL */
   #project-overlay {
@@ -178,7 +173,6 @@
   .subitem { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
   .subitem-cb { cursor: pointer; user-select: none; }
   .subitem-text { flex: 1; word-break: break-word; }
-  .subitem.done .subitem-text { text-decoration: line-through; color: #aaa; }
   .subitem-del { cursor: pointer; color: #ccc; }
   .subitem-del:hover { color: #e57373; }
   #project-subitem-area { display: flex; gap: 4px; padding: 8px 14px; border-top: 1px solid #eee; }
@@ -202,7 +196,36 @@
     z-index: 1;
   }
 
+  /* COMPLETED TASKS PANEL (collapsed by default, slides in from the right) */
+  #completed-tab {
+    position: fixed; top: 50%; right: 0; transform: translateY(-50%);
+    writing-mode: vertical-rl; background: #4a7c6f; color: white;
+    font-family: 'Mitr', sans-serif; font-size: 11px; letter-spacing: 1px;
+    padding: 10px 5px; border-radius: 4px 0 0 4px; cursor: pointer;
+    z-index: 600; user-select: none; box-shadow: -1px 0 4px rgba(0,0,0,0.15);
+  }
+  #completed-tab:hover { background: #3a6a5f; }
+  #completed-panel {
+    position: fixed; top: 0; right: 0; height: 100vh; width: 560px; max-width: 90vw;
+    background: white; box-shadow: -2px 0 12px rgba(0,0,0,0.2);
+    transform: translateX(100%); transition: transform 0.25s ease;
+    z-index: 700; display: flex; flex-direction: column; font-family: 'Mitr', sans-serif;
+  }
+  #completed-panel.open { transform: translateX(0); }
+  #completed-panel-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; background: #4a7c6f; color: white; flex-shrink: 0;
+  }
+  #completed-panel-header h2 { font-size: 14px; font-weight: 600; }
+  #completed-panel-close { cursor: pointer; font-size: 18px; line-height: 1; }
+  #completed-panel-body { padding: 12px 14px; overflow-y: auto; flex: 1; }
+  .completed-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 14px; align-content: start; }
+  .completed-item { font-size: 10px; line-height: 1.4; color: #333; padding-bottom: 4px; border-bottom: 0.5px solid #eee; word-break: break-word; }
+  .completed-item .completed-project { color: #6b3fa0; font-weight: 600; }
+  .completed-empty { color: #bbb; font-size: 11px; grid-column: 1 / -1; }
+
   @media print {
+    #completed-tab, #completed-panel { display: none !important; }
     .daisy { display: none; }
     .breadcrumb { display: none; }
     @page { size: A4 landscape; margin: 0.5cm; }
@@ -210,7 +233,7 @@
     .page-wrap { padding: 0; overflow-x: visible; }
     .page { width: 100%; min-height: 0; padding: 0; box-shadow: none; zoom: 1; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    #add-task-area { display: none !important; }
+    .add-task-area { display: none !important; }
     .save-planner-btn, .save-status { display: none !important; }
     .todo-del { display: none !important; }
     #project-overlay { display: none !important; }
@@ -265,24 +288,35 @@
     </div>
   </div>
 
-  <div class="schedule-columns">
-    <table class="schedule-table">
-      <thead>
-        <tr><th>Time</th><th>Task / Activity</th><th>Brief Detail / Note</th></tr>
-      </thead>
-      <tbody id="planner-tbody-left"></tbody>
-    </table>
-    <table class="schedule-table">
-      <thead>
-        <tr><th>Time</th><th>Task / Activity</th><th>Brief Detail / Note</th></tr>
-      </thead>
-      <tbody id="planner-tbody-right"></tbody>
-    </table>
+  <div class="main-layout">
+    <div class="col-daily">
+      <table class="schedule-table">
+        <thead>
+          <tr><th>Time</th><th>Task / Activity</th><th>Brief Detail / Note</th></tr>
+        </thead>
+        <tbody id="planner-tbody"></tbody>
+      </table>
+    </div>
+    <div class="col-work">
+      <div class="todo-panel" id="todo-panel-work"></div>
+    </div>
+    <div class="col-personal">
+      <div class="todo-panel" id="todo-panel-personal"></div>
+    </div>
   </div>
 
-  <div class="todo-panel" id="todo-panel"></div>
-
 </div>
+</div>
+
+<div id="completed-tab" onclick="toggleCompletedPanel()">✓ Completed</div>
+<div id="completed-panel">
+  <div id="completed-panel-header">
+    <h2>✓ Completed Tasks</h2>
+    <span id="completed-panel-close" onclick="toggleCompletedPanel()">✕</span>
+  </div>
+  <div id="completed-panel-body">
+    <div class="completed-grid" id="completed-grid"></div>
+  </div>
 </div>
 
 <div id="project-overlay" onclick="if(event.target===this)closeProjectModal()">
@@ -305,7 +339,6 @@ const DATE = new URLSearchParams(location.search).get('date') || todayStr();
 let scheduleSlots = null;
 let cells = {};
 let todos = [];
-let lastMondayCleanup = null;
 let projects = [];
 let currentProjectId = null;
 
@@ -327,8 +360,8 @@ function esc(t) { return (t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 
 function buildDefaultSlots() {
   const slots = [];
-  let h = 9, m = 0;
-  while (h < 18 || (h === 18 && m === 0)) {
+  let h = 7, m = 0;
+  while (h < 20 || (h === 20 && m === 0)) {
     const time = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
     const lunch = h === 12;
     slots.push({
@@ -338,7 +371,7 @@ function buildDefaultSlots() {
       note: lunch && m === 0 ? '12:00–13:00' : null,
       noteFixed: lunch,
     });
-    m += 15;
+    m += 30;
     if (m === 60) { m = 0; h++; }
   }
   return slots;
@@ -357,52 +390,43 @@ async function init() {
   scheduleSlots = scheduleRes.slots;
   cells = cellsRes.cells || {};
   todos = todosRes.todos || [];
-  lastMondayCleanup = todosRes.lastMondayCleanup || null;
   projects = projectsRes.projects || [];
 
-  applyMondayCleanup();
   renderTable();
   renderTodos();
 }
 
-function applyMondayCleanup() {
-  const today = new Date();
-  if (today.getDay() === 1 && lastMondayCleanup !== todayStr()) {
-    const before = todos.length;
-    todos = todos.filter(t => !t.done);
-    lastMondayCleanup = todayStr();
-    if (todos.length !== before) saveTodos();
-  }
-}
-
-function renderTodoPanel() {
-  const panel = document.getElementById('todo-panel');
-  panel.innerHTML = `
-    <div class="todo-header"><span>📋 To-Do List</span></div>
-    <div class="todo-columns">
-      <div class="todo-col-work"><div class="todo-col-header">💼 Work</div><div id="todo-list-work"></div></div>
-      <div class="todo-col-personal"><div class="todo-col-header">🏠 Personal</div><div id="todo-list-personal"></div></div>
-    </div>
-    <div id="add-task-area">
-      <input type="text" id="new-task-input" placeholder="task..." onkeydown="if(event.key==='Enter')addTask()">
-      <select id="new-task-category">
-        <option value="work" selected>💼 Work</option>
-        <option value="personal">🏠 Personal</option>
-      </select>
-      <select id="new-task-priority">
+function todoPanelHtml(category, label, icon) {
+  return `
+    <div class="todo-header"><span>${icon} ${label}</span></div>
+    <div class="todo-panel-list" id="todo-list-${category}"></div>
+    <div class="add-task-area">
+      <input type="text" id="new-task-input-${category}" class="new-task-input" placeholder="task..." onkeydown="if(event.key==='Enter')addTask('${category}')">
+      <select id="new-task-priority-${category}" class="new-task-priority">
         <option value="high">🔴 H</option>
         <option value="medium" selected>🟡 M</option>
         <option value="low">⚪ L</option>
       </select>
-      <input type="date" id="new-task-due" value="${DATE}">
-      <input type="time" id="new-task-time" step="900" value="09:00">
-      <select id="new-task-project" onchange="onProjectSelectChange(this)">
+      <input type="date" id="new-task-due-${category}" class="new-task-due" value="${DATE}">
+      <input type="time" id="new-task-time-${category}" class="new-task-time" step="1800" value="09:00">
+      <select id="new-task-project-${category}" class="new-task-project" onchange="onProjectSelectChange(this,'${category}')">
         <option value="">🔗 —</option>
         ${projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
         <option value="__new__">+ New Project</option>
       </select>
-      <button id="add-task-btn" onclick="addTask()">+</button>
+      <button class="add-task-btn" onclick="addTask('${category}')">+</button>
     </div>`;
+}
+
+function renderTodoPanel() {
+  document.getElementById('todo-panel-work').innerHTML = todoPanelHtml('work', 'Work', '💼');
+  document.getElementById('todo-panel-personal').innerHTML = todoPanelHtml('personal', 'Personal', '🏠');
+}
+
+function projectSubitemsSummary(projectId) {
+  const p = projects.find(p => p.id === projectId);
+  if (!p || !p.subItems || !p.subItems.length) return '';
+  return p.subItems.map(s => esc(s.text)).join('<br>');
 }
 
 function buildSlotRow(slot) {
@@ -413,6 +437,10 @@ function buildSlotRow(slot) {
   tdTime.textContent = slot.time;
   tr.appendChild(tdTime);
 
+  const timedTodo = (DATE === todayStr())
+    ? todos.find(t => t.time === slot.time && t.dueDate === DATE)
+    : null;
+
   const tdTask = document.createElement('td');
   tdTask.className = 'task-cell';
   if (slot.lunch && slot.hourMark) {
@@ -422,16 +450,13 @@ function buildSlotRow(slot) {
   } else if (slot.hasEvent) {
     tdTask.innerHTML = slot.eventType === 'start'
       ? `<span class="cal-event">${esc(slot.eventLabel)}</span>`
-      : `<span class="cal-cont">↳ ${esc(slot.eventLabel)}</span>`;
+      : `<span class="cal-cont" title="${esc(slot.eventLabel)}">↳</span>`;
   } else {
     tdTask.contentEditable = 'true';
     tdTask.dataset.ph = 'task...';
     tdTask.dataset.time = slot.time;
     tdTask.dataset.field = 'task';
     const explicitTask = cells[slot.time] && cells[slot.time].task;
-    const timedTodo = (DATE === todayStr())
-      ? todos.find(t => t.time === slot.time && t.dueDate === DATE)
-      : null;
     tdTask.innerHTML = explicitTask || (timedTodo ? esc(timedTodo.text) : '');
     tdTask.addEventListener('blur', onCellBlur);
   }
@@ -446,7 +471,9 @@ function buildSlotRow(slot) {
     tdNote.dataset.ph = 'note...';
     tdNote.dataset.time = slot.time;
     tdNote.dataset.field = 'note';
-    tdNote.innerHTML = (cells[slot.time] && cells[slot.time].note) || '';
+    const explicitNote = cells[slot.time] && cells[slot.time].note;
+    const briefFromTodo = timedTodo ? projectSubitemsSummary(timedTodo.projectId) : '';
+    tdNote.innerHTML = explicitNote || briefFromTodo;
     tdNote.addEventListener('blur', onCellBlur);
   }
   tr.appendChild(tdNote);
@@ -458,16 +485,9 @@ function renderTable() {
   renderTodoPanel();
 
   const slots = (scheduleSlots && scheduleSlots.length) ? scheduleSlots : buildDefaultSlots();
-  const splitAt = Math.ceil(slots.length / 2);
-  const left = slots.slice(0, splitAt);
-  const right = slots.slice(splitAt);
-
-  const leftBody = document.getElementById('planner-tbody-left');
-  const rightBody = document.getElementById('planner-tbody-right');
-  leftBody.innerHTML = '';
-  rightBody.innerHTML = '';
-  left.forEach(slot => leftBody.appendChild(buildSlotRow(slot)));
-  right.forEach(slot => rightBody.appendChild(buildSlotRow(slot)));
+  const tbody = document.getElementById('planner-tbody');
+  tbody.innerHTML = '';
+  slots.forEach(slot => tbody.appendChild(buildSlotRow(slot)));
 }
 
 let saveCellsTimeout;
@@ -519,9 +539,10 @@ function projectSubitemsInlineHtml(t) {
   if (!t.projectId) return '';
   const p = projects.find(p => p.id === t.projectId);
   if (!p) return '';
-  const items = p.subItems.map((s, si) => `
-    <div class="subitem-inline${s.done ? ' done' : ''}">
-      <span class="subitem-inline-cb" onclick="toggleSubItemFor('${p.id}',${si})">${s.done ? '☑' : '☐'}</span>
+  const items = p.subItems.map((s, si) => ({ s, si })).filter(({ s }) => !s.done)
+    .map(({ s, si }) => `
+    <div class="subitem-inline">
+      <span class="subitem-inline-cb" onclick="toggleSubItemFor('${p.id}',${si})">☐</span>
       <span class="subitem-inline-text">${esc(s.text)}</span>
       <span class="subitem-inline-del" onclick="delSubItemFor('${p.id}',${si})">✕</span>
     </div>`).join('');
@@ -546,7 +567,7 @@ function todoItemHtml(t, i) {
         <option value="personal"${todoCategory(t) === 'personal' ? ' selected' : ''}>🏠</option>
       </select>
       <input type="date" class="todo-due-input${over ? ' due-overdue' : ''}" value="${t.dueDate || ''}" onchange="updateTodoField(${i},'dueDate',this.value)">
-      <input type="time" class="todo-time-input" step="900" value="${t.time || ''}" onchange="updateTodoField(${i},'time',this.value)">
+      <input type="time" class="todo-time-input" step="1800" value="${t.time || ''}" onchange="updateTodoField(${i},'time',this.value)">
       <select class="todo-project-select" onchange="onTodoProjectChange(${i},this)">
         <option value="">🔗 —</option>
         ${projects.map(p => `<option value="${p.id}"${p.id === t.projectId ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}
@@ -564,9 +585,8 @@ function renderTodos() {
   if (!workEl || !personalEl) return;
 
   function entriesFor(category) {
-    return todos.map((t, i) => ({ t, i })).filter(({ t }) => todoCategory(t) === category)
+    return todos.map((t, i) => ({ t, i })).filter(({ t }) => todoCategory(t) === category && !t.done)
       .sort((a, b) => {
-        if (a.t.done !== b.t.done) return a.t.done ? 1 : -1;
         if (!a.t.dueDate && !b.t.dueDate) return 0;
         if (!a.t.dueDate) return 1;
         if (!b.t.dueDate) return -1;
@@ -582,9 +602,50 @@ function renderTodos() {
   personalEl.innerHTML = personal.length
     ? personal.map(({ t, i }) => todoItemHtml(t, i)).join('')
     : '<div style="font-size:8px;color:#bbb;padding:2px 0;">ยังไม่มี task</div>';
+
+  renderCompletedPanel();
 }
 
-function toggleTodo(i) { todos[i].done = !todos[i].done; saveTodos(); renderTable(); renderTodos(); }
+// Gathers both finished to-dos and finished project sub-items into one
+// list for the Completed panel, since either can be "checked off".
+function completedEntries() {
+  const todoEntries = todos.filter(t => t.done).map(t => {
+    const p = t.projectId ? projects.find(p => p.id === t.projectId) : null;
+    return { projectName: p ? p.name : '', text: t.text, completedAt: t.completedAt || '' };
+  });
+  const subitemEntries = [];
+  projects.forEach(p => {
+    (p.subItems || []).forEach(s => {
+      if (s.done) subitemEntries.push({ projectName: p.name, text: s.text, completedAt: s.completedAt || '' });
+    });
+  });
+  return [...todoEntries, ...subitemEntries].sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+}
+
+function completedItemHtml(e) {
+  const prefix = e.projectName ? `<span class="completed-project">${esc(e.projectName)}</span> - ` : '';
+  const dateLabel = e.completedAt ? fmtDateDisplay(e.completedAt) : '—';
+  return `<div class="completed-item">${prefix}${esc(e.text)} - Completed on ${dateLabel}</div>`;
+}
+
+function renderCompletedPanel() {
+  const el = document.getElementById('completed-grid');
+  if (!el) return;
+  const entries = completedEntries();
+  el.innerHTML = entries.length
+    ? entries.map(completedItemHtml).join('')
+    : '<div class="completed-empty">ยังไม่มี task ที่เสร็จแล้ว</div>';
+}
+
+function toggleCompletedPanel() {
+  document.getElementById('completed-panel').classList.toggle('open');
+}
+
+function toggleTodo(i) {
+  todos[i].done = !todos[i].done;
+  todos[i].completedAt = todos[i].done ? todayStr() : null;
+  saveTodos(); renderTable(); renderTodos();
+}
 function delTodo(i) { todos.splice(i, 1); saveTodos(); renderTable(); renderTodos(); }
 function editTodo(i, el) {
   const newText = el.innerText.trim();
@@ -616,27 +677,26 @@ function onTodoCategoryChange(i, sel) {
   saveTodos(); renderTodos();
 }
 
-function addTask() {
-  const input = document.getElementById('new-task-input');
+function addTask(category) {
+  const input = document.getElementById('new-task-input-' + category);
   const text = input.value.trim(); if (!text) return;
-  const category = document.getElementById('new-task-category').value;
-  const priority = document.getElementById('new-task-priority').value;
-  const dueDate = document.getElementById('new-task-due').value;
-  const time = document.getElementById('new-task-time').value;
-  const projectSel = document.getElementById('new-task-project');
+  const priority = document.getElementById('new-task-priority-' + category).value;
+  const dueDate = document.getElementById('new-task-due-' + category).value;
+  const time = document.getElementById('new-task-time-' + category).value;
+  const projectSel = document.getElementById('new-task-project-' + category);
   const projectId = (projectSel && projectSel.value && projectSel.value !== '__new__') ? projectSel.value : null;
   todos.push({ id: Date.now(), text, done: false, category, priority, dueDate, time, projectId });
   saveTodos(); renderTable(); renderTodos();
-  // renderTable() rebuilds #add-task-area from scratch (fresh defaults baked
-  // in), so re-fetch the new node rather than reuse the now-detached `input`
-  document.getElementById('new-task-input').focus();
+  // renderTable() rebuilds the add-task-area from scratch (fresh defaults
+  // baked in), so re-fetch the new node rather than reuse the now-detached one
+  document.getElementById('new-task-input-' + category).focus();
 }
 
 async function saveTodos() {
   await fetch('/api/planner/todos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ todos, lastMondayCleanup }),
+    body: JSON.stringify({ todos }),
   });
   flashSaved();
 }
@@ -653,7 +713,7 @@ async function saveProjects() {
 // Fires when the add-task project <select> changes. "+ New Project" prompts
 // for a name inline, creates it, then re-renders the table (which rebuilds
 // this select with fresh options) and re-selects the new project.
-function onProjectSelectChange(sel) {
+function onProjectSelectChange(sel, category) {
   if (sel.value !== '__new__') return;
   const name = prompt('ชื่อ Project ใหม่:');
   if (!name || !name.trim()) { sel.value = ''; return; }
@@ -661,7 +721,7 @@ function onProjectSelectChange(sel) {
   projects.push({ id, name: name.trim(), subItems: [] });
   saveProjects();
   renderTable();
-  const newSel = document.getElementById('new-task-project');
+  const newSel = document.getElementById('new-task-project-' + category);
   if (newSel) newSel.value = id;
 }
 
@@ -683,13 +743,14 @@ function renderProjectModalList() {
   const p = projects.find(x => x.id === currentProjectId);
   const el = document.getElementById('project-modal-list');
   if (!p) return;
-  if (!p.subItems.length) {
+  const open = p.subItems.map((s, i) => ({ s, i })).filter(({ s }) => !s.done);
+  if (!open.length) {
     el.innerHTML = '<div style="color:#aaa;font-size:12px;text-align:center;padding:20px 0;">ยังไม่มีขั้นตอน — เพิ่มด้านล่าง</div>';
     return;
   }
-  el.innerHTML = p.subItems.map((s, i) => `
-    <div class="subitem${s.done ? ' done' : ''}">
-      <span class="subitem-cb" onclick="toggleSubItem(${i})">${s.done ? '☑' : '☐'}</span>
+  el.innerHTML = open.map(({ s, i }) => `
+    <div class="subitem">
+      <span class="subitem-cb" onclick="toggleSubItem(${i})">☐</span>
       <span class="subitem-text">${esc(s.text)}</span>
       <span class="subitem-del" onclick="delSubItem(${i})">✕</span>
     </div>`).join('');
@@ -698,6 +759,7 @@ function renderProjectModalList() {
 function toggleSubItem(i) {
   const p = projects.find(x => x.id === currentProjectId); if (!p) return;
   p.subItems[i].done = !p.subItems[i].done;
+  p.subItems[i].completedAt = p.subItems[i].done ? todayStr() : null;
   saveProjects(); renderProjectModalList(); renderTodos();
 }
 
@@ -706,6 +768,7 @@ function toggleSubItem(i) {
 function toggleSubItemFor(projectId, si) {
   const p = projects.find(x => x.id === projectId); if (!p) return;
   p.subItems[si].done = !p.subItems[si].done;
+  p.subItems[si].completedAt = p.subItems[si].done ? todayStr() : null;
   saveProjects(); renderTodos();
   if (currentProjectId === projectId) renderProjectModalList();
 }

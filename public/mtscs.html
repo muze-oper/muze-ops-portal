@@ -76,6 +76,7 @@
     .filter-row td { padding: 6px 8px; background: #fbfbfc; }
     .filter-row select, .filter-row input { width: 100%; padding: 4px 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px; box-sizing: border-box; }
     .status-chip { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; background: #eef1f5; color: #444; white-space: nowrap; }
+    .cell-clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; max-width: 320px; }
     #empty-state { text-align: center; padding: 80px 24px; color: #666; }
     #empty-state .icon { font-size: 48px; margin-bottom: 16px; }
   </style>
@@ -473,7 +474,10 @@ function nissanRenderTicketRow(t) {
   const cells = NISSAN_COLUMNS.map(col => {
     const val = t[col] || '';
     if (col.toLowerCase() === 'status') return `<td><span class="status-chip">${escapeHtml(val || '-')}</span></td>`;
-    return `<td>${escapeHtml(val)}</td>`;
+    // Fields like Description can hold many lines (or many blank ones from
+    // Jira's rich text) - clamp so one long value can't blow out the whole
+    // row's height. Full text is still available via the title tooltip.
+    return `<td><div class="cell-clamp" title="${escapeHtml(val)}">${escapeHtml(val)}</div></td>`;
   }).join('');
   return `<tr><td style="white-space:nowrap">${keyCell}</td>${cells}</tr>`;
 }

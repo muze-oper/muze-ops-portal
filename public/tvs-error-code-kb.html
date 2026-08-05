@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Tvs Error Code Kb",
+  "schemaVersion": 1,
+  "description": "Knowledge Base v3 — Decoder ถอดรหัส error code ทุกตัว (root/SDK/PlaybackException/CDN/Streamer) + 29 curated errors + ตารางอ้างอิงครบ + Root Cause Log + โหมดแก้ไข (Add/Edit/Delete) พร้อม Export/Import สำหรับ publish ทับ ที่มา: Rovo + เอกสาร TrueID/TVS",
+  "mcpTools": [],
+  "mcpServerNames": []
+}
+</script>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Issue TVN Knowledge Base v3 — TVS Now / TrueID</title>
+<style>
+  :root{
+    --ink:#101828; --soft:#475467; --line:#e4e7ec; --lsoft:#f2f4f7;
+    --bg:#f6f8fb; --card:#fff; --brand:#0f3460; --accent:#2563eb;
+    --code-bg:#fdf2f2; --code-ink:#b42318; --code-line:#fda29b;
+    --sh:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);
+    --danger:#dc2626; --ok:#15803d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',-apple-system,'Sarabun',Tahoma,Arial,sans-serif;
+    color:var(--ink);background:var(--bg);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1140px;margin:0 auto;padding:22px 18px 60px}
+  .header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 55%,#0f3460 100%);
+    color:#fff;border-radius:16px;padding:26px 28px;box-shadow:var(--sh)}
+  .header h1{font-size:21px;font-weight:700;display:flex;gap:10px;align-items:center}
+  .header p{opacity:.82;font-size:12.5px;margin-top:6px}
+  .header .badges{margin-top:13px;display:flex;flex-wrap:wrap;gap:7px}
+  .badge{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:4px 12px;font-size:11px}
+
+  .savenote{background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:10px;
+    padding:11px 14px;margin-top:14px;font-size:12px;color:#92600a;display:none}
+  .savenote.show{display:block}
+  .savenote b{color:#b45309}
+
+  .tabs{display:flex;gap:6px;margin:16px 0 4px;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:30}
+  .tab{border:1px solid var(--line);background:var(--card);color:var(--soft);border-radius:10px;padding:9px 15px;font-size:13px;font-weight:600;cursor:pointer;transition:.12s;box-shadow:var(--sh)}
+  .tab:hover{border-color:#94a3b8}
+  .tab.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .panel{display:none;animation:fade .18s ease}
+  .panel.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  code,.mono{font-family:'Courier New',monospace}
+  .codechip{font-family:'Courier New',monospace;font-weight:700;color:var(--code-ink);background:var(--code-bg);border:1px solid var(--code-line);padding:3px 8px;border-radius:6px;display:inline-block;word-break:break-all}
+
+  /* Toolbar / buttons */
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+  .btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:8px 13px;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:var(--sh);transition:.12s;display:inline-flex;gap:6px;align-items:center}
+  .btn:hover{border-color:#94a3b8}
+  .btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .btn.accent{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.ghost{background:transparent}
+  .btn.sm{padding:4px 9px;font-size:11px}
+  .btn.del{color:var(--danger);border-color:#fecaca}
+  .btn.del:hover{background:#fef2f2}
+  .toolbar .spacer{flex:1}
+  .mode-on{box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+
+  /* Decoder */
+  .dec-intro{font-size:13px;color:var(--soft);margin:6px 0 14px}
+  .dec-box input{width:100%;font-family:'Courier New',monospace;font-size:19px;font-weight:700;padding:18px 20px;border-radius:14px;border:2px solid var(--line);background:var(--card);color:var(--code-ink);outline:none;letter-spacing:1px;box-shadow:var(--sh);transition:.15s}
+  .dec-box input:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(37,99,235,.12)}
+  .examples{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+  .ex{border:1px dashed #cbd5e1;background:var(--card);border-radius:20px;padding:5px 12px;font-family:'Courier New',monospace;font-size:12px;color:var(--accent);cursor:pointer;font-weight:700}
+  .ex:hover{background:#eff6ff;border-style:solid}
+  .result{margin-top:18px}
+  .seg{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:11px;box-shadow:var(--sh)}
+  .seg .lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--accent)}
+  .seg .val{font-family:'Courier New',monospace;font-size:16px;font-weight:700;margin-top:3px}
+  .seg .mean{font-size:14px;font-weight:600;margin-top:5px}
+  .seg .desc{font-size:12.5px;color:var(--soft);margin-top:4px}
+  .seg .alt{font-size:11.5px;color:#98a2b3;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)}
+  .seg.unknown{border-left-color:#98a2b3}.seg.unknown .lbl{color:#98a2b3}
+  .verdict{background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:14px 16px;margin-top:6px;font-size:13px}
+  .verdict b{color:var(--brand)}
+  .fixbox{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:13px 16px;margin-top:11px}
+  .fixbox .lbl{font-size:11px;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.4px}
+  .fixbox ul{margin:8px 0 0 18px;font-size:13px}.fixbox li{margin-bottom:4px}
+
+  .search{position:relative}
+  .search input{width:100%;font-size:15px;padding:13px 16px 13px 42px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);outline:none;box-shadow:var(--sh)}
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(37,99,235,.12)}
+  .search .ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.5}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+  .chip{border:1px solid var(--line);background:var(--card);color:var(--soft);border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:500;transition:.12s}
+  .chip:hover{border-color:#94a3b8}
+  .chip.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .count{font-size:12px;color:var(--soft);margin:11px 0 0 2px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(335px,1fr));gap:13px;margin-top:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px;box-shadow:var(--sh);position:relative}
+  .card-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+  .refno{font-size:10px;color:#98a2b3;background:var(--lsoft);border-radius:20px;padding:2px 8px;font-weight:600;white-space:nowrap}
+  .card-actions{display:flex;gap:5px;margin-top:10px}
+  .tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+  .tag{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px}
+  .title{font-weight:700;font-size:13px;margin-top:11px}
+  .cause{font-size:12.5px;color:var(--soft);margin-top:4px}
+  .walab{font-size:10px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:.5px;margin-top:12px}
+  .wa{list-style:none;margin-top:7px;display:flex;flex-direction:column;gap:5px}
+  .wa li{font-size:12.5px;padding-left:18px;position:relative}
+  .wa li::before{content:"";position:absolute;left:5px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--brand);opacity:.55}
+  .plat{display:inline-block;font-size:9.5px;font-weight:700;color:#1e40af;background:#e8f0fe;border:1px solid #c8d8f8;border-radius:5px;padding:0 6px;margin-right:5px}
+  .note{background:#fff8e1;border-left:3px solid #f59e0b;border-radius:0 7px 7px 0;padding:6px 10px;font-size:11px;margin-top:10px;color:#92600a}
+
+  .t-drm{background:#fde8e8;color:#b42318}.t-network{background:#e8f4fd;color:#1a6fa8}
+  .t-geo{background:#e8fdf0;color:#1a7a4a}.t-ccu{background:#fef9e7;color:#9a6f00}
+  .t-auth{background:#f3e8fd;color:#7c1d9a}.t-decode{background:#fdf0e8;color:#a84a1a}
+  .t-cdn{background:#e8f0fd;color:#1a3a9a}.t-player{background:#f0fde8;color:#3a7a1a}
+  .t-perm{background:#fde8f8;color:#9a1a7a}.t-live{background:#e8fdfd;color:#0f7a7a}
+  .t-streamer{background:#eef2f6;color:#475467}
+
+  .rt-nav{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
+  .rt-nav a{font-size:12px;color:var(--accent);text-decoration:none;border:1px solid #dbeafe;background:#eff6ff;border-radius:20px;padding:4px 11px}
+  h2.sec{font-size:15px;margin:22px 0 4px;color:var(--brand);scroll-margin-top:70px}
+  .sec-sub{font-size:12px;color:var(--soft);margin-bottom:8px}
+  table{width:100%;border-collapse:collapse;font-size:12px;background:var(--card);border-radius:10px;overflow:hidden;box-shadow:var(--sh);margin-bottom:8px}
+  thead{background:var(--brand);color:#fff}
+  th{padding:8px 10px;text-align:left;font-size:11px;font-weight:600}
+  td{padding:7px 10px;border-top:1px solid var(--line);vertical-align:top}
+  tbody tr:nth-child(even){background:#fafbfd}
+  td.c{font-family:'Courier New',monospace;font-weight:700;color:var(--code-ink);white-space:nowrap}
+
+  .rc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 17px;margin-bottom:12px;box-shadow:var(--sh);border-left:4px solid var(--brand)}
+  .rc-top{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center}
+  .rc-meta{font-size:11px;color:#98a2b3}
+  .rc-tk{font-family:'Courier New',monospace;font-size:10.5px;color:var(--accent);background:#eff6ff;border:1px solid #dbeafe;border-radius:5px;padding:1px 6px;margin:1px}
+  .rc .rcrow{margin-top:7px;font-size:12.5px}.rc .k{font-weight:700;color:var(--brand)}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(16,24,40,.5);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:24px 14px;overflow:auto}
+  .overlay.show{display:flex}
+  .modal{background:#fff;border-radius:16px;max-width:560px;width:100%;padding:22px 22px 20px;box-shadow:0 20px 50px rgba(0,0,0,.3);margin:auto}
+  .modal h3{font-size:16px;color:var(--brand);margin-bottom:14px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:11.5px;font-weight:700;color:var(--soft);margin-bottom:4px}
+  .field input,.field textarea{width:100%;font-size:13px;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;outline:none;font-family:inherit}
+  .field input:focus,.field textarea:focus{border-color:var(--accent)}
+  .field textarea{resize:vertical;min-height:64px}
+  .field .hint{font-size:10.5px;color:#98a2b3;margin-top:3px}
+  .catgrid{display:flex;flex-wrap:wrap;gap:6px}
+  .catopt{font-size:11px;border:1px solid var(--line);border-radius:16px;padding:4px 10px;cursor:pointer;user-select:none}
+  .catopt.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+  .io-area{width:100%;font-family:'Courier New',monospace;font-size:11px;padding:10px;border:1.5px solid var(--line);border-radius:9px;min-height:150px;resize:vertical}
+
+  .footer{margin-top:24px;padding:16px 18px;background:var(--card);border:1px solid var(--line);border-radius:12px;font-size:11px;color:var(--soft)}
+  .footer h3{font-size:12.5px;color:var(--ink);margin-bottom:8px}
+  .refs{display:flex;flex-wrap:wrap;gap:7px}.refs span{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:3px 9px}
+  .disc{margin-top:10px;font-size:10px;color:#98a2b3;line-height:1.5}
+  /* Home */
+  .hero{background:linear-gradient(135deg,#eef4ff,#f6f8fb);border:1px solid #dbe4f0;border-radius:14px;padding:20px 22px;margin-bottom:14px}
+  .hero-title{font-size:18px;font-weight:700;color:var(--brand)}
+  .hero-sub{font-size:13px;color:var(--soft);margin-top:5px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;box-shadow:var(--sh)}
+  .stat .num{font-size:22px;font-weight:800;color:var(--brand);line-height:1.1}
+  .stat .lab{font-size:11px;color:var(--soft);margin-top:3px}
+  .stat.warn .num{color:#b45309}
+  .home-sec-label{font-size:12px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:.4px;margin:18px 0 9px}
+  .quicknav{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .qn{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:15px;box-shadow:var(--sh);cursor:pointer;transition:.12s}
+  .qn:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .qn .ic{font-size:20px}.qn .t{font-weight:700;font-size:13px;margin-top:6px}.qn .d{font-size:11.5px;color:var(--soft);margin-top:3px}
+  .latest{margin-top:20px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--sh)}
+  .latest h3{font-size:13px;color:var(--brand);margin-bottom:6px}
+  .latest .ci{font-size:12.5px;padding:8px 0;border-top:1px solid var(--lsoft);display:flex;gap:10px}
+  .latest .cd{font-size:10.5px;color:#98a2b3;white-space:nowrap;padding-top:1px}
+  @media(max-width:560px){.grid{grid-template-columns:1fr}.wrap{padding:14px 12px 50px}.stats{grid-template-columns:repeat(2,1fr)}.quicknav{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <h1>🧭 Issue TVN Knowledge Base <span style="font-size:12px;background:#2563eb;padding:2px 9px;border-radius:20px">v3</span></h1>
+    <p>TVS Now / TrueID — Decoder + แก้ไข/เพิ่ม/ลบ ได้ในหน้า + Export กลับมา publish</p>
+    <div class="badges">
+      <span class="badge">🔎 Decoder ถอดรหัสทุก code</span>
+      <span class="badge">✏️ Add / Edit / Delete ในหน้า</span>
+      <span class="badge">💾 Export → publish ทับได้</span>
+    </div>
+  </div>
+
+  <div class="savenote" id="savenote">
+    ⚠️ <b>โหมดแก้ไขเปิดอยู่</b> — การเปลี่ยนแปลงจะอยู่ชั่วคราวในหน้านี้เท่านั้น (artifact เซฟถาวรเองไม่ได้)
+    เมื่อแก้เสร็จ กด <b>💾 Export</b> เพื่อดึงไฟล์/JSON แล้วส่งกลับให้ทีมงาน Claude publish ทับ artifact เดิม จึงจะถาวร
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-t="decoder">🏠 Home</div>
+    <div class="tab" data-t="curated">📇 Error List</div>
+    <div class="tab" data-t="ref">📚 ตารางอ้างอิง</div>
+    <div class="tab" data-t="rootcause">🗂️ Root Cause Log</div>
+  </div>
+
+  <!-- HOME -->
+  <div class="panel active" id="p-decoder">
+    <div class="hero">
+      <div class="hero-title">🧭 Issue TVN Knowledge Base — TVS Now / TrueID</div>
+      <div class="hero-sub">ศูนย์รวม error code สำหรับทีม Support: ถอดรหัส · ค้นหา · ดูวิธีแก้ · เคสจริง ในที่เดียว</div>
+    </div>
+    <div class="stats" id="stats"></div>
+
+    <div class="home-sec-label">🔎 ถอดรหัส Error Code — วางเลขที่ user เจอได้เลย</div>
+    <p class="dec-intro" style="margin-top:0">โครงสร้าง: <b>E[root] : [SDK code] : [PlaybackException]</b> — sub-code ตัวท้ายคือตัวชี้สาเหตุจริง</p>
+    <div class="dec-box"><input id="dec" type="text" placeholder="E5001:2999:6006" autocomplete="off" spellcheck="false"></div>
+    <div class="examples" id="examples"></div>
+    <div class="result" id="dresult"></div>
+
+    <div class="home-sec-label">📂 ไปยังส่วนต่างๆ</div>
+    <div class="quicknav" id="quicknav"></div>
+    <div class="latest" id="latest"></div>
+  </div>
+
+  <!-- CURATED -->
+  <div class="panel" id="p-curated">
+    <div class="toolbar">
+      <button class="btn primary" id="editToggle">✏️ เปิดโหมดแก้ไข</button>
+      <button class="btn accent" id="addBtn" style="display:none">➕ เพิ่ม code</button>
+      <div class="spacer"></div>
+      <button class="btn" id="exportBtn">💾 Export</button>
+    </div>
+    <div class="search"><span class="ico">🔍</span><input id="q" type="text" placeholder="พิมพ์เลข code หรือ keyword (DRM, token, login, CCU)..." autocomplete="off"></div>
+    <div class="chips" id="chips"></div>
+    <div class="count" id="count"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <!-- REFERENCE -->
+  <div class="panel" id="p-ref">
+    <div class="rt-nav">
+      <a href="#root">Root Codes (E)</a><a href="#sdk">SDK Codes</a><a href="#pe">PlaybackException</a>
+      <a href="#cdn">CDN Codes</a><a href="#streamer">Streamer Codes</a><a href="#ios">iOS</a>
+    </div>
+    <div id="reftables"></div>
+  </div>
+
+  <!-- ROOT CAUSE -->
+  <div class="panel" id="p-rootcause">
+    <div class="toolbar">
+      <button class="btn primary" id="editToggleRC">✏️ เปิดโหมดแก้ไข</button>
+      <button class="btn accent" id="addRCBtn" style="display:none">➕ เพิ่มเคส</button>
+      <div class="spacer"></div>
+      <button class="btn" id="exportBtn2">💾 Export</button>
+    </div>
+    <p class="dec-intro">เคสจริงจากเอกสาร Root Cause Record — พร้อมเลข ticket, วันที่ และวิธีแก้ที่ยืนยันแล้ว</p>
+    <div id="rclog"></div>
+  </div>
+
+  <div class="footer">
+    <h3>📚 อ้างอิง (Source Documents)</h3>
+    <div class="refs">
+      <span>📄 Application Mapped Error code</span><span>📄 PlaybackError mapping</span>
+      <span>📄 TS Root Cause Record</span><span>📄 Rovo Error Code Reference</span>
+    </div>
+    <div class="disc">Decoder อ้างอิงตาราง mapping ต้นฉบับ · การแก้ในหน้าเป็นชั่วคราว ต้อง Export แล้ว publish จึงถาวร<br>รวบรวมโดย Rovo + เอกสาร TrueID/TVS · เรียบเรียงโดย Claude</div>
+  </div>
+</div>
+
+<!-- MODAL: error -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modalError">
+    <h3 id="meTitle">เพิ่ม Error Code</h3>
+    <div class="field"><label>Error Code *</label><input id="f_code" placeholder="เช่น E5001:2999:4006"></div>
+    <div class="field"><label>หมวด (เลือกได้หลายอัน)</label><div class="catgrid" id="f_cats"></div></div>
+    <div class="field"><label>ชื่อ / ความหมาย *</label><input id="f_title" placeholder="เช่น PlaybackErrorUnknown + DRM_SYSTEM_ERROR"></div>
+    <div class="field"><label>สาเหตุ (Root Cause)</label><textarea id="f_cause"></textarea></div>
+    <div class="field"><label>วิธีแก้ / Workaround (บรรทัดละ 1 ข้อ)</label><textarea id="f_wa" placeholder="Kill app เปิดใหม่&#10;ตรวจสอบ Internet"></textarea></div>
+    <div class="field"><label>หมายเหตุ (ถ้ามี)</label><input id="f_note"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">ยกเลิก</button>
+      <button class="btn primary" id="saveError">บันทึก</button>
+    </div>
+  </div>
+
+  <!-- MODAL: RC -->
+  <div class="modal" id="modalRC" style="display:none">
+    <h3 id="rcTitle">เพิ่มเคส Root Cause</h3>
+    <div class="field"><label>Error Code / หัวข้อ *</label><input id="r_code" placeholder="เช่น E5001:2999:6006"></div>
+    <div class="field"><label>Platform</label><input id="r_plat" placeholder="เช่น All Mobile / Android TV"></div>
+    <div class="field"><label>วันที่ / ผู้บันทึก</label><input id="r_date" placeholder="เช่น 22 Jun 2026 (Noah)"></div>
+    <div class="field"><label>Ticket (คั่นด้วย , )</label><input id="r_tk" placeholder="296950, 296226"></div>
+    <div class="field"><label>Root Cause *</label><textarea id="r_root"></textarea></div>
+    <div class="field"><label>Workaround</label><textarea id="r_wa"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">ยกเลิก</button>
+      <button class="btn primary" id="saveRC">บันทึก</button>
+    </div>
+  </div>
+
+  <!-- MODAL: export/import -->
+  <div class="modal" id="modalIO" style="display:none">
+    <h3>💾 Export / Import ข้อมูล</h3>
+    <p style="font-size:12px;color:var(--soft);margin-bottom:12px">ดาวน์โหลดไฟล์ HTML ที่ฝังข้อมูลล่าสุด แล้วส่งกลับให้ Claude publish ทับ artifact เดิม (ถาวร) · หรือคัดลอก JSON ไปวางในแชทก็ได้</p>
+    <div class="modal-actions" style="justify-content:flex-start;margin-top:0;margin-bottom:12px">
+      <button class="btn accent" id="dlHtml">⬇️ ดาวน์โหลด HTML อัปเดต</button>
+      <button class="btn" id="copyJson">📋 คัดลอก JSON</button>
+    </div>
+    <div class="field"><label>ข้อมูลปัจจุบัน (JSON) — คัดลอกได้ / วางเพื่อ Import</label><textarea class="io-area" id="ioArea"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">ปิด</button>
+      <button class="btn del" id="importJson">↩️ Import จาก JSON ด้านบน</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- DICTIONARIES ---------- */
+const ROOT={
+ E1001:"Profile API — GET users",E1002:"Profile API — POST users",E1003:"Profile API — PATCH user (update profile)",E1004:"Profile API — DELETE user",E1005:"Profile API — GET library",E1006:"Profile API — POST library",E1007:"Profile API — DELETE library",E1008:"Identity — GET consents",E1009:"Identity — POST consents",E1010:"Identity — QR websocket (qrauth/qrcode)",E1011:"Identity — POST oauth2/qr/scan (QR scan login)",E1012:"Identity — POST exchange-token",E1013:"Identity — POST bridgetoken",E1014:"Identity — POST refresh-token",E1015:"Identity — POST revoke",E1016:"Identity — register_email",E1017:"Identity — b2b accounts",E1018:"TVS-Content — GraphQL",E1019:"CDN — GET page .json",E1020:"CDN — GET EPG",E1021:"TVS-Content — views/{id}",E1022:"Subscription — GET profile",E1023:"Subscription — GET account subscriptions",E1024:"Streamer — GET /{id}/streamers",E1025:"Streamer — GET /streamers/sfv",E1026:"CMDU — trade/device-sn",E1027:"Membership — account.truevisions",E1028:"Thumbnail — stm thumbnail_vod",E1029:"Couchbase — syncgateway endpoint",E1030:"3CMP — notify tokens",E1031:"3CMP — notify account tokens",E1032:"Identity — GET devices-info",E1033:"Identity — POST devices-info",E1034:"Membership — GET launch_url",E1035:"Membership — POST launch_url",E1036:"Membership — OTP request",E1037:"Membership — OTP resend",E1038:"Membership — OTP verify",E1039:"Subscription — entitlements",E1040:"Commerce — products",E1041:"Commerce — offers",
+ E2001:"TVS-PVN — provision account",E2002:"Muze BFF — media search",E2003:"Muze BFF — recommendation",E3001:"AppsFlyer SDK",E4001:"Couchbase Lite — WebSocket sync",E5001:"PlayerSDK (without Streamer error)",E5002:"ShakaPlayer",
+ E6001:"AAA SDK — login()",E6002:"AAA SDK — getProfile() GET_PROFILE_ERROR",E6003:"AAA SDK — getProfile() Profile null after success",E6004:"AAA SDK — getProfile() Profile missing ssoid",E6005:"AAA SDK — getAccessToken()",E6006:"AAA SDK — provisionAccount() Provision Stuck Timeout",E6007:"AAA SDK — getAccessToken() selfVerify Stuck Timeout (~8s)",
+ B1001:"Business — QR Legacy App",B1002:"Business — QR Invalid Format",B1003:"Business — GraphQL Data Not Found",B1004:"Business — Invalid Chat Room ID"
+};
+const SDK={2000:"InternetConnectionError — Network connection failed",2001:"NetworkServerError — Server is currently unreachable",2002:"VideoQualityTrackNotFound",2003:"AudioTrackNotFound",2004:"SubtitleTrackNotFound",2005:"PlaybackSpeedNotSupported",2006:"DRMContentError — DRM restriction prevents playback",2007:"DRMLicenseError — DRM license is invalid or unsupported",2999:"PlaybackErrorUnknown — An unknown error occurred (fallback)"};
+const PE={1000:"UNSPECIFIED",1001:"REMOTE_ERROR",1002:"BEHIND_LIVE_WINDOW — ตกออกจาก live window",1003:"TIMEOUT",1004:"FAILED_RUNTIME_CHECK",2000:"IO_UNSPECIFIED",2001:"IO_NETWORK_CONNECTION_FAILED",2002:"IO_NETWORK_CONNECTION_TIMEOUT",2003:"IO_INVALID_HTTP_CONTENT_TYPE",2004:"IO_BAD_HTTP_STATUS — server ตอบ 400/401/403",2005:"IO_FILE_NOT_FOUND",2006:"IO_NO_PERMISSION",2007:"IO_CLEARTEXT_NOT_PERMITTED",2008:"IO_READ_POSITION_OUT_OF_RANGE",3001:"PARSING_CONTAINER_MALFORMED",3002:"PARSING_MANIFEST_MALFORMED — manifest เสีย (มักจาก token หมดอายุ CDN 204)",3003:"PARSING_CONTAINER_UNSUPPORTED",3004:"PARSING_MANIFEST_UNSUPPORTED",4001:"DECODER_INIT_FAILED — init decoder ไม่ได้",4002:"DECODER_QUERY_FAILED",4003:"DECODING_FAILED — decode ไม่ได้ (codec/memory)",4004:"DECODING_FORMAT_EXCEEDS_CAPABILITIES",4005:"DECODING_FORMAT_UNSUPPORTED",4006:"DECODING_RESOURCES_RECLAIMED",5001:"AUDIO_TRACK_INIT_FAILED",5002:"AUDIO_TRACK_WRITE_FAILED",5003:"AUDIO_TRACK_OFFLOAD_WRITE_FAILED",5004:"AUDIO_TRACK_OFFLOAD_INIT_FAILED",6000:"DRM_UNSPECIFIED",6001:"DRM_SCHEME_UNSUPPORTED",6002:"DRM_PROVISIONING_FAILED — Widevine provisioning fail",6003:"DRM_CONTENT_ERROR — content restrict / security level ไม่ตรง",6004:"DRM_LICENSE_ACQUISITION_FAILED",6005:"DRM_DISALLOWED_OPERATION",6006:"DRM_SYSTEM_ERROR — L3 เล่น L1 / ดูนาน >6ชม. / กล่องไม่ผ่าน Google Cert",6007:"DRM_DEVICE_REVOKED",6008:"DRM_LICENSE_EXPIRED",7000:"VIDEO_FRAME_PROCESSOR_INIT_FAILED",7001:"VIDEO_FRAME_PROCESSING_FAILED","-2":"INVALID_STATE","-3":"BAD_VALUE","-4":"PERMISSION_DENIED","-6":"NOT_SUPPORTED","-100":"DISCONNECTED","-102":"AUTHENTICATION_EXPIRED","-103":"PREMIUM_ACCOUNT_REQUIRED","-104":"CONCURRENT_STREAM_LIMIT — เกิน CCU","-105":"PARENTAL_CONTROL_RESTRICTED","-106":"NOT_AVAILABLE_IN_REGION — geo restriction","-107":"SKIP_LIMIT_REACHED","-108":"SETUP_REQUIRED","-109":"END_OF_PLAYLIST","-110":"CONTENT_ALREADY_PLAYING"};
+const CDN={200:"Success",204:"Token Expire — token หมดอายุ",400:"พารามิเตอร์ไม่ครบ",401:"Token is invalid",403:"Session was eject"};
+const STREAMER={14119:"IP blocked / IP not allowed — เช็ค VPN",14110:"Concurrent (CCU) over limit — ปิดอุปกรณ์อื่น",14168:"No permission (watchable=false) — เช็ค package/entitlement",12005:"Cannot get information — retry / escalate",12001:"Unknown path components"};
+const NSURL={"-1001":"NSURLErrorTimedOut","-1002":"NSURLErrorUnsupportedURL","-1003":"NSURLErrorCannotFindHost","-1004":"NSURLErrorCannotConnectToHost","-1005":"NSURLErrorNetworkConnectionLost","-1006":"NSURLErrorDNSLookupFailed","-1009":"NSURLErrorNotConnectedToInternet","-1011":"NSURLErrorBadServerResponse","-1013":"NSURLErrorUserAuthenticationRequired","-1100":"NSURLErrorFileDoesNotExist — file ไม่พบบน server","-1200":"NSURLErrorSecureConnectionFailed","-1202":"NSURLErrorServerCertificateUntrusted"};
+const COREMEDIA={"-12937":"authenticationError","-16840":"unauthorized","-12660":"forbidden","-12938":"notFound","-12661":"unavailable","-12645":"mediaFileTimeout","-12889":"mediaFileDelayedResponse","-12318":"bandwidthExceeded — segment เกิน bandwidth","-12666":"unrecognizedHttpResponse","-12911":"decoderMalfunction","-12913":"decoderTemporarilyUnavailable"};
+
+function fixFor(pe){const n=parseInt(pe);
+  if(n>=6000&&n<=6008) return ["ตรวจสอบ Security Level (L1/L3)","Mobile L3: ปรับ resolution 480p หรือเปลี่ยน device","TV กล่องแปลก: เช็ค Google Certificate (Play Protect certified?)","ดูต่อเนื่อง >6 ชม.: Kill app เปิดใหม่ (แก้ใน 4.0.14)","Clear cache / Uninstall-Reinstall; ถ้ายังไม่ได้ = device ไม่รองรับ"];
+  if(n>=4001&&n<=4006) return ["Kill app เปิดใหม่","ปรับลด resolution","ลอง content อื่น (เช็คว่าเฉพาะ content หรือ device)","ถ้าเฉพาะ content → escalate STM เช็ค encoding"];
+  if(n>=3001&&n<=3004) return ["Kill app เปิดใหม่ (force re-fetch token — มักจาก token หมดอายุ)","ตรวจสอบ Internet","Update app version ล่าสุด"];
+  if(n>=2000&&n<=2008) return ["ตรวจสอบ Internet / สลับ WiFi ↔ Mobile Data","Kill app เปิดใหม่","Logout → Login ใหม่","ถ้ายังมีปัญหา → escalate เช็ค CDN/Streamer status"];
+  if(n===1002) return ["ตรวจสอบ Internet (สลับ WiFi ↔ LAN)","Update app 4.0.23+","Kill app แล้วกด Live ใหม่"];
+  if(n>=5001&&n<=5004) return ["Kill app / Restart device","Clear app cache","ถ้ายังไม่ได้ → อาจเป็น audio device limitation"];
+  return ["Kill app แล้วลองใหม่","ตรวจสอบ Internet","Update app version ล่าสุด","ถ้ายังเจอ → escalate พร้อม SSOID, Device, เวลาที่เกิด"];}
+
+/* ---------- DECODER ---------- */
+const decEl=document.getElementById('dec'),dres=document.getElementById('dresult');
+const EXAMPLES=["E5001:2999:6006","E5001:2999:4005","E6006","E1024:14119","E5001:3005:12005","E2999:1002","E5002-6002"];
+const exEl=document.getElementById('examples');
+EXAMPLES.forEach(e=>{const b=document.createElement('span');b.className='ex';b.textContent=e;b.onclick=()=>{decEl.value=e;decode();};exEl.appendChild(b);});
+function lookupSub(tok,pos){const raw=tok.replace(/[()]/g,'').trim();const num=raw;const hits=[];
+  if(SDK[num]!==undefined)hits.push({dict:"SDK Code",text:SDK[num]});
+  if(PE[num]!==undefined)hits.push({dict:"PlaybackException",text:PE[num]});
+  if(CDN[num]!==undefined)hits.push({dict:"CDN Code",text:CDN[num]});
+  if(STREAMER[num]!==undefined)hits.push({dict:"Streamer Service",text:STREAMER[num]});
+  if(NSURL[num]!==undefined)hits.push({dict:"iOS NSURLError",text:NSURL[num]});
+  if(COREMEDIA[num]!==undefined)hits.push({dict:"iOS CoreMediaError",text:COREMEDIA[num]});
+  if(!hits.length)return null;
+  let order=pos===1?["SDK Code","Streamer Service","PlaybackException","CDN Code","iOS NSURLError","iOS CoreMediaError"]:["PlaybackException","CDN Code","Streamer Service","iOS NSURLError","iOS CoreMediaError","SDK Code"];
+  hits.sort((a,b)=>order.indexOf(a.dict)-order.indexOf(b.dict));
+  return {primary:hits[0],alts:hits.slice(1)};}
+function decode(){const inp=decEl.value.trim();dres.innerHTML='';if(!inp)return;
+  const tokens=inp.split(/[\s:–—\-]+/).filter(Boolean);let html='';let lastPE=null;
+  let root=tokens[0].toUpperCase();let hm=root.match(/\((\d+)\)/);let http=hm?hm[1]:null;root=root.replace(/\(.*\)/,'');
+  if(!/^E/.test(root)&&/^\d/.test(root))root='E'+root;
+  const rootNum=root.replace(/^E/,'');let rootMean=ROOT[root];let rootHint='';
+  if(!rootMean&&SDK[rootNum]!==undefined){rootMean=SDK[rootNum];rootHint='เขียนแบบย่อ (SDK code เป็น root) — ปกติเต็มคือ E5001:'+rootNum+':...';}
+  html+=`<div class="seg${rootMean?'':' unknown'}"><div class="lbl">Root Code${http?` · HTTP ${http}`:''}</div><div class="val">${root}</div><div class="mean">${rootMean||'ไม่รู้จัก root code นี้'}</div>${rootHint?`<div class="desc">${rootHint}</div>`:(rootMean?'':'<div class="desc">อาจเป็น code ใหม่ที่ยังไม่อยู่ใน mapping — เช็คเอกสาร Application Mapped Error code</div>')}</div>`;
+  for(let i=1;i<tokens.length;i++){const r=lookupSub(tokens[i],i);
+    if(!r){html+=`<div class="seg unknown"><div class="lbl">Sub-code #${i}</div><div class="val">${tokens[i]}</div><div class="mean">ไม่พบใน mapping table</div><div class="desc">อาจเป็น service error code เฉพาะทาง — เช็คกับทีมเจ้าของ endpoint</div></div>`;continue;}
+    const p=r.primary;if(p.dict==="PlaybackException")lastPE=tokens[i].replace(/[()]/g,'');
+    const alts=r.alts.length?`<div class="alt">↕ อาจหมายถึง: ${r.alts.map(a=>`<b>${a.dict}</b> = ${a.text}`).join(' · ')}</div>`:'';
+    html+=`<div class="seg"><div class="lbl">Sub-code #${i} · ${p.dict}</div><div class="val">${tokens[i]}</div><div class="mean">${p.text}</div>${alts}</div>`;}
+  html+=`<div class="verdict">📌 <b>สรุป:</b> ${inp} — ${rootMean?`<b>${root}</b> = ${rootMean}`:'code นี้'}${lastPE?`; สาเหตุจริงชี้จาก sub-code สุดท้าย: <b>${(PE[lastPE]||'').split('—')[0]||PE[lastPE]||''}</b>`:''}</div>`;
+  html+=`<div class="fixbox"><div class="lbl">🛠️ แนวทางแก้ไข / Workaround</div><ul>${fixFor(lastPE||'').map(f=>`<li>${f}</li>`).join('')}</ul></div>`;
+  dres.innerHTML=html;}
+decEl.addEventListener('input',decode);
+
+/* ---------- CURATED DATA ---------- */
+let DATA=[
+ {n:1,code:"E5001-2999",cats:["player","drm"],title:"PlaybackErrorUnknown",cause:"Unhandled error (fallback) มัก DRM L3 หรือ Google Certificate ไม่ผ่าน",wa:["<span class='plat'>Mobile</span>ปรับ 480p หรือเปลี่ยน device","<span class='plat'>TV</span>เช็ค Google Certificate","Update App 4.0.15+"]},
+ {n:2,code:"E5001-2007",cats:["drm","player"],title:"DRMLicenseError",cause:"DRM license invalid/หมดอายุ",wa:["Kill app เปิดใหม่","Clear data/cache","ตรวจ DRM License Server","เช็ค Security Level L1/L3"]},
+ {n:3,code:"E5001:3005:12005",cats:["geo"],title:"CannotGetInformation",cause:"ให้บริการเฉพาะไทย ตรวจพบ IP ต่างประเทศ (VPN/Proxy)",wa:["ปิด VPN/Proxy","สลับเครือข่าย","ลองใหม่"],note:"แก้ message ใน 4.0.15 (Android แล้ว, iOS รอ)"},
+ {n:4,code:"E1024(200)-14110",cats:["ccu"],title:"Concurrent is over limit",cause:"เปิดพร้อมกันเกิน limit (max 4 CCU สำหรับ AF)",wa:["ปิดอุปกรณ์อื่น","รอ 5–10 นาที","Admin Portal force logout session เก่า"]},
+ {n:5,code:"E5002-6002",cats:["drm"],title:"DRM_PROVISIONING_FAILED (Shaka)",cause:"Widevine provisioning ล้มเหลว",wa:["Clear data/cache","Uninstall/Reinstall","เช็ค Internet","ไม่ได้ = device ไม่รองรับ"]},
+ {n:6,code:"E5002-6003",cats:["drm"],title:"DRM_CONTENT_ERROR (Shaka)",cause:"Content restrict / Security Level ไม่ตรง / config ผิด",wa:["เช็ค L1/L3","ลอง content อื่น","escalate Dev เช็ค DRM config"]},
+ {n:7,code:"Bitmovin: 12318",cats:["network","cdn"],title:"Segment exceeds bandwidth",cause:"Segment เกิน bandwidth / เน็ตช้า / ABR ผิด",wa:["เช็ค Internet Speed","ลด resolution","Kill app","ซ้ำ → escalate STM encoding"]},
+ {n:8,code:"E6003",cats:["auth"],title:"Profile null after success",cause:"AAA getProfile() คืน null (session/backend sync ช้า)",wa:["Update 4.0.15+","Logout→Login","ลองใหม่"]},
+ {n:9,code:"E5001-2999:3002",cats:["player","cdn"],title:"+ PARSING_MANIFEST_MALFORMED",cause:"Token หมดอายุ (CDN 204) manifest ไม่สมบูรณ์",wa:["Kill app (re-fetch token)","เช็ค Internet","Update"]},
+ {n:10,code:"E1011:1400160",cats:["auth"],title:"Code invalid or expired (QR)",cause:"Scan QR จาก TV error (redirect_uri config ผิด)",wa:["Login &amp; Logout จากมือถือ","Scan ใหม่"],note:"All Smart TV (VIDAA/Tizen/WebOS) — แก้ prod-4.0.13"},
+ {n:11,code:"E5001:2001:2004",cats:["network","cdn"],title:"NetworkServerError + IO_BAD_HTTP_STATUS",cause:"HTTP 400/401/403 (session eject/token invalid/CDN)",wa:["เช็ค Internet","Kill app","Logout→Login","escalate CDN/Streamer"]},
+ {n:12,code:"E5001-1",cats:["player"],title:"PlayerSDK Unknown sub-error",cause:"ไม่มี map ชัด, transient",wa:["Kill app","เช็ค Internet","Update"]},
+ {n:13,code:"E1011-1403001",cats:["auth"],title:"Authentication flow error (QR)",cause:"ระหว่าง QR scan login (Identity 1403001)",wa:["Login &amp; Logout จากมือถือ","Update TV+มือถือ","escalate AAA"]},
+ {n:14,code:"E5001-2999-6006",cats:["drm","player"],title:"+ DRM_SYSTEM_ERROR",cause:"1) L3 เล่น L1 2) ดู >6 ชม. 3) กล่องไม่ผ่าน Google Cert 4) 🆕 Android TV: มักเกิดตอน adaptive bitrate ปรับสูงขึ้น",wa:["<span class='plat'>Mobile L3</span>480p/เปลี่ยน device","<span class='plat'>TV</span>เช็ค Google Cert","<span class='plat'>>6ชม.</span>Kill app (แก้ 4.0.14)","<span class='plat'>Android TV</span>Reinstall","<span class='plat'>ABR สูงขึ้น</span>ลองล็อก resolution/bitrate คงที่ (480p/720p) ลดการสลับ + เก็บ log ส่ง Dev"],note:"🆕 4 ส.ค. 69: Android TV เจอบ่อยขึ้น มักเกิดทุกครั้งที่ adaptive bitrate ปรับสูงขึ้น — ทีมกำลังหาสาเหตุ"},
+ {n:15,code:"E5001-2001",cats:["network"],title:"NetworkServerError",cause:"Server ไม่ตอบ (CDN down/network)",wa:["เช็ค Internet","สลับ WiFi↔Mobile","Kill app","Timeshift/Rewind→escalate"]},
+ {n:16,code:"E5002-3015",cats:["network"],title:"ShakaPlayer error",cause:"investigate (streaming session/token)",wa:["Kill app","เช็ค Internet","Update","escalate พร้อม SSOID+Device+เวลา"]},
+ {n:17,code:"E1024",cats:["streamer"],title:"Streamer API error (General)",cause:"ขึ้นกับ Service Error Code ต่อท้าย",wa:["<b>14119</b>=IP blocked→เช็ค VPN","<b>14110</b>=CCU→ปิดอุปกรณ์อื่น","<b>14168</b>=No permission→เช็ค package","<b>12005</b>=Cannot get info→retry/escalate"]},
+ {n:18,code:"E5001:2999:4003",cats:["decode"],title:"+ DECODING_FAILED",cause:"decode format ไม่ได้ (codec/memory)",wa:["Kill app","ลด resolution","ลอง content อื่น","escalate STM"]},
+ {n:19,code:"E4001",cats:["network"],title:"Couchbase Lite error",cause:"WebSocket sync ไม่ได้กับ sync gateway",wa:["เช็ค Internet","Kill app","Clear cache","escalate sync gateway"]},
+ {n:20,code:"Error 2000 (InternetConnectionError)",cats:["network"],title:"Network connection failed",cause:"เน็ตไม่ต่อ/timeout (iOS -1001/-1003)",wa:["เช็คสัญญาณ","สลับ WiFi↔Mobile","restart Router","Kill app"]},
+ {n:21,code:"E5002-4001",cats:["decode"],title:"DECODER_INIT_FAILED (Shaka)",cause:"init video/audio decoder ไม่ได้",wa:["Kill app","Restart device","Clear cache","device limitation"]},
+ {n:22,code:"E5001:2999:4001",cats:["decode","player"],title:"+ DECODER_INIT_FAILED (Android)",cause:"decoder init ล้มเหลว",wa:["Kill app","Restart device","ลอง content อื่น","Clear data"]},
+ {n:23,code:"E5001:3002:14168",cats:["perm"],title:"NoPermissionToWatch",cause:"Streamer 14168 (watchable=false) ไม่มี entitlement",wa:["เช็ค package ใน Admin Portal","เช็ค content ต้อง package อะไร","escalate Subscription"]},
+ {n:24,code:"E5001:2001:-1100",cats:["cdn","network"],title:"+ NSURLErrorFileDoesNotExist (-1100)",cause:"file content ไม่พบบน server",wa:["ลอง content อื่น","แจ้งทีม content TVS","Kill app"]},
+ {n:25,code:"E5001",cats:["player"],title:"PlayerSDK error (ทั่วไป)",cause:"ไม่มี sub-code, transient",wa:["Kill app","เช็ค Internet","Update"]},
+ {n:26,code:"E2999:1002",cats:["live"],title:"+ BEHIND_LIVE_WINDOW",cause:"ตกออกจาก live window (เน็ตช้า/pause นาน)",wa:["เช็ค Internet (WiFi↔LAN)","Update 4.0.23+","Kill app","กด Live ใหม่"]},
+ {n:27,code:"E6006",cats:["auth"],title:"Provision Stuck Timeout",cause:"AAA provisionAccount() ค้าง ไม่ได้ callback",wa:["Kill app","Logout→Login","เช็ค Internet","escalate AAA"]},
+ {n:28,code:"E1019",cats:["cdn"],title:"CDN error",cause:"GET ไม่พบ JSON (cache/ยังไม่ publish)",wa:["Kill app","เช็ค Internet","ทุกคนเจอ→escalate CDN"]},
+ {n:29,code:"E5001:2999:6006",cats:["drm","player"],title:"+ DRM_SYSTEM_ERROR",cause:"เหมือน #14 · 🆕 Android TV: มักเกิดตอน adaptive bitrate ปรับสูงขึ้น",wa:["<span class='plat'>Mobile L3</span>480p/เปลี่ยน device","<span class='plat'>TV</span>เช็ค Google Cert","<span class='plat'>>6ชม.</span>Kill app","<span class='plat'>Android TV</span>Reinstall","<span class='plat'>ABR สูงขึ้น</span>ล็อก resolution/bitrate คงที่ + เก็บ log ส่ง Dev"],note:"🆕 4 ส.ค. 69: Android TV เจอบ่อยขึ้น มักเกิดทุกครั้งที่ adaptive bitrate ปรับสูงขึ้น — ทีมกำลังหาสาเหตุ"}
+];
+const CATS={drm:"DRM",network:"Network",cdn:"CDN",auth:"Auth",decode:"Decode",geo:"Geo",ccu:"CCU",perm:"Permission",player:"PlayerSDK",live:"Live TV",streamer:"Streamer API"};
+let editMode=false,editIndex=null;
+const grid=document.getElementById('grid'),chipsEl=document.getElementById('chips'),countEl=document.getElementById('count'),qEl=document.getElementById('q');
+let activeCat="all";
+[["all","ทั้งหมด"]].concat(Object.entries(CATS)).forEach(([k,label])=>{const c=document.createElement('div');c.className='chip'+(k==='all'?' active':'');c.textContent=label;c.dataset.cat=k;c.onclick=()=>{activeCat=k;document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('active',x.dataset.cat===k));renderCards();};chipsEl.appendChild(c);});
+function stext(d){return (d.code+' '+d.title+' '+d.cause+' '+d.wa.join(' ')+' '+d.cats.map(c=>CATS[c]).join(' ')).toLowerCase();}
+function renderCards(){
+  const q=qEl.value.trim().toLowerCase();
+  const items=DATA.map((d,idx)=>({d,idx})).filter(o=>(activeCat==='all'||o.d.cats.includes(activeCat))&&(!q||stext(o.d).includes(q)));
+  grid.innerHTML=items.map(o=>{const d=o.d;return `<div class="card">
+    <div class="card-top"><span class="codechip">${d.code}</span><span class="refno">#${d.n}</span></div>
+    ${editMode?`<div class="card-actions"><button class="btn sm" onclick="openEdit(${o.idx})">✏️ แก้ไข</button><button class="btn sm del" onclick="delCard(${o.idx})">🗑️ ลบ</button></div>`:''}
+    <div class="tags">${d.cats.map(c=>`<span class="tag t-${c}">${CATS[c]||c}</span>`).join('')}</div>
+    <div class="title">${d.title}</div><div class="cause">${d.cause||''}</div>
+    <div class="walab">🛠️ วิธีแก้</div><ul class="wa">${(d.wa||[]).map(w=>`<li>${w}</li>`).join('')}</ul>
+    ${d.note?`<div class="note">${d.note}</div>`:''}</div>`;}).join('')||'<p style="padding:40px;text-align:center;color:#98a2b3">ไม่พบ error code ที่ตรงกับคำค้น</p>';
+  countEl.innerHTML=`แสดง <b>${items.length}</b> จาก <b>${DATA.length}</b> error codes`;
+}
+qEl.addEventListener('input',renderCards);
+
+/* edit mode toggle */
+const editToggle=document.getElementById('editToggle'),addBtn=document.getElementById('addBtn'),savenote=document.getElementById('savenote');
+editToggle.onclick=()=>{editMode=!editMode;editToggle.textContent=editMode?'✅ ปิดโหมดแก้ไข':'✏️ เปิดโหมดแก้ไข';editToggle.classList.toggle('mode-on',editMode);addBtn.style.display=editMode?'inline-flex':'none';savenote.classList.toggle('show',editMode||rcEdit);renderCards();};
+
+/* modal helpers */
+const overlay=document.getElementById('overlay'),modalError=document.getElementById('modalError'),modalRC=document.getElementById('modalRC'),modalIO=document.getElementById('modalIO');
+function closeModal(){overlay.classList.remove('show');modalError.style.display='none';modalRC.style.display='none';modalIO.style.display='none';}
+overlay.onclick=e=>{if(e.target===overlay)closeModal();};
+const fcats=document.getElementById('f_cats');
+Object.entries(CATS).forEach(([k,l])=>{const s=document.createElement('span');s.className='catopt';s.textContent=l;s.dataset.cat=k;s.onclick=()=>s.classList.toggle('on');fcats.appendChild(s);});
+function openModalError(){overlay.classList.add('show');modalError.style.display='block';modalRC.style.display='none';modalIO.style.display='none';}
+addBtn.onclick=()=>{editIndex=null;document.getElementById('meTitle').textContent='เพิ่ม Error Code';
+  f_code.value='';f_title.value='';f_cause.value='';f_wa.value='';f_note.value='';
+  document.querySelectorAll('#f_cats .catopt').forEach(x=>x.classList.remove('on'));openModalError();};
+function openEdit(idx){editIndex=idx;const d=DATA[idx];document.getElementById('meTitle').textContent='แก้ไข '+d.code;
+  f_code.value=d.code;f_title.value=d.title;f_cause.value=d.cause||'';f_wa.value=(d.wa||[]).join('\n');f_note.value=d.note||'';
+  document.querySelectorAll('#f_cats .catopt').forEach(x=>x.classList.toggle('on',d.cats.includes(x.dataset.cat)));openModalError();}
+function delCard(idx){const d=DATA[idx];if(confirm('ลบ '+d.code+' ?')){DATA.splice(idx,1);renderCards();}}
+document.getElementById('saveError').onclick=()=>{
+  const code=f_code.value.trim();const title=f_title.value.trim();
+  if(!code||!title){alert('กรุณากรอก Error Code และ ชื่อ/ความหมาย');return;}
+  const cats=[...document.querySelectorAll('#f_cats .catopt.on')].map(x=>x.dataset.cat);
+  const wa=f_wa.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const obj={code,cats:cats.length?cats:["player"],title,cause:f_cause.value.trim(),wa};
+  const note=f_note.value.trim();if(note)obj.note=note;
+  if(editIndex===null){obj.n=DATA.length?Math.max(...DATA.map(d=>d.n||0))+1:1;DATA.push(obj);}
+  else{obj.n=DATA[editIndex].n;DATA[editIndex]=obj;}
+  closeModal();renderCards();};
+
+/* ---------- REFERENCE ---------- */
+function tbl(dict,cols){return `<table><thead><tr><th style="width:18%">${cols[0]}</th><th>${cols[1]}</th></tr></thead><tbody>`+Object.entries(dict).map(([k,v])=>`<tr><td class="c">${k}</td><td>${v}</td></tr>`).join('')+`</tbody></table>`;}
+document.getElementById('reftables').innerHTML=
+ `<h2 class="sec" id="root">Root Codes (E####)</h2><div class="sec-sub">เลขหลักบอก "ระบบ/endpoint" — ที่มา: Application Mapped Error code</div>${tbl(ROOT,["Code","ระบบ / Endpoint"])}
+  <h2 class="sec" id="sdk">SDK Codes (TrueID Player SDK)</h2><div class="sec-sub">ตำแหน่งกลาง (2999 = fallback)</div>${tbl(SDK,["Code","ความหมาย"])}
+  <h2 class="sec" id="pe">PlaybackException (Android)</h2><div class="sec-sub">ตำแหน่งท้าย — สาเหตุจริง (พจนานุกรมถอดรหัสหลัก)</div>${tbl(PE,["Code","ความหมาย"])}
+  <h2 class="sec" id="cdn">CDN Codes</h2>${tbl(CDN,["Code","ความหมาย"])}
+  <h2 class="sec" id="streamer">Streamer Service Codes</h2>${tbl(STREAMER,["Code","ความหมาย"])}
+  <h2 class="sec" id="ios">iOS — NSURLError</h2>${tbl(NSURL,["Code","Case"])}
+  <h2 class="sec">iOS — CoreMediaError</h2>${tbl(COREMEDIA,["Code","Case"])}`;
+
+/* ---------- ROOT CAUSE ---------- */
+let RC=[
+ {code:"🔴 SSOID Change — สมัครแพ็กเกจแล้วไม่ได้รับ",plat:"Priority: High",date:"Raised by 24x7",tk:["295890","295562","297543"],root:"ITSC มีการ Change Owner Order จาก OMX (Order type: 12011) ทำให้ Package TVN หลุด",wa:"AAA ยืนยัน SSOID ใหม่ → Muze Oper ทำการ Patch Package B2B (OC) ให้"},
+ {code:"🟠 สมัครแพ็กเกจแล้วรับชมไม่ได้ (Now Ent99)",plat:"Priority: Medium",date:"Raised by 24x7",tk:["299002"],root:"ข้อมูลบน Couchbase ยังไม่อัปเดต ทำให้ User ไม่เห็น Package ที่ Purchase ไว้ใน App",wa:"Re-sync Subscription Profile ให้ลูกค้าผ่านหน้า Admin Portal (กดปุ่ม Sync Subscription Profile)"},
+ {code:"🟠 รับชมแล้วภาพกระตุก (buffering)",plat:"Priority: Medium",date:"Raised by 24x7",tk:["298678"],root:"Buffer ของ Player เก็บค่า Buffer น้อยเกินไปเมื่อ Start Player",wa:"ทีมแก้ Player แล้ว → Release Ver 4.0.23-tv (Android TV)"},
+ {code:"🆕 E5001:2999:6006 — Android TV (Adaptive Bitrate)",plat:"Android TV",date:"4 Aug 2026 · Rev0 · 🔍 investigating",tk:[],root:"พบบน Android TV มากขึ้น — มักเกิด (แทบ) ทุกครั้งที่ adaptive bitrate ปรับสูงขึ้น (สงสัย DRM re-negotiation / decoder switch ตอนเปลี่ยน rendition ไป bitrate สูง) · ทีมกำลังหาสาเหตุ",wa:"ระหว่างตรวจสอบ: ลองล็อก resolution/bitrate ให้คงที่ (เช่น 480p/720p) เพื่อลดการสลับ ABR · Kill app เปิดใหม่ · เก็บ SSOID + Device model + เวลา + content/bitrate ที่เกิด แล้วส่งให้ Dev"},
+ {code:"E5001:2999-6006",plat:"All Mobile / All Android TV",date:"22 Jun 2026 (Noah)",tk:["296950"],root:"DRM_SYSTEM_ERROR — L3 เล่น L1 / ดูนาน >6ชม. / กล่องไม่ผ่าน Google Cert",wa:"ปรับ 480p, เช็ค Google Cert, Kill app เมื่อดูนาน (แก้ 4.0.14), Android TV reinstall"},
+ {code:"Payment Unsuccessful — True Move H",plat:"—",date:"6 Jun 2026 · Rev0",tk:["296226"],root:"Token หมดอายุ (เช็คประวัติการซื้อใน Admin Portal)",wa:"ใน Admin Portal เคลียร์ช่องทางชำระ TrueMoney ของลูกค้าออก → แจ้งลูกค้าผูก TrueMoney ใหม่ แล้วชำระอีกครั้ง"},
+ {code:"E1011:1400160 — Code invalid or expired",plat:"All Smart TV (VIDAA/Tizen/WebOS)",date:"5 Jun 2026 · Rev0",tk:["295927","295939","296077","296185","296206","296202","296224","296225"],root:"redirect_uri ใน application config ของ client 3761 มีค่าไม่ถูกต้อง",wa:"Login &amp; Logout จากมือถือที่เข้าระบบอยู่ → Scan QR ใหม่ · ทีมแก้ code ใน prod-4.0.13"},
+ {code:"E5001:3005:12005 — Geo Restriction",plat:"iOS",date:"21 May 2026 · Rev0",tk:["295335"],root:"เล่น content ที่อนุญาตเฉพาะไทย แต่ตรวจพบ IP ต่างประเทศ (VPN/Proxy)",wa:"เช็คว่าลูกค้าอยู่ไทยไหม? → ปิด VPN/Proxy → สลับเครือข่าย → ลองใหม่"},
+ {code:"ดูทีวีแล้วเด้งหน้า Scan QR ทุก 2–3 วัน",plat:"Samsung TV",date:"5 Jun 2026 (Aum) · Rev0",tk:[],root:"Under investigation",wa:"Under confirmation"},
+ {code:"Partner App Issues (WeTV / iQiyi VIP)",plat:"—",date:"5–6 Jun 2026",tk:["295927"],root:"package ไม่มี sub-package (add-on partner) · หลัง migrate NEX ต้อง login ด้วย TrueID เท่านั้น; แพคเดิมถูกลบ Partner ทิ้ง",wa:"1) relogin ด้วย TrueID account 2) ยังพบปัญหา → escalate ticket มาที่ Muze · Dev patch package (VAS) เพิ่มให้"},
+ {code:"E5001-2999",plat:"กล่องแปลก: TX 98, GMMZ, IPS, Xiaomi",date:"ticket 295535",tk:["295535"],root:"Unknown error — อยู่ระหว่างตรวจสอบ; ปล่อย 4.0.15 สำหรับ Mobile/Tablet; กลุ่ม TV ให้เช็ค Google Certificate",wa:"Update 4.0.15 · เช็ค Google Cert: Play Store → รูปโปรไฟล์ → Settings → About → Play Protect certification → ต้องขึ้น \"Device is certified\""}
+];
+let rcEdit=false,rcIndex=null;
+const rclog=document.getElementById('rclog'),editToggleRC=document.getElementById('editToggleRC'),addRCBtn=document.getElementById('addRCBtn');
+function renderRC(){
+  rclog.innerHTML=RC.map((r,idx)=>`<div class="rc">
+    <div class="rc-top"><span class="codechip">${r.code}</span><span class="rc-meta">${r.plat||''} · ${r.date||''}</span></div>
+    ${rcEdit?`<div class="card-actions"><button class="btn sm" onclick="openEditRC(${idx})">✏️ แก้ไข</button><button class="btn sm del" onclick="delRC(${idx})">🗑️ ลบ</button></div>`:''}
+    ${(r.tk&&r.tk.length)?`<div style="margin-top:8px">${r.tk.map(t=>`<span class="rc-tk">#${t}</span>`).join('')}</div>`:''}
+    <div class="rcrow"><span class="k">Root Cause:</span> ${r.root||''}</div>
+    <div class="rcrow"><span class="k">Workaround:</span> ${r.wa||''}</div></div>`).join('');
+}
+editToggleRC.onclick=()=>{rcEdit=!rcEdit;editToggleRC.textContent=rcEdit?'✅ ปิดโหมดแก้ไข':'✏️ เปิดโหมดแก้ไข';editToggleRC.classList.toggle('mode-on',rcEdit);addRCBtn.style.display=rcEdit?'inline-flex':'none';savenote.classList.toggle('show',editMode||rcEdit);renderRC();};
+function openModalRC(){overlay.classList.add('show');modalRC.style.display='block';modalError.style.display='none';modalIO.style.display='none';}
+addRCBtn.onclick=()=>{rcIndex=null;document.getElementById('rcTitle').textContent='เพิ่มเคส Root Cause';r_code.value='';r_plat.value='';r_date.value='';r_tk.value='';r_root.value='';r_wa.value='';openModalRC();};
+function openEditRC(idx){rcIndex=idx;const r=RC[idx];document.getElementById('rcTitle').textContent='แก้ไขเคส';r_code.value=r.code;r_plat.value=r.plat||'';r_date.value=r.date||'';r_tk.value=(r.tk||[]).join(', ');r_root.value=r.root||'';r_wa.value=r.wa||'';openModalRC();}
+function delRC(idx){if(confirm('ลบเคสนี้?')){RC.splice(idx,1);renderRC();}}
+document.getElementById('saveRC').onclick=()=>{const code=r_code.value.trim();if(!code||!r_root.value.trim()){alert('กรุณากรอก Error Code/หัวข้อ และ Root Cause');return;}
+  const obj={code,plat:r_plat.value.trim(),date:r_date.value.trim(),tk:r_tk.value.split(',').map(s=>s.trim()).filter(Boolean),root:r_root.value.trim(),wa:r_wa.value.trim()};
+  if(rcIndex===null)RC.push(obj);else RC[rcIndex]=obj;closeModal();renderRC();};
+
+/* ---------- EXPORT / IMPORT ---------- */
+function openIO(){overlay.classList.add('show');modalIO.style.display='block';modalError.style.display='none';modalRC.style.display='none';
+  document.getElementById('ioArea').value=JSON.stringify({DATA,RC},null,2);}
+document.getElementById('exportBtn').onclick=openIO;
+document.getElementById('exportBtn2').onclick=openIO;
+function dl(content,name,type){const blob=new Blob([content],{type:type||'text/html'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href);},100);}
+document.getElementById('dlHtml').onclick=()=>{
+  let html=document.documentElement.outerHTML;
+  html=html.replace(/let DATA=\[[\s\S]*?\];\s*\n(const CATS=)/, (m,p1)=>'let DATA='+JSON.stringify(DATA)+';\n'+p1);
+  html=html.replace(/let RC=\[[\s\S]*?\];\s*\n(let rcEdit=)/, (m,p1)=>'let RC='+JSON.stringify(RC)+';\n'+p1);
+  dl('<!DOCTYPE html>\n'+html,'TVS_Error_Code_KB_updated.html','text/html');
+};
+document.getElementById('copyJson').onclick=()=>{const t=document.getElementById('ioArea');t.select();try{document.execCommand('copy');}catch(e){}alert('คัดลอก JSON แล้ว — วางในแชทให้ Claude ได้เลย');};
+document.getElementById('importJson').onclick=()=>{try{const o=JSON.parse(document.getElementById('ioArea').value);
+  if(Array.isArray(o.DATA))DATA=o.DATA;if(Array.isArray(o.RC))RC=o.RC;renderCards();renderRC();closeModal();alert('Import สำเร็จ');}catch(e){alert('JSON ไม่ถูกต้อง: '+e.message);}};
+
+/* ---------- TABS ---------- */
+document.querySelectorAll('.tab').forEach(t=>{t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.getElementById('p-'+t.dataset.t).classList.add('active');};});
+
+/* ---------- HOME ---------- */
+function goTab(t){const el=document.querySelector('.tab[data-t="'+t+'"]');if(el&&el.onclick)el.onclick();window.scrollTo({top:0,behavior:'smooth'});}
+const CHANGELOG=[
+ ["4 ส.ค. 69","เพิ่ม 3 เคสใน Root Cause Log: SSOID Change (High), Now Ent99 รับชมไม่ได้, ภาพกระตุก (แก้ใน 4.0.23-tv)"],
+ ["4 ส.ค. 69","🆕 E5001:2999:6006 — Android TV เจอบ่อยขึ้น มักเกิดตอน adaptive bitrate ปรับสูงขึ้น (ทีมกำลังหาสาเหตุ)"],
+ ["4 ส.ค. 69","เพิ่มโหมดแก้ไขในหน้า: Add / Edit / Delete + Export / Import"],
+ ["4 ส.ค. 69","เพิ่ม Decoder ถอดรหัส code ทุกตัว + ตารางอ้างอิง 40+ root codes + Root Cause Log"]
+];
+function renderHome(){
+  const inv=RC.filter(r=>/investigat|under/i.test((r.date||'')+' '+(r.root||''))).length;
+  const tiles=[["",DATA.length,"Curated error codes"],["",Object.keys(ROOT).length,"Root codes (E)"],["",RC.length,"Root cause cases"],["warn",inv,"กำลังตรวจสอบ"]];
+  document.getElementById('stats').innerHTML=tiles.map(s=>`<div class="stat ${s[0]}"><div class="num">${s[1]}</div><div class="lab">${s[2]}</div></div>`).join('');
+  const nav=[["curated","📇","Error List","ค้นหา 29 codes + workaround"],["ref","📚","ตารางอ้างอิง","root / SDK / PlaybackException / CDN"],["rootcause","🗂️","Root Cause Log","เคสจริง + ticket"]];
+  document.getElementById('quicknav').innerHTML=nav.map(q=>`<div class="qn" onclick="goTab('${q[0]}')"><div class="ic">${q[1]}</div><div class="t">${q[2]}</div><div class="d">${q[3]}</div></div>`).join('');
+  document.getElementById('latest').innerHTML='<h3>🆕 อัปเดตล่าสุด</h3>'+CHANGELOG.map(c=>`<div class="ci"><span class="cd">${c[0]}</span><span>${c[1]}</span></div>`).join('');
+}
+
+/* init */
+renderCards();renderRC();renderHome();decEl.value="E5001:2999:6006";decode();
+</script>
+</body>
+</html>

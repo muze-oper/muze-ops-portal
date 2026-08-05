@@ -98,4 +98,19 @@ async function listFiles(nameContains) {
   return files;
 }
 
-module.exports = { writeFile, readFile, listFiles };
+// Reads content directly by file ID (as returned by listFiles), skipping the
+// name-lookup that readFile() does. Callers fetching many files (e.g. the
+// heatmap route summing hundreds of snapshots) should get ONE access token
+// via getAdminAccessToken() and pass it in, instead of every read doing its
+// own token refresh + name search — that N+1 pattern is what made the
+// heatmap endpoint time out with 300+ snapshot files.
+async function readFileById(id, accessToken) {
+  const token = accessToken || await getAdminAccessToken();
+  const res = await fetch(`${DRIVE_API}/files/${id}?alt=media`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Drive read ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  return res.json();
+}
+
+module.exports = { writeFile, readFile, listFiles, readFileById, getAdminAccessToken };

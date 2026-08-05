@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "update-card-info": "node scripts/update-card-info.js"
+    "update-card-info": "node scripts/update-card-info.js",
+    "deploy": "node scripts/update-card-info.js && vercel deploy --prod"
   },
   "license": "ISC",
   "dependencies": {

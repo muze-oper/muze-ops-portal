@@ -4,9 +4,9 @@ const { OAuth2Client } = require('google-auth-library');
 const drive = require('../storage/googleDrive');
 
 const PLANNER_SECRET = process.env.PLANNER_SECRET;
-const START_HOUR = 9;
-const END_HOUR = 18;
-const TOTAL_SLOTS = (END_HOUR - START_HOUR) * 4 + 1; // 09:00-18:00 inclusive, 15-min steps
+const START_HOUR = 7;
+const END_HOUR = 20;
+const TOTAL_SLOTS = (END_HOUR - START_HOUR) * 2 + 1; // 07:00-20:00 inclusive, 30-min steps
 
 // Vercel functions run in UTC - compute "today" explicitly in Asia/Bangkok
 // (this gateway is muze.co.th-only) rather than the UTC calendar date.
@@ -18,7 +18,7 @@ function todosFilename(email) { return `planner_todos__${email}.json`; }
 function projectsFilename(email) { return `planner_projects__${email}.json`; }
 
 function slotIndexToTime(idx) {
-  const totalMinutes = idx * 15 + START_HOUR * 60;
+  const totalMinutes = idx * 30 + START_HOUR * 60;
   const h = Math.floor(totalMinutes / 60);
   const m = totalMinutes % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
@@ -26,7 +26,7 @@ function slotIndexToTime(idx) {
 
 function timeToSlotIndex(hhmm) {
   const [h, m] = hhmm.split(':').map(Number);
-  return Math.floor((h * 60 + m - START_HOUR * 60) / 15);
+  return Math.floor((h * 60 + m - START_HOUR * 60) / 30);
 }
 
 function fmtBangkokTime(isoString) {
@@ -35,7 +35,7 @@ function fmtBangkokTime(isoString) {
   }).format(new Date(isoString));
 }
 
-// Builds the same 49-slot schedule shape the frontend renders, from raw
+// Builds the same slot schedule shape the frontend renders, from raw
 // Google Calendar events (see daily-planner-generator/SKILL.md for the
 // hand-authored equivalent this mirrors).
 function buildSlotsFromEvents(events) {
@@ -186,7 +186,7 @@ router.post('/api/planner/cells', async (req, res) => {
 router.get('/api/planner/todos', async (req, res) => {
   try {
     const data = await drive.readFile(todosFilename(req.user.email));
-    res.json(data || { todos: [], lastMondayCleanup: null });
+    res.json(data || { todos: [] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -194,9 +194,9 @@ router.get('/api/planner/todos', async (req, res) => {
 
 router.post('/api/planner/todos', async (req, res) => {
   try {
-    const { todos, lastMondayCleanup } = req.body;
+    const { todos } = req.body;
     if (!Array.isArray(todos)) return res.status(400).json({ error: 'todos required' });
-    await drive.writeFile(todosFilename(req.user.email), { todos, lastMondayCleanup: lastMondayCleanup || null });
+    await drive.writeFile(todosFilename(req.user.email), { todos });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

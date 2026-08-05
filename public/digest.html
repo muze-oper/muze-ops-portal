@@ -18,23 +18,32 @@
     header h1 { font-size: 18px; }
     header div { display: flex; gap: 16px; align-items: center; }
     header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
-    .toolbar {
-      background: white; border-bottom: 1px solid #e0e0e0;
-      padding: 10px 24px; display: flex; align-items: center; gap: 12px;
-      flex-wrap: wrap;
+    #content { max-width: 1900px; margin: 12px auto 16px; padding: 0 12px; display:flex; gap:14px; align-items:flex-start; }
+    #left-col { width: 280px; flex-shrink: 0; position: sticky; top: 16px; transition: width 0.15s, opacity 0.15s; }
+    #left-col.collapsed { width: 0; opacity: 0; overflow: hidden; pointer-events: none; margin-right: -14px; }
+    #right-col { flex: 1; min-width: 0; }
+    #left-col-toggle {
+      background: rgba(255,255,255,0.2); border: none; color: white; width: 24px; height: 24px;
+      border-radius: 5px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center;
     }
-    .toolbar label { font-size: 12px; font-weight: 600; color: #555; }
-    .toolbar select { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; }
-    #last-updated { font-size: 11px; color: #999; margin-left: auto; }
-    #content { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
-    #digest-frame {
-      background: white; border-radius: 10px; padding: 24px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    /* Top-level mode switcher — the single control everything else follows */
+    #mode-bar { max-width: 1900px; margin: 16px auto 0; padding: 0 12px; }
+    #mode-bar-card {
+      background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
     }
-    #empty-state {
-      text-align: center; padding: 80px 24px; color: #666;
+    #mode-bar-label { font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.05em; text-transform: uppercase; }
+    #mode-switch { display: inline-flex; background: #f1f3f4; border-radius: 10px; padding: 4px; gap: 3px; }
+    .mode-btn {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+      padding: 7px 16px; border: none; border-radius: 8px; cursor: pointer;
+      background: transparent; color: #5f6368; text-align: left;
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
     }
-    #empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+    .mode-btn-title { font-size: 13px; font-weight: 700; }
+    .mode-btn-sub { font-size: 10px; font-weight: 400; opacity: 0.8; }
+    .mode-btn.active { background: #1a73e8; color: white; box-shadow: 0 1px 4px rgba(26,115,232,0.45); }
+    .mode-btn:not(.active):hover { background: rgba(0,0,0,0.05); }
   </style>
 </head>
 <body>
@@ -51,32 +60,166 @@
   </div>
 </header>
 
-<div class="toolbar">
-  <label>เลือก Digest:</label>
-  <select id="digest-select"><option value="">Loading...</option></select>
-  <span id="last-updated"></span>
-  <span id="next-refresh" style="margin-left:auto;font-size:11px;color:#999"></span>
-  <button onclick="refresh()" style="padding:5px 14px;background:#1a73e8;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">🔄 Reload</button>
-</div>
-
-<div id="content">
-  <div id="digest-frame">
-    <div id="empty-state">
-      <div class="icon">📭</div>
-      <p>ยังไม่มี digest — จะแสดงเมื่อ digest รันครั้งถัดไป</p>
+<div id="mode-bar">
+  <div id="mode-bar-card">
+    <span id="mode-bar-label">โหมดการแสดงผล</span>
+    <div id="mode-switch">
+      <button id="mode-live" class="mode-btn active" onclick="setMode('live')">
+        <span class="mode-btn-title">🔴 LIVE</span>
+        <span class="mode-btn-sub">ตามตารางเวลา · default: Action + ควรรับรู้</span>
+      </button>
+      <button id="mode-filter" class="mode-btn" onclick="setMode('filter')">
+        <span class="mode-btn-title">🔍 FILTER</span>
+        <span class="mode-btn-sub">ตามช่วงเวลาที่เลือก · ทุก category</span>
+      </button>
     </div>
   </div>
 </div>
 
-<!-- modal overlay -->
-<div id="digest-overlay" onclick="if(event.target===this)closeDetail()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;padding:24px 16px;box-sizing:border-box">
-  <div style="background:white;max-width:960px;height:calc(100vh - 48px);margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.25);display:flex;flex-direction:column">
+<div id="content">
+  <!-- left column: account summary table + calendar heatmap -->
+  <div id="left-col">
+    <!-- Account summary table -->
+    <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden;margin-bottom:12px">
+      <div style="background:#1a73e8;color:white;padding:10px 14px;text-align:left">
+        <div style="font-weight:700;font-size:13px">📬 Accounts</div>
+        <!-- Same 🔴 LIVE / 🔍 FILTER split as the Dashboard header — these
+             counts come from the live fetch (updated on schedule) but the
+             Dashboard table below them is scoped to the date-range filter,
+             so both facts need to be visible here too. -->
+        <div style="font-size:10px;margin-top:4px;display:flex;flex-direction:column;gap:2px">
+          <div><span style="background:#e53935;font-weight:700;padding:1px 6px;border-radius:7px;letter-spacing:0.03em;margin-right:5px">🔴 LIVE</span><span id="acct-live-meta" style="opacity:0.9"></span></div>
+          <div><span style="background:rgba(255,255,255,0.25);font-weight:700;padding:1px 6px;border-radius:7px;letter-spacing:0.03em;margin-right:5px">🔍 FILTER</span><span id="acct-filter-meta" style="opacity:0.9"></span></div>
+        </div>
+      </div>
+      <table id="acct-table" style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead>
+          <tr style="background:#f8f9fa">
+            <th style="padding:7px 10px;text-align:left;color:#555;border-bottom:1px solid #e0e0e0">Account</th>
+            <th style="padding:7px 8px;text-align:center;color:#e53935;border-bottom:1px solid #e0e0e0;font-size:10px;white-space:nowrap">🔴 Action</th>
+            <th style="padding:7px 8px;text-align:center;color:#f9ab00;border-bottom:1px solid #e0e0e0;font-size:10px;white-space:nowrap">🟡 ควรรู้</th>
+            <th style="padding:7px 8px;text-align:center;color:#9aa0a6;border-bottom:1px solid #e0e0e0;font-size:10px;white-space:nowrap">⚪ Auto</th>
+          </tr>
+        </thead>
+        <tbody id="acct-tbody">
+          <tr><td colspan="4" style="padding:16px;text-align:center;color:#aaa">กำลังโหลด…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Calendar heatmap — next/current important day shown below the grid -->
+    <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
+      <div style="background:#1a73e8;color:white;padding:10px 14px;font-weight:700;font-size:13px">📅 Email Volume</div>
+      <div id="heatmap-container" style="padding:14px 16px"></div>
+      <div id="next-holiday-line" style="padding:0 16px 14px;font-size:11px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+    </div>
+  </div>
+
+  <!-- right column: only email dashboard -->
+  <div id="right-col">
+  <!-- email dashboard — always visible, auto-loads below cards -->
+  <div id="email-dashboard" style="margin-top:20px">
+    <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
+      <!-- header — two clearly separated zones:
+             🔴 LIVE   = driven by the fetch schedule (data freshness)
+             🔍 FILTER = driven by the account/category/date-range filters (what's shown) -->
+      <div style="background:#1a73e8;color:white">
+        <!-- Zone A: LIVE — schedule-driven data freshness -->
+        <div style="padding:10px 20px;background:rgba(0,0,0,0.15);display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,0.15)">
+          <button id="left-col-toggle" onclick="toggleLeftCol()" title="ซ่อน/แสดง panel ด้านซ้าย">◀</button>
+          <span style="font-weight:700;font-size:14px">📋 Email Dashboard</span>
+          <span style="background:#e53935;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔴 LIVE</span>
+          <span id="last-updated" style="font-size:11px;opacity:0.9"></span>
+          <span id="next-refresh" style="font-size:11px;opacity:0.9"></span>
+          <button id="db-pull-now" onclick="pullNow()" style="font-size:11px;font-weight:700;padding:4px 12px;border:none;border-radius:6px;background:white;color:#1a73e8;cursor:pointer;white-space:nowrap;margin-left:auto">⟳ Pull Now</button>
+          <button onclick="toggleScheduleInfo()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:10px;padding:4px 8px;border-radius:10px;cursor:pointer">ⓘ ตารางเวลาดึงอีเมล</button>
+        </div>
+        <!-- Zone B: FILTER — what's currently shown (account/category/date range) -->
+        <div style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="background:rgba(255,255,255,0.25);font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔍 FILTER</span>
+            <select id="db-filter" onchange="_filterAccount=this.value;renderDashboard()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
+              <option value="">ทุก account</option>
+            </select>
+            <select id="db-cat-filter" onchange="_filterCat=this.value;renderDashboard()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
+              <option value="__important__">🔴🟡 Action + ควรรู้</option>
+              <option value="">ทุก category</option>
+              <option value="🔴 ต้อง Action">🔴 ต้อง Action</option>
+              <option value="🟡 ควรรับรู้">🟡 ควรรับรู้</option>
+              <option value="⚪ แจ้งเตือนอัตโนมัติ">⚪ แจ้งอัตโนมัติ</option>
+            </select>
+            <div id="filter-daterange" style="display:none;align-items:center;gap:10px">
+              <span style="font-size:11px;opacity:0.8">ตั้งแต่</span>
+              <input id="db-date-from" type="date" onchange="_filterDateFrom=this.value;renderDashboard();renderAccountTable(_detailData);renderAcctMeta()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
+              <span style="font-size:11px;opacity:0.8">ถึง</span>
+              <input id="db-date-to" type="date" onchange="_filterDateTo=this.value;renderDashboard();renderAccountTable(_detailData);renderAcctMeta()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span id="db-unread"     style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;background:rgba(255,255,255,0.2)">📥 Unread 0</span>
+            <span id="db-processing" style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;background:rgba(255,255,255,0.2)">⚙ Processing 0</span>
+            <span id="db-scoping"    style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;background:rgba(255,255,255,0.2)">🔍 Scoping 0</span>
+            <span id="db-done"       style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;background:rgba(0,200,100,0.35)">✅ Done 0</span>
+          </div>
+        </div>
+        <div id="schedule-info" style="display:none;margin:0 20px 10px;background:rgba(255,255,255,0.97);border-radius:8px;padding:10px 12px;color:#333">
+          <div style="font-size:11px;font-weight:700;color:#555;letter-spacing:0.03em;text-transform:uppercase;margin-bottom:8px">📆 ตารางเวลาดึงอีเมล</div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;font-size:12px">
+            <span style="background:#e8f5e9;color:#2e7d32;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;justify-self:start">ทุก 30 นาที</span>
+            <span>วันธรรมดา 06:00–18:00 (ไม่ใช่วันหยุด)</span>
+            <span style="background:#e3f2fd;color:#1565c0;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;justify-self:start">ทุก 3 ชม.</span>
+            <span>คืนวันธรรมดาปกติ (วันถัดไปไม่ใช่วันหยุด)</span>
+            <span style="background:#fff3e0;color:#e65100;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;justify-self:start">ทุก 6 ชม.</span>
+            <span>วันหยุดเต็มวัน (เสาร์-อาทิตย์ + วันหยุดนักขัตฤกษ์) และเย็นวันธรรมดาก่อนวันหยุด</span>
+          </div>
+          <div style="font-size:10px;color:#999;margin-top:8px">holidays = เสาร์-อาทิตย์ + วันหยุดนักขัตฤกษ์ที่ตั้งไว้ในปฏิทิน (ดูที่ Email Volume ด้านซ้าย)</div>
+        </div>
+      </div>
+      <!-- email table -->
+      <div style="overflow-x:auto">
+        <table id="dm-table" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;min-width:820px">
+          <colgroup>
+            <col style="width:10%"><!-- Due -->
+            <col style="width:7%"><!-- Work Time Counting -->
+            <col style="width:7%"><!-- Assignee -->
+            <col style="width:7%"><!-- Account -->
+            <col style="width:10%"><!-- Sender -->
+            <col style="width:3%"><!-- Cat -->
+            <col style="width:8%"><!-- Status -->
+            <col><!-- Summary — gets whatever's left -->
+          </colgroup>
+          <thead>
+            <tr style="background:#f8f9fa">
+              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Due (Arrival+30m)</th>
+              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Work Time Counting</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Assignee</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Account</th>
+              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Sender</th>
+              <th style="padding:6px 2px;text-align:center;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0">Cat</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Status</th>
+              <th style="padding:6px 8px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0">Summary</th>
+            </tr>
+          </thead>
+          <tbody id="dm-tbody">
+            <tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">กำลังโหลด…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /right-col -->
+</div><!-- /content -->
+
+<!-- email detail modal (small, opens when clicking a row) -->
+<div id="digest-overlay" onclick="if(event.target===this)closeDetail()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;padding:16px;box-sizing:border-box">
+  <div style="background:white;max-width:860px;height:calc(100vh - 32px);margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.25);display:flex;flex-direction:column">
     <div style="background:#1a73e8;color:white;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
-      <span id="dm-title" style="font-weight:600;font-size:14px"></span>
+      <span id="dm-detail-title" style="font-weight:600;font-size:13px;opacity:0.9"></span>
       <button onclick="closeDetail()" style="background:none;border:none;color:white;font-size:22px;cursor:pointer;line-height:1;padding:0 4px">✕</button>
     </div>
     <div style="display:flex;flex:1;overflow:hidden">
-      <div id="dm-list" style="width:340px;flex-shrink:0;border-right:1px solid #e0e0e0;overflow-y:auto"></div>
+      <div id="dm-list" style="width:300px;flex-shrink:0;border-right:1px solid #e0e0e0;overflow-y:auto"></div>
       <div id="dm-detail" style="flex:1;overflow-y:auto;padding:24px 28px;color:#333">
         <div style="color:#aaa;font-size:13px;margin-top:40px;text-align:center">← เลือก email เพื่อดูรายละเอียด</div>
       </div>
@@ -85,135 +228,574 @@
 </div>
 
 <script>
-const sel = document.getElementById('digest-select');
-
 const CAT_BORDER = {'🔴 ต้อง Action':'#e53935','🟡 ควรรับรู้':'#f9ab00','⚪ แจ้งเตือนอัตโนมัติ':'#9aa0a6'};
 const CAT_TAG    = {'🔴 ต้อง Action':{bg:'#e53935',text:'white'},'🟡 ควรรับรู้':{bg:'#f9ab00',text:'#333'},'⚪ แจ้งเตือนอัตโนมัติ':{bg:'#9aa0a6',text:'white'}};
 
 let _detailData = [];
 let _liveCounts = {}; // { 'email@': { action, mustRead, auto, total } }
 let _lastTitle = '';
+let _lastUpdatedAt = null; // raw ISO timestamp from the live payload, for reuse in the Accounts header
+let _assignments = {}; // { msgId: assignmentObj }
+let _emailStatuses = {}; // { msgId: status string }
+let _emailTimings = {}; // { msgId: { inProgressSince, resolvedAt } }
+let _dashAccount = ''; // currently selected dashboard account tab
 
-async function loadDigest(index) {
-  const res = await fetch(`/api/digest/${index}`);
-  if (!res.ok) return;
-  const data = await res.json();
+const EMAIL_STATUSES = ['To Do', 'Scoping', 'Processing', 'Ignore', 'Done'];
+const STATUS_BADGE = {
+  'To Do':      { bg: '#e8f0fe', text: '#1a73e8' },
+  'Scoping':    { bg: '#e8f5e9', text: '#34a853' },
+  'Processing': { bg: '#fff3e0', text: '#e65100' },
+  'Ignore':     { bg: '#f1f3f4', text: '#bdbdbd' },
+  'Done':       { bg: '#f1f3f4', text: '#80868b' },
+};
+// Category dot color (red/yellow/grey) for the new Category column.
+const CATEGORY_DOT = {
+  '🔴 ต้อง Action': '#e53935',
+  '🟡 ควรรับรู้': '#f9ab00',
+  '⚪ แจ้งเตือนอัตโนมัติ': '#9aa0a6',
+};
 
-  document.getElementById('last-updated').textContent =
-    'อัปเดต: ' + new Date(data.sentAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+const NISSAN_ACCOUNT = 'nissan-ma@muze.co.th';
+const ASSIGNEES = [
+  { name: 'Aum',   email: 'thiranattada.n@muze.co.th' },
+  { name: 'Noon',  email: 'waraporn@muze.co.th' },
+  { name: 'Beach', email: 'noppasit.k@muze.co.th' },
+  { name: 'Aon',   email: 'chartwit.t@muze.co.th' },
+  { name: 'Noah',  email: 'jakrapat@muze.co.th' },
+];
+const EXPECTED_ACTIONS = ['Scoping', 'Investigating', 'Replying'];
+const STATUS_OPTIONS = ['To Do', 'Pending', 'Completed'];
+const STATUS_COLOR = { 'To Do': '#1a73e8', 'Pending': '#f9ab00', 'Completed': '#34a853' };
 
-  // server already filtered emailsByAccount — render from structured data
-  const byAccount = data.emailsByAccount || {};
-  const accounts  = data.accounts || Object.keys(byAccount);
-  _detailData = accounts.map(acc => ({ account: acc, emails: byAccount[acc] || [] }));
-
-  renderSummary(data.title, _detailData);
+function autoFillDue(selectEl, dueDateInputId) {
+  if (!selectEl.value) return;
+  const dueEl = document.getElementById(dueDateInputId);
+  if (dueEl && !dueEl.value) {
+    const d = new Date(Date.now() + 30 * 60 * 1000);
+    const pad = n => String(n).padStart(2,'0');
+    dueEl.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
 }
 
-const SHARED_ACCOUNTS = ['support@muze.co.th','support-mea@muze.co.th','support-tvn@muze.co.th','nissan-ma@muze.co.th','ktc@muze.co.th'];
+function emailInboxDue(dateStr) {
+  // due = inbox timestamp + 30 min, formatted as datetime-local string
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d)) return '';
+    d.setMinutes(d.getMinutes() + 30);
+    const pad = n => String(n).padStart(2,'0');
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+  } catch(e) { return ''; }
+}
+
+// "Date Received" display format — e.g. "Fri 13 Aug 26  16:04". e.date is
+// stored by live.js as a compact string ("03Aug26 16:04") that Date() parses
+// fine but isn't meant for display; this reformats it without touching the
+// stored value (emailInboxDue()/date-range filtering already depend on the
+// original format being parseable).
+function fmtReceived(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const pad = n => String(n).padStart(2,'0');
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}  ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Elapsed time between two ISO timestamps, stopwatch-style ("00:00:01",
+// "01:23:45", "2d 03:04:05"). Used for the Work Time Counting column —
+// start is the moment status first left "To Do", end is when it reached
+// "Done" (frozen from then on), or now if still open (ticks live — see
+// tickWorkTime()).
+function fmtDuration(startIso, endIso) {
+  if (!startIso) return '—';
+  const start = new Date(startIso);
+  const end = endIso ? new Date(endIso) : new Date();
+  let secs = Math.max(0, Math.floor((end - start) / 1000));
+  const days = Math.floor(secs / 86400); secs -= days * 86400;
+  const hours = Math.floor(secs / 3600); secs -= hours * 3600;
+  const mins = Math.floor(secs / 60); secs -= mins * 60;
+  const pad2 = n => String(n).padStart(2, '0');
+  return (days ? days + 'd ' : '') + `${pad2(hours)}:${pad2(mins)}:${pad2(secs)}`;
+}
+
+function populateFilter() {
+  const sel = document.getElementById('db-filter');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">ทุก account</option>' +
+    _detailData.map(function(d) {
+      const label = d.account.split('@')[0];
+      return '<option value="'+d.account+'"'+(d.account===current?' selected':'')+'>'+label+' ('+(d.emails||[]).length+')</option>';
+    }).join('');
+}
+
+// ── Mode: the top-level control everything else follows ──
+//   live   = schedule-driven, always "right now" — no date slicing, default
+//            category is Action + ควรรับรู้ (the stuff that needs attention)
+//   filter = date-range driven — every category, scoped to whatever range
+//            is picked (a comprehensive/historical view, not a live one)
+let _mode = 'live';
+let _filterAccount = '';
+let _filterCat = '__important__';
+const _pad = n => String(n).padStart(2,'0');
+const _ymd = d => `${d.getFullYear()}-${_pad(d.getMonth()+1)}-${_pad(d.getDate())}`;
+let _filterDateFrom = ''; // empty in Live mode — no date restriction at all
+let _filterDateTo   = '';
+
+function filterDashboard(account) {
+  _filterAccount = account;
+  renderDashboard();
+}
+
+// Shared by renderDashboard() (rows) and renderAccountTable() (per-account
+// tallies) so both panels apply date scoping identically — only meaningful
+// in Filter mode; Live mode has no date axis at all.
+function withinDateFilter(e) {
+  if (_mode !== 'filter') return true;
+  if (!_filterDateFrom && !_filterDateTo) return true;
+  const d = new Date(e.date); // e.date is a display string ("03Aug26 16:04"), not ISO — Date() parses it fine
+  if (isNaN(d)) return false;
+  const eDate = _ymd(d);
+  if (_filterDateFrom && eDate < _filterDateFrom) return false;
+  if (_filterDateTo   && eDate > _filterDateTo)   return false;
+  return true;
+}
+
+function setMode(mode) {
+  _mode = mode;
+  document.getElementById('mode-live').classList.toggle('active', mode === 'live');
+  document.getElementById('mode-filter').classList.toggle('active', mode === 'filter');
+  document.getElementById('filter-daterange').style.display = mode === 'filter' ? 'flex' : 'none';
+
+  if (mode === 'live') {
+    _filterCat = '__important__';
+    _filterDateFrom = '';
+    _filterDateTo = '';
+  } else {
+    _filterCat = ''; // all categories
+    if (!_filterDateFrom && !_filterDateTo) {
+      const now = new Date();
+      _filterDateFrom = _ymd(new Date(now - 72 * 3600 * 1000));
+      _filterDateTo = _ymd(now);
+    }
+  }
+  const catEl = document.getElementById('db-cat-filter');
+  const fromEl = document.getElementById('db-date-from');
+  const toEl = document.getElementById('db-date-to');
+  if (catEl)  catEl.value  = _filterCat;
+  if (fromEl) fromEl.value = _filterDateFrom;
+  if (toEl)   toEl.value   = _filterDateTo;
+
+  renderDashboard();
+  renderAccountTable(_detailData);
+  renderAcctMeta();
+}
+
+function renderDashboard() {
+  const tbody = document.getElementById('dm-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const counts = { 'To Do': 0, 'Scoping': 0, 'Processing': 0, 'Ignore': 0, 'Done': 0 };
+
+  // flatten all accounts (optionally filtered)
+  const rows = [];
+  _detailData.forEach(function(d) {
+    if (_filterAccount && d.account !== _filterAccount) return;
+    (d.emails || []).forEach(function(e, i) {
+      // category filter
+      if (_filterCat === '__important__') {
+        if (e.category !== '🔴 ต้อง Action' && e.category !== '🟡 ควรรับรู้') return;
+      } else if (_filterCat && e.category !== _filterCat) {
+        return;
+      }
+      if (!withinDateFilter(e)) return;
+      rows.push({ account: d.account, e: e, i: i });
+    });
+  });
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
+    document.getElementById('db-unread').textContent    = '📥 Unread 0';
+    document.getElementById('db-processing').textContent= '⚙ Processing 0';
+    document.getElementById('db-scoping').textContent   = '🔍 Scoping 0';
+    document.getElementById('db-done').textContent      = '✅ Done 0';
+    return;
+  }
+
+  // sort by due date ascending (emails without due go to the end)
+  rows.sort(function(a, b) {
+    const dueA = (_assignments[a.e.msgId]?.dueDate || emailInboxDue(a.e.date)) || '9999';
+    const dueB = (_assignments[b.e.msgId]?.dueDate || emailInboxDue(b.e.date)) || '9999';
+    return dueA < dueB ? -1 : dueA > dueB ? 1 : 0;
+  });
+
+  rows.forEach(function(row) {
+    const account = row.account, e = row.e, i = row.i;
+    const st  = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
+    const asg = e.msgId ? (_assignments[e.msgId] || null) : null;
+    if (counts[st] !== undefined) counts[st]++;
+    else counts['To Do']++;
+    const sb = STATUS_BADGE[st] || STATUS_BADGE['To Do'];
+    const tr = document.createElement('tr');
+    tr.style.cssText = 'border-bottom:1px solid #f0f0f0;cursor:pointer';
+    tr.onmouseover = function() { this.style.background='#f8f9fa'; };
+    tr.onmouseout  = function() { this.style.background=''; };
+    tr.onclick     = function(ev) { if (ev.target.tagName==='SELECT'||ev.target.tagName==='INPUT') return; showEmailDetail(account, i); };
+    const assigneeVal = asg?.assigneeEmail || '';
+    const dueVal = asg?.dueDate || emailInboxDue(e.date);
+    const dueId  = 'tbl-due-'+account.replace(/[@.]/g,'_')+'-'+i;
+    const shortAcc = account.split('@')[0];
+    const inProgress = st !== 'To Do';
+    const isPast = dueVal && new Date(dueVal) < new Date();
+    // in-progress takes visual priority over overdue — green means "someone's
+    // on it", which matters more than the deadline once that's true
+    const dueColor  = inProgress ? '#34a853' : (isPast ? '#e53935' : '#333');
+    const dueWeight = (inProgress || isPast) ? '700' : '400';
+    const dueBorder = (isPast && !inProgress) ? '#e53935' : '#ddd';
+    const timing = e.msgId ? _emailTimings[e.msgId] : null;
+    tr.innerHTML =
+      // Due — compact formatted text with a fully transparent native
+      // datetime-local input overlaid on top, so clicking anywhere on the
+      // text opens the real picker without a native input's own locale-
+      // formatted value ever being shown on screen. width:100% (not a fixed
+      // px) so it always fills whatever the <colgroup> gives this column —
+      // table-layout:fixed ignores content size entirely, so a wider fixed
+      // px here would just overflow the column instead of resizing it.
+      '<td style="padding:6px 6px;overflow:hidden">'+
+        '<div style="position:relative;display:block;width:100%" onclick="event.stopPropagation()">'+
+          '<input id="'+dueId+'" type="datetime-local" value="'+dueVal+'" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',\'due\',this.value,\'\')" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0">'+
+          '<div style="pointer-events:none;font-size:10px;font-weight:'+dueWeight+';color:'+dueColor+';border:1px solid '+dueBorder+';border-radius:5px;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(dueVal?fmtReceived(dueVal):'—')+'</div>'+
+        '</div>'+
+      '</td>'+
+      // Work Time Counting — elapsed since status first left "To Do", frozen
+      // once Done. data-worktime-msgid + data-resolved let tickWorkTime()
+      // find and update this cell every second without a full re-render.
+      '<td data-worktime-msgid="'+(e.msgId||'')+'" data-in-progress-since="'+(timing?.inProgressSince||'')+'" data-resolved-at="'+(timing?.resolvedAt||'')+'" style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-variant-numeric:tabular-nums;color:'+(timing?.resolvedAt?'#34a853':'#888')+';font-weight:'+(timing?.resolvedAt?'700':'400')+'">'+fmtDuration(timing?.inProgressSince, timing?.resolvedAt)+'</td>'+
+      // Assignee
+      '<td style="padding:6px 4px;overflow:hidden">'+
+        '<select onclick="event.stopPropagation()" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',\'assignee\',this.value,\''+dueId+'\')" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:white;width:100%">'+
+          '<option value="">—</option>'+
+          ASSIGNEES.map(a=>'<option value="'+a.email+'"'+(a.email===assigneeVal?' selected':'')+'>'+a.name+'</option>').join('')+
+        '</select>'+
+      '</td>'+
+      // Account
+      '<td style="padding:6px 4px;overflow:hidden;white-space:nowrap"><span style="font-size:9px;padding:2px 5px;border-radius:10px;background:#e8f0fe;color:#1a73e8;font-weight:700">'+shortAcc+'</span></td>'+
+      // Sender
+      '<td style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555;font-size:11px">'+e.from+'</td>'+
+      // Category — color only (red/yellow/grey), no text
+      '<td style="padding:6px 2px;text-align:center;overflow:hidden" title="'+(e.category||'')+'"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+(CATEGORY_DOT[e.category]||'#ccc')+'"></span></td>'+
+      // Status
+      '<td style="padding:6px 4px;overflow:hidden">'+
+        '<select onclick="event.stopPropagation()" onchange="setEmailStatus(event,\''+account+'\',\''+(e.msgId||'')+'\','+i+')" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:'+sb.bg+';color:'+sb.text+';font-weight:600;width:100%">'+
+          EMAIL_STATUSES.map(s=>'<option value="'+s+'"'+(s===st?' selected':'')+'>'+s+'</option>').join('')+
+        '</select>'+
+      '</td>'+
+      // Summary — the one column with no fixed <col> width, so table-layout:fixed gives it all the leftover space
+      '<td style="padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#222">'+e.subject+'</td>';
+    tbody.appendChild(tr);
+  });
+  // update status bar
+  document.getElementById('db-unread').textContent    = '📥 To Do ' + counts['To Do'];
+  document.getElementById('db-processing').textContent= '⚙ Processing ' + counts['Processing'];
+  document.getElementById('db-scoping').textContent   = '🔍 Scoping ' + counts['Scoping'];
+  document.getElementById('db-done').textContent      = '✅ Done ' + counts['Done'];
+}
+
+async function saveTblField(account, msgId, rowIdx, field, value, dueId) {
+  if (!msgId) return;
+  // auto due date when assignee set
+  if (field === 'assignee' && value && dueId) {
+    const dueEl = document.getElementById(dueId);
+    if (dueEl && !dueEl.value) {
+      const d = new Date(Date.now() + 30 * 60 * 1000);
+      const pad = n => String(n).padStart(2,'0');
+      dueEl.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+  }
+  // merge with existing assignment
+  const existing = _assignments[msgId] || {};
+  const d = _detailData.find(x => x.account === account);
+  const e = d?.emails?.[rowIdx] || {};
+  const updates = { ...existing,
+    msgId, account,
+    assigneeEmail:   field === 'assignee' ? value : existing.assigneeEmail,
+    expectedAction:  field === 'action'   ? value : existing.expectedAction,
+    dueDate:         field === 'due'      ? value : (existing.dueDate || document.getElementById('tbl-due-'+rowIdx)?.value || ''),
+    status:          existing.status || 'To Do',
+    emailSubject:    e.subject || existing.emailSubject || '',
+    emailFrom:       e.from    || existing.emailFrom    || '',
+  };
+  _assignments[msgId] = updates;
+  // send email notification only when assignee is first set
+  const isNewAssignee = field === 'assignee' && value && !existing.assigneeEmail;
+  await fetch('/api/digest/assign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...updates, sendEmail: isNewAssignee }),
+  }).catch(console.error);
+}
+
 
 function renderSummary(title, accountList) {
   _lastTitle = title || _lastTitle;
-  const shared   = accountList.filter(d => SHARED_ACCOUNTS.includes(d.account));
-  const personal = accountList.filter(d => !SHARED_ACCOUNTS.includes(d.account));
+  renderAccountTable(accountList);
+  populateFilter();
+  renderDashboard();
+}
 
-  let html = `<div style="font-family:'Segoe UI',sans-serif;font-size:13px">
-<div style="margin-bottom:20px;font-size:15px;font-weight:600;color:#333">${title || '📬 Email Digest'}</div>`;
+// Mirrors the dashboard's date-range filter + last-live-update time into the
+// Accounts panel header, so the numbers there are read alongside the same
+// context the detailed table below already shows.
+function renderAcctMeta() {
+  const liveEl = document.getElementById('acct-live-meta');
+  const filterEl = document.getElementById('acct-filter-meta');
+  if (!liveEl || !filterEl) return;
 
-  function renderSection(label, list) {
-    if (!list.length) return '';
-    let s = `<div style="margin-bottom:28px">
-<div style="font-size:12px;font-weight:700;color:#888;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e0e0e0">${label}</div>
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px">`;
-    list.forEach((d, i) => { s += renderCard(d, accountList.indexOf(d)); });
-    s += `</div></div>`;
-    return s;
+  const ts = _lastUpdatedAt ? new Date(_lastUpdatedAt).toLocaleString('th-TH', { timeStyle: 'short' }) : '';
+  liveEl.textContent = ts ? `อัปเดต: ${ts}` : 'กำลังโหลด…';
+
+  const fmt = ymd => {
+    if (!ymd) return '';
+    const [y, m, d] = ymd.split('-');
+    return `${d}/${m}/${y}`;
+  };
+  filterEl.textContent = (_filterDateFrom || _filterDateTo)
+    ? `${fmt(_filterDateFrom)} – ${fmt(_filterDateTo)}`
+    : 'ทุกช่วงเวลา';
+}
+
+function renderAccountTable(accountList) {
+  const tbody = document.getElementById('acct-tbody');
+  if (!tbody) return;
+  if (!accountList || !accountList.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:14px;text-align:center;color:#aaa">ไม่มีข้อมูล</td></tr>';
+    return;
   }
-
-  html += renderSection('🏢 Shared Accounts', shared);
-  html += renderSection('👤 Personal Account', personal);
-  html += `</div>`;
-  document.getElementById('digest-frame').innerHTML = html;
+  tbody.innerHTML = accountList.map(function(d) {
+    // Always count from the actual email list, never _liveCounts — that's
+    // the server's tally for THIS round's fetch only, computed before the
+    // carry-forward merge, so any carried-over item (still pending, not
+    // Done) was invisible here even though it's plainly shown in the
+    // Dashboard table below, which reads from this same d.emails array.
+    // withinDateFilter() is a no-op in Live mode (mode has no date axis) and
+    // scopes to the picked range in Filter mode, matching the Dashboard.
+    const emails   = (d.emails || []).filter(withinDateFilter);
+    const action   = emails.filter(e => e.category === '🔴 ต้อง Action').length;
+    const mustRead = emails.filter(e => e.category === '🟡 ควรรับรู้').length;
+    const auto     = emails.filter(e => e.category === '⚪ แจ้งเตือนอัตโนมัติ').length;
+    const shortAcc = d.account.split('@')[0];
+    return '<tr style="border-bottom:1px solid #f0f0f0">' +
+      '<td style="padding:7px 10px;font-size:11px;font-weight:600;color:#333">' + shortAcc + '</td>' +
+      '<td style="padding:7px 6px;text-align:center;font-weight:700;font-size:12px;color:' + (action > 0 ? '#e53935' : '#bbb') + '">' + action + '</td>' +
+      '<td style="padding:7px 6px;text-align:center;font-weight:700;font-size:12px;color:' + (mustRead > 0 ? '#f9ab00' : '#bbb') + '">' + mustRead + '</td>' +
+      '<td style="padding:7px 6px;text-align:center;font-weight:700;font-size:12px;color:#9aa0a6">' + auto + '</td>' +
+      '</tr>';
+  }).join('');
 }
 
-function renderCard(d, idx) {
-  const emails   = d.emails || [];
-  // prefer live unread counts; fall back to digest snapshot counts
-  const live     = _liveCounts[d.account];
-  const action   = live ? live.action   : emails.filter(e => e.category === '🔴 ต้อง Action').length;
-  const mustRead = live ? live.mustRead : emails.filter(e => e.category === '🟡 ควรรับรู้').length;
-  const auto     = live ? live.auto     : emails.filter(e => e.category === '⚪ แจ้งเตือนอัตโนมัติ').length;
-  const total    = live ? live.total    : emails.length;
-  const carried  = emails.filter(e => e.carried).length;
-  return `<div style="background:white;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.1);overflow:hidden">
-  <div style="background:#1a73e8;color:white;padding:10px 14px;font-size:12px;font-weight:600">
-    📧 ${d.account}<br><span style="font-weight:400;opacity:0.85;font-size:11px">${total} unread${live ? ' · live' : ''}</span>
-  </div>
-  <div style="padding:12px 14px;display:flex;flex-direction:column;gap:7px">
-    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">🔴 ต้อง Action</span><span style="font-weight:700;font-size:14px;color:${action>0?'#e53935':'#aaa'}">${action}</span></div>
-    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">🟡 ควรรับรู้</span><span style="font-weight:700;font-size:14px;color:${mustRead>0?'#f9ab00':'#aaa'}">${mustRead}</span></div>
-    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#555">⚪ แจ้งเตือนอัตโนมัติ</span><span style="font-weight:700;font-size:14px;color:#9aa0a6">${auto}</span></div>
-    <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#888">🔁 ยังไม่ได้อ่าน (carried)</span><span style="font-weight:700;font-size:13px;color:${carried>0?'#e53935':'#aaa'}">${carried}</span></div>
-  </div>
-  <div style="padding:0 14px 14px">
-    <button onclick="openDetail(${idx})" style="width:100%;padding:7px;background:#1a73e8;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">ดูรายละเอียด →</button>
-  </div>
-</div>`;
+async function setEmailStatus(event, account, msgId, rowIdx) {
+  const status = event.target.value;
+  if (msgId) {
+    _emailStatuses[msgId] = status;
+    // re-color the select immediately
+    const sb = STATUS_BADGE[status] || STATUS_BADGE['To Do'];
+    event.target.style.background = sb.bg;
+    event.target.style.color = sb.text;
+    // persist
+    fetch('/api/digest/emailstatus', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ msgId, account, status }),
+    }).catch(console.error);
+  }
+  // re-render the dashboard so the status-bar counts and sort reflect the change
+  renderDashboard();
 }
 
-// ---- modal ----
-function openDetail(idx) {
-  const d = _detailData[idx];
-  document.getElementById('dm-title').textContent = '📧 ' + d.account + ' (' + (d.emails||[]).length + ' emails)';
-  const list = document.getElementById('dm-list');
-  list.innerHTML = '';
-  (d.emails || []).forEach(function(e, i) {
-    const border = CAT_BORDER[e.category] || '#9aa0a6';
-    const tag    = CAT_TAG[e.category]    || {bg:'#9aa0a6',text:'white'};
-    const initials = (e.from||'?')[0].toUpperCase();
-    const div = document.createElement('div');
-    div.id = 'dm-row-'+i;
-    div.style.cssText = 'padding:10px 14px;border-left:3px solid '+border+';border-bottom:1px solid #f0f0f0;cursor:pointer;display:flex;gap:10px;align-items:flex-start';
-    div.innerHTML =
-      '<div style="width:32px;height:32px;border-radius:50%;background:#1a73e8;color:white;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+initials+'</div>'+
-      '<div style="flex:1;min-width:0">'+
-        '<div style="display:flex;justify-content:space-between;gap:4px">'+
-          '<div style="font-weight:600;font-size:12px;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">'+e.from+'</div>'+
-          '<div style="font-size:10px;color:#aaa;white-space:nowrap">'+e.date+'</div>'+
-        '</div>'+
-        '<div style="font-size:12px;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px">'+e.subject+(e.carried?' 🔁':'')+'</div>'+
-        '<div style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">'+e.snippet.substring(0,80)+'…</div>'+
-        '<span style="display:inline-block;margin-top:4px;background:'+tag.bg+';color:'+tag.text+';font-size:9px;font-weight:600;padding:1px 6px;border-radius:8px">'+e.category.split(' ')[0]+'</span>'+
-      '</div>';
-    div.onclick = function() { showEmailDetail(idx, i); };
-    list.appendChild(div);
-  });
-  document.getElementById('dm-detail').innerHTML = '<div style="color:#aaa;font-size:13px;margin-top:40px;text-align:center">← เลือก email เพื่อดูรายละเอียด</div>';
-  document.getElementById('digest-overlay').style.display = 'block';
-}
-
-function showEmailDetail(accIdx, emailIdx) {
-  const e      = _detailData[accIdx].emails[emailIdx];
+function showEmailDetail(account, emailIdx) {
+  const d      = _detailData.find(function(x) { return x.account === account; });
+  if (!d) return;
+  const e      = d.emails[emailIdx];
   const border = CAT_BORDER[e.category] || '#9aa0a6';
   const tag    = CAT_TAG[e.category]    || {bg:'#9aa0a6',text:'white'};
+  const status = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
   document.querySelectorAll('[id^="dm-row-"]').forEach(el => el.style.background='white');
   const row = document.getElementById('dm-row-'+emailIdx);
   if (row) row.style.background='#f0f7ff';
+
+  const existing = e.msgId ? (_assignments[e.msgId] || null) : null;
+  const assigneeOpts = ASSIGNEES.map(a =>
+    `<option value="${a.email}"${existing && existing.assigneeEmail===a.email?' selected':''}>${a.name} (${a.email})</option>`
+  ).join('');
+  const actionOpts = EXPECTED_ACTIONS.map(a =>
+    `<option${existing && existing.expectedAction===a?' selected':''}>${a}</option>`
+  ).join('');
+  const statusOpts = STATUS_OPTIONS.map(s =>
+    `<option${existing && existing.status===s?' selected':(!existing&&s==='To Do'?' selected':'')}>${s}</option>`
+  ).join('');
+
+  const assignSection = account === NISSAN_ACCOUNT ? `
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e8eaed">
+      <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:12px;letter-spacing:0.05em;text-transform:uppercase">📋 Assignment</div>
+      <div style="display:grid;gap:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px">Assignee</label>
+            <select id="as-assignee" onchange="autoFillDue(this,'as-due')" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px">
+              <option value="">— เลือก assignee —</option>${assigneeOpts}
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px">Action</label>
+            <select id="as-action" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px">
+              <option value="">— เลือก action —</option>${actionOpts}
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px">Due Date & Time</label>
+            <input id="as-due" type="datetime-local" value="${existing?.dueDate||''}" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px">Status</label>
+            <select id="as-status" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px">${statusOpts}</select>
+          </div>
+        </div>
+        <button onclick="saveAssignment('${account}','${(e.msgId||'').replace(/'/g,"\\'")}','${e.subject.replace(/'/g,"\\'").replace(/"/g,"&quot;")}','${e.from.replace(/'/g,"\\'")}' )" style="padding:8px;background:#1a73e8;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">
+          💾 ${existing ? 'อัปเดต Assignment' : 'Assign & ส่ง Email'}
+        </button>
+        ${existing ? `<div style="font-size:11px;color:#888">Assigned โดย ${existing.updatedBy||''} · ${new Date(existing.updatedAt).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'})}</div>` : ''}
+      </div>
+    </div>` : '';
+
+  const detailTitle = document.getElementById('dm-detail-title');
+  if (detailTitle) detailTitle.textContent = account + ' · ' + e.from;
+
+  document.getElementById('dm-list').innerHTML = '';
   document.getElementById('dm-detail').innerHTML =
     '<div style="border-left:3px solid '+border+';padding-left:14px">'+
       '<div style="font-size:16px;font-weight:700;color:#222;line-height:1.4;margin-bottom:12px">'+e.subject+(e.carried?' <span style="background:#fff3cd;color:#856404;font-size:11px;padding:2px 7px;border-radius:4px">🔁 ยังไม่ได้อ่าน</span>':'')+'</div>'+
       '<div style="margin-bottom:6px"><span style="background:'+tag.bg+';color:'+tag.text+';font-size:10px;font-weight:600;padding:2px 8px;border-radius:8px">'+e.category+'</span></div>'+
       '<table style="font-size:12px;color:#555;margin-bottom:16px;border-collapse:collapse">'+
         '<tr><td style="padding:2px 10px 2px 0;color:#888">จาก</td><td style="font-weight:600;color:#222">'+e.from+'</td></tr>'+
-        '<tr><td style="padding:2px 10px 2px 0;color:#888">วันเวลา</td><td>'+e.date+'</td></tr>'+
+        '<tr><td style="padding:2px 10px 2px 0;color:#888">วันเวลา</td><td style="color:'+(status!=='To Do'?'#34a853':'inherit')+';font-weight:'+(status!=='To Do'?'700':'400')+'">'+fmtReceived(e.date)+'</td></tr>'+
       '</table>'+
       '<div style="background:#f8f9fa;border-radius:8px;padding:16px;font-size:13px;line-height:1.7;color:#333;white-space:pre-wrap">'+e.snippet+'</div>'+
+    reclassifySection(account, e)+
+    assignSection+
     '</div>';
+  document.getElementById('digest-overlay').style.display = 'block';
+}
+
+function reclassifySection(account, e) {
+  const catMap = { '🔴 ต้อง Action': 'action', '🟡 ควรรับรู้': 'mustRead', '⚪ แจ้งเตือนอัตโนมัติ': 'auto' };
+  const catRev = { 'action': '🔴 ต้อง Action', 'mustRead': '🟡 ควรรับรู้', 'auto': '⚪ แจ้งเตือนอัตโนมัติ' };
+  const currentKey = catMap[e.category] || 'mustRead';
+  const opts = Object.entries(catMap).map(([label, val]) =>
+    `<option value="${val}"${val===currentKey?' selected':''}>${label}</option>`
+  ).join('');
+  const safeFrom    = (e.from||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  const safeSubject = (e.subject||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  return `
+    <div style="margin-top:16px;padding:12px 14px;background:#fffde7;border-radius:8px;border:1px solid #ffe082">
+      <div style="font-size:11px;font-weight:700;color:#856404;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">🏷 จัดหมวดหมู่ใหม่</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="rc-cat" style="padding:5px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px">
+          ${opts}
+        </select>
+        <label style="font-size:12px;color:#555;display:flex;gap:4px;align-items:center;cursor:pointer">
+          <input type="checkbox" id="rc-similar" checked style="cursor:pointer">
+          apply to similar emails (sender + subject pattern)
+        </label>
+        <button onclick="trainCategory('${account}','${safeFrom}','${safeSubject}')" style="padding:5px 14px;background:#f9ab00;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">บันทึก + Train</button>
+        <span id="rc-result" style="font-size:11px;color:#555"></span>
+      </div>
+    </div>`;
+}
+
+async function trainCategory(account, from, subject) {
+  const category      = document.getElementById('rc-cat')?.value;
+  const applyToSimilar = document.getElementById('rc-similar')?.checked;
+  const resultEl      = document.getElementById('rc-result');
+  if (resultEl) resultEl.textContent = 'กำลังบันทึก...';
+  try {
+    const res = await fetch('/api/digest/train', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, subject, category, applyToSimilar, account }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (resultEl) resultEl.textContent = `✅ บันทึกแล้ว (${data.totalRules} rules)`;
+    } else {
+      if (resultEl) resultEl.textContent = '❌ ' + (data.error || 'error');
+    }
+  } catch (err) {
+    if (resultEl) resultEl.textContent = '❌ ' + err.message;
+  }
+}
+
+async function saveAssignment(account, msgId, emailSubject, emailFrom) {
+  const assigneeEmail  = document.getElementById('as-assignee')?.value;
+  const expectedAction = document.getElementById('as-action')?.value;
+  const dueDate        = document.getElementById('as-due')?.value;
+  const status         = document.getElementById('as-status')?.value;
+  const btn = document.querySelector('#dm-detail button');
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
+  try {
+    const res = await fetch('/api/digest/assign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ msgId, account, assigneeEmail, expectedAction, dueDate, status, emailSubject, emailFrom }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (msgId) _assignments[msgId] = data.data;
+      if (btn) { btn.disabled = false; btn.textContent = '✅ บันทึกแล้ว'; setTimeout(() => { if (btn) btn.textContent = '💾 อัปเดต Assignment'; }, 2000); }
+    } else {
+      if (btn) { btn.disabled = false; btn.textContent = '❌ Error: ' + (data.error||'unknown'); }
+    }
+  } catch(err) {
+    if (btn) { btn.disabled = false; btn.textContent = '❌ ' + err.message; }
+  }
+}
+
+async function loadAssignments() {
+  try {
+    const res = await fetch('/api/digest/assignments?account=' + encodeURIComponent(NISSAN_ACCOUNT));
+    if (!res.ok) return;
+    const data = await res.json();
+    (data.assignments || []).forEach(a => { if (a.msgId) _assignments[a.msgId] = a; });
+  } catch(e) { /* ignore */ }
+}
+
+async function loadEmailStatuses(account) {
+  try {
+    const res = await fetch('/api/digest/emailstatus?account=' + encodeURIComponent(account));
+    if (!res.ok) return;
+    const data = await res.json();
+    Object.assign(_emailStatuses, data.statuses || {});
+    Object.assign(_emailTimings, data.timings || {});
+  } catch(e) { /* ignore */ }
+}
+
+// _emailStatuses/_emailTimings are keyed by msgId only (not per-account), but
+// loadEmailStatuses() fetches one account at a time — call this once accounts
+// are known so every account's status/timing loads on page open, not just
+// nissan-ma's. Without this, any other account's saved status silently
+// reverted to "To Do" on every reload despite being correct server-side.
+// Re-renders once loaded, since the dashboard/account table may already have
+// rendered with whatever was cached from a previous tick.
+async function loadAllEmailStatuses() {
+  await Promise.all(_detailData.map(d => loadEmailStatuses(d.account)));
+  renderDashboard();
 }
 
 function closeDetail() { document.getElementById('digest-overlay').style.display='none'; }
-
-let _currentIndex = 0;
 
 async function loadLive() {
   try {
@@ -236,31 +818,58 @@ async function loadLive() {
       const liveAccounts = new Set(Object.keys(_liveCounts));
       _detailData = _detailData.filter(d => liveAccounts.has(d.account));
       if (_detailData.length) renderSummary(_lastTitle, _detailData);
+      _lastUpdatedAt = data.updatedAt || null;
       const ts = data.updatedAt ? new Date(data.updatedAt).toLocaleString('th-TH', { timeStyle: 'short' }) : '';
       document.getElementById('last-updated').textContent = `อัปเดต: ${ts} · live`;
+      renderAcctMeta();
+      loadAllEmailStatuses();
     }
   } catch { /* silent */ }
 }
 
-async function refresh() {
-  const res = await fetch('/api/digest/list');
-  const list = await res.json();
-  if (!list.length) return;
+function toggleScheduleInfo() {
+  const el = document.getElementById('schedule-info');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
 
-  // rebuild dropdown
-  sel.innerHTML = list.map(d => {
-    const dt = new Date(d.uploadedAt).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
-    return `<option value="${d.index}">${dt}</option>`;
-  }).join('');
-  sel.value = _currentIndex;
+function toggleLeftCol() {
+  const col = document.getElementById('left-col');
+  const btn = document.getElementById('left-col-toggle');
+  const collapsed = col.classList.toggle('collapsed');
+  btn.textContent = collapsed ? '▶' : '◀';
+  localStorage.setItem('digestLeftColCollapsed', collapsed ? '1' : '0');
+}
 
-  await loadDigest(_currentIndex);
-
-  // update countdown
-  startCountdown();
+async function pullNow() {
+  const btn = document.getElementById('db-pull-now');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⟳ กำลังดึง...';
+  try {
+    await loadLive();
+    await loadHeatmap();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
 }
 
 let _countdownTimer = null;
+// Ticks every Work Time Counting cell currently in the DOM once a second —
+// direct DOM text updates, not a renderDashboard() re-render (which would
+// rebuild the whole table every second and could clobber an open dropdown).
+// Cells with no inProgressSince (still "To Do") were rendered as "—" and are
+// harmlessly skipped since fmtDuration('') also returns "—".
+function tickWorkTime() {
+  document.querySelectorAll('[data-worktime-msgid]').forEach(td => {
+    const since = td.dataset.inProgressSince;
+    if (!since) return; // "—", nothing to tick
+    if (td.dataset.resolvedAt) return; // frozen at Done, no need to keep recomputing
+    td.textContent = fmtDuration(since, null);
+  });
+}
+setInterval(tickWorkTime, 1000);
+
 function startCountdown() {
   clearInterval(_countdownTimer);
   let secs = 60;
@@ -279,27 +888,182 @@ function startCountdown() {
   }, 1000);
 }
 
-async function loadList() {
-  const res = await fetch('/api/digest/list');
-  const list = await res.json();
-  if (!list.length) {
-    sel.innerHTML = '<option>ยังไม่มีข้อมูล</option>';
-    return;
-  }
-  sel.innerHTML = list.map(d => {
-    const dt = new Date(d.uploadedAt).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
-    return `<option value="${d.index}">${dt}</option>`;
-  }).join('');
-  sel.addEventListener('change', () => {
-    _currentIndex = parseInt(sel.value);
-    loadDigest(_currentIndex);
-  });
-  await loadDigest(0);
-  startCountdown();
+// Single-line "next important day" shown under the Email Volume header —
+// replaced the full scrolling list, which took a whole extra panel just to
+// show what one line already covers for the case people actually check.
+function renderNextHolidayLine() {
+  const el = document.getElementById('next-holiday-line');
+  if (!el) return;
+  if (!_heatHolidays.size) { el.textContent = ''; return; }
+
+  const MONTHS_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const DAYS_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const pad = n => String(n).padStart(2,'0');
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+
+  const upcoming = [...(_heatHolidays.entries())].sort((a, b) => a[0] < b[0] ? -1 : 1);
+  const next = upcoming.find(([date]) => date >= todayStr);
+  if (!next) { el.textContent = ''; return; }
+
+  const [dateStr, name] = next;
+  const d = new Date(dateStr + 'T00:00:00');
+  const fmt = `${DAYS_EN[d.getDay()]}, ${d.getDate()} ${MONTHS_EN[d.getMonth()]}`;
+  el.textContent = `🗓 วันสำคัญ: ${fmt} — ${name || 'วันหยุด'}`;
 }
 
-loadList();
-loadLive();
+// ── Calendar Heatmap ──────────────────────────────────────────
+let _heatData = {};   // { 'YYYY-MM-DD': count }
+let _heatHolidays = new Map(); // 'YYYY-MM-DD' -> name
+let _heatYear = new Date().getFullYear();
+let _heatMonth = new Date().getMonth(); // 0-based
+
+// Same 42-cell window renderHeatmap() draws — computed once so the fetch
+// only asks the backend for the snapshots it's actually about to display.
+function heatmapGridBounds(year, month) {
+  const pad = n => String(n).padStart(2,'0');
+  const toStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const startOffset = new Date(year, month, 1).getDay();
+  const gridStart = new Date(year, month, 1 - startOffset);
+  const gridEnd = new Date(year, month, 1 - startOffset + 41);
+  return { from: toStr(gridStart), to: toStr(gridEnd) };
+}
+
+async function loadHeatmap(year = _heatYear, month = _heatMonth) {
+  try {
+    const { from, to } = heatmapGridBounds(year, month);
+    const res = await fetch(`/api/digest/heatmap?from=${from}&to=${to}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    Object.assign(_heatData, data.daily || {}); // merge — keep previously-viewed months cached
+    _heatHolidays = new Map((data.holidays || []).map(h => {
+      // entries are {date, name} (calendar sync) or a plain string (manual
+      // legacy entry, no name); normalize: MM-DD -> prefix with current year
+      const raw = typeof h === 'string' ? h : h.date;
+      const name = typeof h === 'string' ? '' : (h.name || '');
+      const date = raw.length === 5 ? _heatYear + '-' + raw : raw;
+      return [date, name];
+    }));
+    renderNextHolidayLine();
+    renderHeatmap();
+  } catch(e) { console.error('heatmap error', e); }
+}
+
+// Four clearly-distinct hues instead of a green gradient (adjacent tiers on
+// a same-color scale were hard to tell apart at a glance).
+function heatColor(count) {
+  if (!count)     return { bg: '#ebedf0', text: '#aaa' };  // 0
+  if (count < 5)  return { bg: '#fff3b0', text: '#1a1a1a' }; // 1-4   light yellow
+  if (count < 15) return { bg: '#f8bbd0', text: '#1a1a1a' }; // 5-14  pink
+  if (count < 30) return { bg: '#66bb6a', text: '#1a1a1a' }; // 15-29 green
+  return          { bg: '#1b5e20', text: 'white' };          // 30+   dark green
+}
+
+function renderHeatmap() {
+  const container = document.getElementById('heatmap-container');
+  if (!container) return;
+
+  const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAYS_EN = ['S','M','T','W','T','F','S'];
+
+  const year = _heatYear, month = _heatMonth;
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+  function toDateStr(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+
+  const firstOfMonth = new Date(year, month, 1);
+  const startOffset = firstOfMonth.getDay();
+  const gridStart = new Date(year, month, 1 - startOffset);
+
+  let html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:0 2px">
+      <span style="font-size:15px;font-weight:700;color:#1a1a1a">${MONTHS_EN[month]} ${year}</span>
+      <div style="display:flex;gap:2px">
+        <button onclick="heatmapPrev()" style="background:none;border:1px solid #e0e0e0;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;color:#555;display:flex;align-items:center;justify-content:center">&#8249;</button>
+        <button onclick="heatmapNext()" style="background:none;border:1px solid #e0e0e0;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;color:#555;display:flex;align-items:center;justify-content:center">&#8250;</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:6px">`;
+  DAYS_EN.forEach(d => {
+    html += `<div style="text-align:center;font-size:11px;font-weight:600;color:#aaa;padding:3px 0">${d}</div>`;
+  });
+  html += '</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">';
+
+  for (let i = 0; i < 42; i++) {
+    const cur = new Date(gridStart);
+    cur.setDate(gridStart.getDate() + i);
+    const dateStr = toDateStr(cur);
+    const isCurrentMonth = cur.getMonth() === month;
+    const count = _heatData[dateStr] || 0;
+    const holidayName = isCurrentMonth ? _heatHolidays.get(dateStr) : undefined;
+    const isHoliday = holidayName !== undefined;
+    const isToday = dateStr === todayStr;
+
+    // Volume fills the whole cell now (was a tiny dot) — holiday/today are
+    // layered on top as a border ring so both signals stay visible together.
+    let cellBg = 'transparent', textColor = isCurrentMonth ? '#ccc' : '#ddd', fontWeight = '400', border = 'none';
+
+    if (isCurrentMonth) {
+      const heat = heatColor(count);
+      cellBg = heat.bg;
+      textColor = heat.text;
+    }
+    if (isToday) {
+      border = '2px solid #1a73e8'; fontWeight = '700';
+    } else if (isHoliday) {
+      border = '2px solid #e53935'; fontWeight = '600';
+    }
+
+    const tooltip = (isHoliday ? (holidayName || 'วันหยุด') + ' • ' : '') + (isCurrentMonth ? count + ' email' : '') + '\n' + dateStr;
+    html += `<div title="${tooltip}" style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;border-radius:8px;background:${cellBg};border:${border};box-sizing:border-box;cursor:default">
+      <span style="font-size:13px;font-weight:${fontWeight};color:${textColor};line-height:1">${cur.getDate()}</span>
+    </div>`;
+  }
+  html += '</div>';
+
+  // legend — actual email-count range per color tier, not just "low/high"
+  html += `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;font-size:10px;color:#888">
+    <span>Volume:</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#ebedf0;display:inline-block"></span>0</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#fff3b0;display:inline-block"></span>1–4</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#f8bbd0;display:inline-block"></span>5–14</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#66bb6a;display:inline-block"></span>15–29</span>
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#1b5e20;display:inline-block"></span>30+</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:2px;background:#ebedf0;border:2px solid #e53935;display:inline-block"></span>วันสำคัญ</span>
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+async function heatmapPrev() {
+  _heatMonth--;
+  if (_heatMonth < 0) { _heatMonth = 11; _heatYear--; }
+  renderHeatmap(); // paint immediately with whatever's cached, counts fill in after fetch
+  await loadHeatmap();
+}
+async function heatmapNext() {
+  _heatMonth++;
+  if (_heatMonth > 11) { _heatMonth = 0; _heatYear++; }
+  renderHeatmap();
+  await loadHeatmap();
+}
+
+// Sync the mode UI (date-range visibility, dropdown values) to the default
+// 'live' state — renderDashboard()/renderAccountTable() themselves run once
+// real data loads via loadLive() below, so this is just the static setup.
+document.getElementById('filter-daterange').style.display = 'none';
+document.getElementById('db-cat-filter').value = _filterCat;
+
+if (localStorage.getItem('digestLeftColCollapsed') === '1') {
+  document.getElementById('left-col').classList.add('collapsed');
+  document.getElementById('left-col-toggle').textContent = '▶';
+}
+
+startCountdown();
+loadLive(); // also triggers loadAllEmailStatuses() once accounts are known
+loadAssignments();
+loadHeatmap();
 </script>
 </body>
 </html>
