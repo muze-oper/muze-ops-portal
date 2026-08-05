@@ -200,20 +200,6 @@
 
   <!-- HOME -->
   <div class="panel active" id="p-decoder">
-    <div class="hero">
-      <div class="hero-title">🧭 Issue TVN Knowledge Base — TVS Now / TrueID</div>
-      <div class="hero-sub">ศูนย์รวม error code สำหรับทีม Support: ถอดรหัส · ค้นหา · ดูวิธีแก้ · เคสจริง ในที่เดียว</div>
-    </div>
-    <div class="stats" id="stats"></div>
-
-    <div class="home-sec-label">🔎 ถอดรหัส Error Code — วางเลขที่ user เจอได้เลย</div>
-    <p class="dec-intro" style="margin-top:0">โครงสร้าง: <b>E[root] : [SDK code] : [PlaybackException]</b> — sub-code ตัวท้ายคือตัวชี้สาเหตุจริง</p>
-    <div class="dec-box"><input id="dec" type="text" placeholder="E5001:2999:6006" autocomplete="off" spellcheck="false"></div>
-    <div class="examples" id="examples"></div>
-    <div class="result" id="dresult"></div>
-
-    <div class="home-sec-label">📂 ไปยังส่วนต่างๆ</div>
-    <div class="quicknav" id="quicknav"></div>
     <div class="latest" id="latest"></div>
   </div>
 
@@ -337,7 +323,6 @@ function fixFor(pe){const n=parseInt(pe);
 const decEl=document.getElementById('dec'),dres=document.getElementById('dresult');
 const EXAMPLES=["E5001:2999:6006","E5001:2999:4005","E6006","E1024:14119","E5001:3005:12005","E2999:1002","E5002-6002"];
 const exEl=document.getElementById('examples');
-EXAMPLES.forEach(e=>{const b=document.createElement('span');b.className='ex';b.textContent=e;b.onclick=()=>{decEl.value=e;decode();};exEl.appendChild(b);});
 function lookupSub(tok,pos){const raw=tok.replace(/[()]/g,'').trim();const num=raw;const hits=[];
   if(SDK[num]!==undefined)hits.push({dict:"SDK Code",text:SDK[num]});
   if(PE[num]!==undefined)hits.push({dict:"PlaybackException",text:PE[num]});
@@ -364,7 +349,6 @@ function decode(){const inp=decEl.value.trim();dres.innerHTML='';if(!inp)return;
   html+=`<div class="verdict">📌 <b>สรุป:</b> ${inp} — ${rootMean?`<b>${root}</b> = ${rootMean}`:'code นี้'}${lastPE?`; สาเหตุจริงชี้จาก sub-code สุดท้าย: <b>${(PE[lastPE]||'').split('—')[0]||PE[lastPE]||''}</b>`:''}</div>`;
   html+=`<div class="fixbox"><div class="lbl">🛠️ แนวทางแก้ไข / Workaround</div><ul>${fixFor(lastPE||'').map(f=>`<li>${f}</li>`).join('')}</ul></div>`;
   dres.innerHTML=html;}
-decEl.addEventListener('input',decode);
 
 /* ---------- CURATED DATA ---------- */
 let DATA=[
@@ -520,15 +504,11 @@ const CHANGELOG=[
 ];
 function renderHome(){
   const inv=RC.filter(r=>/investigat|under/i.test((r.date||'')+' '+(r.root||''))).length;
-  const tiles=[["",DATA.length,"Curated error codes"],["",Object.keys(ROOT).length,"Root codes (E)"],["",RC.length,"Root cause cases"],["warn",inv,"กำลังตรวจสอบ"]];
-  document.getElementById('stats').innerHTML=tiles.map(s=>`<div class="stat ${s[0]}"><div class="num">${s[1]}</div><div class="lab">${s[2]}</div></div>`).join('');
-  const nav=[["curated","📇","Error List","ค้นหา 29 codes + workaround"],["ref","📚","ตารางอ้างอิง","root / SDK / PlaybackException / CDN"],["rootcause","🗂️","Root Cause Log","เคสจริง + ticket"]];
-  document.getElementById('quicknav').innerHTML=nav.map(q=>`<div class="qn" onclick="goTab('${q[0]}')"><div class="ic">${q[1]}</div><div class="t">${q[2]}</div><div class="d">${q[3]}</div></div>`).join('');
   document.getElementById('latest').innerHTML='<h3>🆕 อัปเดตล่าสุด</h3>'+CHANGELOG.map(c=>`<div class="ci"><span class="cd">${c[0]}</span><span>${c[1]}</span></div>`).join('');
 }
 
 /* init */
-renderCards();renderRC();renderHome();decEl.value="E5001:2999:6006";decode();
+renderCards();renderRC();renderHome();
 </script>
 </body>
 </html>
