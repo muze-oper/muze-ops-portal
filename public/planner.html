@@ -219,10 +219,10 @@
   #completed-panel-header h2 { font-size: 14px; font-weight: 600; }
   #completed-panel-close { cursor: pointer; font-size: 18px; line-height: 1; }
   #completed-panel-body { padding: 12px 14px; overflow-y: auto; flex: 1; }
-  .completed-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 14px; align-content: start; }
+  .completed-grid { display: flex; flex-direction: column; gap: 6px; }
   .completed-item { font-size: 10px; line-height: 1.4; color: #333; padding-bottom: 4px; border-bottom: 0.5px solid #eee; word-break: break-word; }
   .completed-item .completed-project { color: #6b3fa0; font-weight: 600; }
-  .completed-empty { color: #bbb; font-size: 11px; grid-column: 1 / -1; }
+  .completed-empty { color: #bbb; font-size: 11px; }
 
   @media print {
     #completed-tab, #completed-panel { display: none !important; }
