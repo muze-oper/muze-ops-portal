@@ -186,10 +186,22 @@
           <div style="font-size:10px;color:#999;margin-top:8px">holidays = เสาร์-อาทิตย์ + วันหยุดนักขัตฤกษ์ที่ตั้งไว้ในปฏิทิน (ดูที่ Email Volume ด้านซ้าย)</div>
         </div>
       </div>
+      <!-- Bulk-action bar — appears once ≥1 row (or grouped-row) checkbox is
+           checked. Applies Assignee/Status to every msgId currently selected
+           in one shot, using the same per-msgId POST as a single-row edit. -->
+      <div id="bulk-bar" style="display:none;padding:8px 20px;align-items:center;gap:10px;flex-wrap:wrap;background:#fff8e1;border-bottom:1px solid #ffe0b2">
+        <span id="bulk-count" style="font-size:12px;font-weight:700;color:#795500"></span>
+        <select id="bulk-assignee" style="font-size:11px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;background:white"></select>
+        <button onclick="applyBulkAssignee()" style="font-size:11px;font-weight:600;padding:4px 10px;border:1px solid #1a73e8;border-radius:6px;background:white;color:#1a73e8;cursor:pointer">ตั้ง Assignee</button>
+        <select id="bulk-status" style="font-size:11px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;background:white"></select>
+        <button onclick="applyBulkStatus()" style="font-size:11px;font-weight:600;padding:4px 10px;border:1px solid #1a73e8;border-radius:6px;background:white;color:#1a73e8;cursor:pointer">ตั้ง Status</button>
+        <button onclick="clearSelection()" style="font-size:11px;font-weight:600;padding:4px 10px;border:none;border-radius:6px;background:transparent;color:#795500;cursor:pointer;margin-left:auto">✕ ล้างที่เลือก</button>
+      </div>
       <!-- email table -->
       <div style="overflow-x:auto">
         <table id="dm-table" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;min-width:820px">
           <colgroup>
+            <col style="width:28px"><!-- select -->
             <col style="width:10%"><!-- Due -->
             <col style="width:7%"><!-- Work Time Counting -->
             <col style="width:7%"><!-- Assignee -->
@@ -201,6 +213,7 @@
           </colgroup>
           <thead>
             <tr style="background:#f8f9fa">
+              <th style="padding:6px 4px;text-align:center;border-bottom:2px solid #e0e0e0"><input id="dm-select-all" type="checkbox" onchange="toggleSelectAllVisible(this.checked)" title="เลือกทั้งหมดที่แสดงอยู่"></th>
               <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Due (Arrival+30m)</th>
               <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Work Time Counting</th>
               <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Assignee</th>
@@ -212,7 +225,7 @@
             </tr>
           </thead>
           <tbody id="dm-tbody">
-            <tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">กำลังโหลด…</td></tr>
+            <tr><td colspan="9" style="padding:32px;text-align:center;color:#aaa;font-size:13px">กำลังโหลด…</td></tr>
           </tbody>
         </table>
       </div>
@@ -308,6 +321,106 @@ function notifyNewItems(items) {
 let _filterData = [];
 let _filterLoading = false;
 function currentData() { return _mode === 'filter' ? _filterData : _detailData; }
+
+// ── Row selection + bulk Assignee/Status update ──
+// Keyed by msgId (not row index — indices shift every re-render, msgId doesn't).
+let _selectedMsgIds = new Set();
+
+function findEmailByMsgId(msgId) {
+  for (const d of currentData()) {
+    const e = (d.emails || []).find(x => x.msgId === msgId);
+    if (e) return { account: d.account, e };
+  }
+  return null;
+}
+
+function syncCheckbox(cb) {
+  const ids = (cb.dataset.msgids || '').split(',').filter(Boolean);
+  ids.forEach(id => cb.checked ? _selectedMsgIds.add(id) : _selectedMsgIds.delete(id));
+  updateBulkBar();
+}
+
+// Selects/deselects every checkbox currently rendered (i.e. whatever the
+// active filters show) — not literally every email ever fetched.
+function toggleSelectAllVisible(checked) {
+  document.querySelectorAll('#dm-tbody input[type=checkbox][data-msgids]').forEach(cb => {
+    cb.checked = checked;
+    syncCheckbox(cb);
+  });
+}
+
+function clearSelection() {
+  _selectedMsgIds.clear();
+  renderDashboard();
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulk-bar');
+  const countEl = document.getElementById('bulk-count');
+  if (!bar || !countEl) return;
+  const n = _selectedMsgIds.size;
+  bar.style.display = n > 0 ? 'flex' : 'none';
+  countEl.textContent = `เลือกอยู่ ${n} รายการ —`;
+
+  const selectAll = document.getElementById('dm-select-all');
+  if (selectAll) {
+    const boxes = [...document.querySelectorAll('#dm-tbody input[type=checkbox][data-msgids]')];
+    const checkedCount = boxes.filter(cb => cb.checked).length;
+    selectAll.checked = boxes.length > 0 && checkedCount === boxes.length;
+    selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+  }
+}
+
+// Shared by a single grouped-row's Assignee/Status select (idsAttr may be
+// just one msgId or a whole thread) AND the bulk-action toolbar — same POST
+// either way, just looped over however many msgIds are involved.
+async function applyAssigneeToMsgIds(msgIds, assigneeEmail) {
+  await Promise.all(msgIds.filter(Boolean).map(async msgId => {
+    const info = findEmailByMsgId(msgId);
+    if (!info) return;
+    const existing = _assignments[msgId] || {};
+    const isNewAssignee = !!assigneeEmail && !existing.assigneeEmail;
+    const updates = { ...existing,
+      msgId, account: info.account,
+      assigneeEmail,
+      dueDate: existing.dueDate || emailInboxDue(info.e.date),
+      status: existing.status || 'To Do',
+      emailSubject: info.e.subject || existing.emailSubject || '',
+      emailFrom: info.e.from || existing.emailFrom || '',
+    };
+    _assignments[msgId] = updates;
+    await fetch('/api/digest/assign', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...updates, sendEmail: isNewAssignee }),
+    }).catch(console.error);
+  }));
+}
+
+async function applyStatusToMsgIds(msgIds, status) {
+  await Promise.all(msgIds.filter(Boolean).map(async msgId => {
+    const info = findEmailByMsgId(msgId);
+    if (!info) return;
+    _emailStatuses[msgId] = status;
+    await fetch('/api/digest/emailstatus', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ msgId, account: info.account, status }),
+    }).catch(console.error);
+  }));
+}
+
+async function applyBulkAssignee() {
+  const value = document.getElementById('bulk-assignee').value;
+  if (!value) return;
+  await applyAssigneeToMsgIds([..._selectedMsgIds], value);
+  clearSelection();
+}
+
+async function applyBulkStatus() {
+  const value = document.getElementById('bulk-status').value;
+  if (!value) return;
+  await applyStatusToMsgIds([..._selectedMsgIds], value);
+  clearSelection();
+}
 let _lastTitle = '';
 let _lastUpdatedAt = null; // raw ISO timestamp from the live payload, for reuse in the Accounts header
 let _assignments = {}; // { msgId: assignmentObj }
@@ -522,7 +635,7 @@ function renderDashboard() {
   const counts = { 'To Do': 0, 'Scoping': 0, 'Processing': 0, 'Ignore': 0, 'Done': 0 };
 
   if (_filterLoading) {
-    tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;color:#888;font-size:13px">⏳ กำลังดึงอีเมลจาก Gmail...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;color:#888;font-size:13px">⏳ กำลังดึงอีเมลจาก Gmail...</td></tr>';
     return;
   }
 
@@ -543,7 +656,7 @@ function renderDashboard() {
   });
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
     document.getElementById('db-unread').textContent    = '📥 Unread 0';
     document.getElementById('db-processing').textContent= '⚙ Processing 0';
     document.getElementById('db-scoping').textContent   = '🔍 Scoping 0';
@@ -558,8 +671,24 @@ function renderDashboard() {
     return dueA < dueB ? -1 : dueA > dueB ? 1 : 0;
   });
 
+  // Group repeat notifications about the same thing (identical subject —
+  // typically a ticketing system pinging the same ticket over and over) into
+  // one row. Position = the group's first (earliest-due) occurrence, so the
+  // table's overall ordering doesn't change; the group just collapses in place.
+  const groups = [];
+  const bySubject = new Map();
   rows.forEach(function(row) {
-    const account = row.account, e = row.e, i = row.i;
+    const key = (row.e.subject || '').trim();
+    let group = bySubject.get(key);
+    if (!group) { group = { members: [] }; bySubject.set(key, group); groups.push(group); }
+    group.members.push(row);
+  });
+
+  groups.forEach(function(group) {
+    const members = group.members;
+    const rep = members[0]; // representative — due/sender/category/account shown, Due editing applies here only
+    const account = rep.account, e = rep.e, i = rep.i;
+    const msgIds = members.map(m => m.e.msgId).filter(Boolean);
     const st  = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
     const asg = e.msgId ? (_assignments[e.msgId] || null) : null;
     if (counts[st] !== undefined) counts[st]++;
@@ -582,7 +711,16 @@ function renderDashboard() {
     const dueWeight = (inProgress || isPast) ? '700' : '400';
     const dueBorder = (isPast && !inProgress) ? '#e53935' : '#ddd';
     const timing = e.msgId ? _emailTimings[e.msgId] : null;
+    const idsAttr = msgIds.join(',');
+    const allSelected = msgIds.length > 0 && msgIds.every(id => _selectedMsgIds.has(id));
+    const groupBadge = members.length > 1
+      ? ' <span onclick="event.stopPropagation();toggleGroupExpand(this)" data-expanded="0" style="cursor:pointer;display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;background:#e8f0fe;color:#1a73e8;vertical-align:middle;white-space:nowrap">🔁×'+members.length+' ▸</span>'
+      : '';
     tr.innerHTML =
+      // Select — checkbox carries every msgId in the group, so bulk actions
+      // (either the group row's own Assignee/Status, or the toolbar) apply
+      // to every instance of this thread at once.
+      '<td style="padding:6px 4px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" data-msgids="'+idsAttr+'" '+(allSelected?'checked':'')+' onchange="syncCheckbox(this)"></td>'+
       // Due — compact formatted text with a fully transparent native
       // datetime-local input overlaid on top, so clicking anywhere on the
       // text opens the real picker without a native input's own locale-
@@ -590,9 +728,11 @@ function renderDashboard() {
       // px) so it always fills whatever the <colgroup> gives this column —
       // table-layout:fixed ignores content size entirely, so a wider fixed
       // px here would just overflow the column instead of resizing it.
+      // Represents the group's first occurrence only — grouped items can
+      // have genuinely different arrival times, so this isn't bulk-applied.
       '<td style="padding:6px 6px;overflow:hidden">'+
         '<div style="position:relative;display:block;width:100%" onclick="event.stopPropagation()">'+
-          '<input id="'+dueId+'" type="datetime-local" value="'+dueVal+'" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',\'due\',this.value,\'\')" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0">'+
+          '<input id="'+dueId+'" type="datetime-local" value="'+dueVal+'" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0">'+
           '<div style="pointer-events:none;font-size:10px;font-weight:'+dueWeight+';color:'+dueColor+';border:1px solid '+dueBorder+';border-radius:5px;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(dueVal?fmtReceived(dueVal):'—')+'</div>'+
         '</div>'+
       '</td>'+
@@ -600,9 +740,9 @@ function renderDashboard() {
       // once Done. data-worktime-msgid + data-resolved let tickWorkTime()
       // find and update this cell every second without a full re-render.
       '<td data-worktime-msgid="'+(e.msgId||'')+'" data-in-progress-since="'+(timing?.inProgressSince||'')+'" data-resolved-at="'+(timing?.resolvedAt||'')+'" style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-variant-numeric:tabular-nums;color:'+(timing?.resolvedAt?'#34a853':'#888')+';font-weight:'+(timing?.resolvedAt?'700':'400')+'">'+fmtDuration(timing?.inProgressSince, timing?.resolvedAt)+'</td>'+
-      // Assignee
+      // Assignee — applied to every msgId in the group (see idsAttr above)
       '<td style="padding:6px 4px;overflow:hidden">'+
-        '<select onclick="event.stopPropagation()" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',\'assignee\',this.value,\''+dueId+'\')" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:white;width:100%">'+
+        '<select onclick="event.stopPropagation()" onchange="applyAssigneeToMsgIds([\''+msgIds.join("','")+'\'],this.value).then(renderDashboard)" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:white;width:100%">'+
           '<option value="">—</option>'+
           ASSIGNEES.map(a=>'<option value="'+a.email+'"'+(a.email===assigneeVal?' selected':'')+'>'+a.name+'</option>').join('')+
         '</select>'+
@@ -613,54 +753,76 @@ function renderDashboard() {
       '<td style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555;font-size:11px">'+e.from+'</td>'+
       // Category — color only (red/yellow/grey), no text
       '<td style="padding:6px 2px;text-align:center;overflow:hidden" title="'+(e.category||'')+'"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+(CATEGORY_DOT[e.category]||'#ccc')+'"></span></td>'+
-      // Status
+      // Status — applied to every msgId in the group (see idsAttr above)
       '<td style="padding:6px 4px;overflow:hidden">'+
-        '<select onclick="event.stopPropagation()" onchange="setEmailStatus(event,\''+account+'\',\''+(e.msgId||'')+'\','+i+')" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:'+sb.bg+';color:'+sb.text+';font-weight:600;width:100%">'+
+        '<select onclick="event.stopPropagation()" onchange="applyStatusToMsgIds([\''+msgIds.join("','")+'\'],this.value).then(renderDashboard)" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:'+sb.bg+';color:'+sb.text+';font-weight:600;width:100%">'+
           EMAIL_STATUSES.map(s=>'<option value="'+s+'"'+(s===st?' selected':'')+'>'+s+'</option>').join('')+
         '</select>'+
       '</td>'+
       // Summary — the one column with no fixed <col> width, so table-layout:fixed gives it all the leftover space
-      '<td style="padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#222">'+e.subject+'</td>';
+      '<td style="padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#222">'+e.subject+groupBadge+'</td>';
     tbody.appendChild(tr);
+
+    // Collapsed-by-default sub-rows for a grouped thread — read-only (no
+    // separate controls; editing the group row above already applies to
+    // every instance), just enough to see each occurrence's own timestamp.
+    if (members.length > 1) {
+      members.forEach(function(m) {
+        const sub = document.createElement('tr');
+        sub.className = 'dm-group-sub';
+        sub.style.cssText = 'display:none;border-bottom:1px solid #f0f0f0;background:#fafbfc;cursor:pointer';
+        sub.onclick = function() { showEmailDetail(m.account, m.i); };
+        sub.innerHTML =
+          '<td></td>'+
+          '<td style="padding:4px 6px 4px 22px;font-size:10px;color:#999">'+fmtReceived(emailInboxDue(m.e.date))+'</td>'+
+          '<td colspan="6"></td>'+
+          '<td style="padding:4px 8px;font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.e.from+'</td>';
+        tbody.appendChild(sub);
+      });
+    }
   });
   // update status bar
   document.getElementById('db-unread').textContent    = '📥 To Do ' + counts['To Do'];
   document.getElementById('db-processing').textContent= '⚙ Processing ' + counts['Processing'];
   document.getElementById('db-scoping').textContent   = '🔍 Scoping ' + counts['Scoping'];
   document.getElementById('db-done').textContent      = '✅ Done ' + counts['Done'];
+  updateBulkBar();
 }
 
-async function saveTblField(account, msgId, rowIdx, field, value, dueId) {
-  if (!msgId) return;
-  // auto due date when assignee set
-  if (field === 'assignee' && value && dueId) {
-    const dueEl = document.getElementById(dueId);
-    if (dueEl && !dueEl.value) {
-      const d = new Date(Date.now() + 30 * 60 * 1000);
-      const pad = n => String(n).padStart(2,'0');
-      dueEl.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    }
+// Expands/collapses the read-only sub-rows for a grouped thread — they were
+// appended directly after the group's <tr> in the DOM, so nextElementSibling
+// walks exactly as many as belong to this group.
+function toggleGroupExpand(badge) {
+  const expanded = badge.dataset.expanded === '1';
+  badge.dataset.expanded = expanded ? '0' : '1';
+  const text = badge.textContent.replace(/[▸▾]/, '').trim();
+  badge.textContent = text + ' ' + (expanded ? '▸' : '▾');
+  let node = badge.closest('tr').nextElementSibling;
+  while (node && node.classList.contains('dm-group-sub')) {
+    node.style.display = expanded ? 'none' : 'table-row';
+    node = node.nextElementSibling;
   }
-  // merge with existing assignment
+}
+
+// Due-date editing only — Assignee/Status went through applyAssigneeToMsgIds()/
+// applyStatusToMsgIds() instead once those needed to apply to a whole group.
+async function saveTblField(account, msgId, rowIdx, dueValue) {
+  if (!msgId) return;
   const existing = _assignments[msgId] || {};
   const d = currentData().find(x => x.account === account);
   const e = d?.emails?.[rowIdx] || {};
   const updates = { ...existing,
     msgId, account,
-    assigneeEmail:   field === 'assignee' ? value : existing.assigneeEmail,
-    expectedAction:  field === 'action'   ? value : existing.expectedAction,
-    dueDate:         field === 'due'      ? value : (existing.dueDate || document.getElementById('tbl-due-'+rowIdx)?.value || ''),
-    status:          existing.status || 'To Do',
-    emailSubject:    e.subject || existing.emailSubject || '',
-    emailFrom:       e.from    || existing.emailFrom    || '',
+    dueDate: dueValue,
+    status: existing.status || 'To Do',
+    emailSubject: e.subject || existing.emailSubject || '',
+    emailFrom: e.from || existing.emailFrom || '',
   };
   _assignments[msgId] = updates;
-  // send email notification only when assignee is first set
-  const isNewAssignee = field === 'assignee' && value && !existing.assigneeEmail;
   await fetch('/api/digest/assign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...updates, sendEmail: isNewAssignee }),
+    body: JSON.stringify({ ...updates, sendEmail: false }),
   }).catch(console.error);
 }
 
@@ -720,25 +882,6 @@ function renderAccountTable(accountList) {
       '<td style="padding:7px 6px;text-align:center;font-weight:700;font-size:12px;color:#9aa0a6">' + auto + '</td>' +
       '</tr>';
   }).join('');
-}
-
-async function setEmailStatus(event, account, msgId, rowIdx) {
-  const status = event.target.value;
-  if (msgId) {
-    _emailStatuses[msgId] = status;
-    // re-color the select immediately
-    const sb = STATUS_BADGE[status] || STATUS_BADGE['To Do'];
-    event.target.style.background = sb.bg;
-    event.target.style.color = sb.text;
-    // persist
-    fetch('/api/digest/emailstatus', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ msgId, account, status }),
-    }).catch(console.error);
-  }
-  // re-render the dashboard so the status-bar counts and sort reflect the change
-  renderDashboard();
 }
 
 function showEmailDetail(account, emailIdx) {
@@ -1201,6 +1344,11 @@ if (localStorage.getItem('digestLeftColCollapsed') === '1') {
   document.getElementById('left-col').classList.add('collapsed');
   document.getElementById('left-col-toggle').textContent = '▶';
 }
+
+document.getElementById('bulk-assignee').innerHTML =
+  '<option value="">Assignee...</option>' + ASSIGNEES.map(a => '<option value="'+a.email+'">'+a.name+'</option>').join('');
+document.getElementById('bulk-status').innerHTML =
+  '<option value="">Status...</option>' + EMAIL_STATUSES.map(s => '<option value="'+s+'">'+s+'</option>').join('');
 
 updateNotifButton();
 startCountdown();
