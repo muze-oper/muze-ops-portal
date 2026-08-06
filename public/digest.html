@@ -26,16 +26,18 @@
       background: rgba(255,255,255,0.2); border: none; color: white; width: 24px; height: 24px;
       border-radius: 5px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center;
     }
-    /* Top-level mode switcher — the single control everything else follows */
+    /* Top-level Email Volume bar */
     #mode-bar { max-width: 1900px; margin: 16px auto 0; padding: 0 12px; }
     #mode-bar-card {
       background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
     }
-    #mode-bar-label { font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.05em; text-transform: uppercase; }
-    #mode-switch { display: inline-flex; background: #f1f3f4; border-radius: 10px; padding: 4px; gap: 3px; }
+    /* Mode switcher — narrow left-column card, so the two options stack
+       vertically instead of side by side (their subtitles need the width). */
+    #mode-bar-label { display: block; font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px; }
+    #mode-switch { display: flex; flex-direction: column; background: #f1f3f4; border-radius: 10px; padding: 4px; gap: 3px; }
     .mode-btn {
-      display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+      display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; box-sizing: border-box;
       padding: 7px 16px; border: none; border-radius: 8px; cursor: pointer;
       background: transparent; color: #5f6368; text-align: left;
       transition: background 0.15s, color 0.15s, box-shadow 0.15s;
@@ -67,31 +69,35 @@
 
 <div id="mode-bar">
   <div id="mode-bar-card">
-    <span id="mode-bar-label">โหมดการแสดงผล</span>
-    <div id="mode-switch">
-      <button id="mode-live" class="mode-btn active" onclick="setMode('live')">
-        <span class="mode-btn-title">🔴 LIVE</span>
-        <span class="mode-btn-sub">ตามตารางเวลา · default: Action + ควรรับรู้</span>
-      </button>
-      <button id="mode-filter" class="mode-btn" onclick="setMode('filter')">
-        <span class="mode-btn-title">🔍 FILTER</span>
-        <span class="mode-btn-sub">ตามช่วงเวลาที่เลือก · ทุก category</span>
-      </button>
-    </div>
-    <!-- Volume sparkline — moved here from the left column's old calendar
-         panel, on the same line as the mode switcher since it's glanceable
-         context for either mode, not something that needed its own panel. -->
-    <div id="volume-sparkline-wrap" style="flex:1;min-width:220px">
+    <!-- Volume sparkline — the mode switcher used to share this line but
+         moved down to sit above the Accounts panel instead, so this top bar
+         is just the volume chart now. -->
+    <div id="volume-sparkline-wrap" style="flex:1">
       <div style="font-size:9px;font-weight:700;color:#999;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:2px">📈 Email Volume · 30 วันล่าสุด</div>
-      <div id="volume-sparkline" style="height:36px"></div>
+      <div id="volume-sparkline" style="height:50px"></div>
       <div id="next-holiday-line" style="font-size:9px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     </div>
   </div>
 </div>
 
 <div id="content">
-  <!-- left column: account summary table (Email Volume moved to the mode bar, above) -->
+  <!-- left column: mode switcher + account summary table -->
   <div id="left-col">
+    <!-- Mode switcher — moved here, right above Accounts, since Account's
+         🔴 LIVE/🔍 FILTER split immediately below is the thing it governs. -->
+    <div id="mode-switch-card" style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);padding:10px;margin-bottom:12px">
+      <span id="mode-bar-label">โหมดการแสดงผล</span>
+      <div id="mode-switch">
+        <button id="mode-live" class="mode-btn active" onclick="setMode('live')">
+          <span class="mode-btn-title">🔴 LIVE</span>
+          <span class="mode-btn-sub">ตามตารางเวลา · default: Action + ควรรับรู้</span>
+        </button>
+        <button id="mode-filter" class="mode-btn" onclick="setMode('filter')">
+          <span class="mode-btn-title">🔍 FILTER</span>
+          <span class="mode-btn-sub">ตามช่วงเวลาที่เลือก · ทุก category</span>
+        </button>
+      </div>
+    </div>
     <!-- Account summary table -->
     <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
       <div style="background:#1a73e8;color:white;padding:10px 14px;text-align:left">
@@ -1248,17 +1254,18 @@ function renderVolumeSparkline() {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const dateStr = ymd(d);
-    points.push({ date: dateStr, count: _heatData[dateStr] || 0, isToday: i === 0, holiday: _heatHolidays.get(dateStr) });
+    points.push({ date: dateStr, day: d.getDate(), month: d.getMonth() + 1, count: _heatData[dateStr] || 0, isToday: i === 0, holiday: _heatHolidays.get(dateStr) });
   }
 
-  const W = el.clientWidth || 400, H = 36, PAD_X = 5, PAD_Y = 5;
+  const W = el.clientWidth || 400;
+  const CHART_H = 36, LABEL_H = 14, H = CHART_H + LABEL_H, PAD_X = 5, PAD_Y = 5;
   const maxCount = Math.max(1, ...points.map(p => p.count));
   const stepX = points.length > 1 ? (W - PAD_X * 2) / (points.length - 1) : 0;
   const x = i => PAD_X + i * stepX;
-  const y = c => H - PAD_Y - (c / maxCount) * (H - PAD_Y * 2);
+  const y = c => CHART_H - PAD_Y - (c / maxCount) * (CHART_H - PAD_Y * 2);
 
   const linePoints = points.map((p, i) => `${x(i)},${y(p.count)}`).join(' ');
-  const areaPoints = `${x(0)},${H} ${linePoints} ${x(points.length - 1)},${H}`;
+  const areaPoints = `${x(0)},${CHART_H} ${linePoints} ${x(points.length - 1)},${CHART_H}`;
 
   const marks = points.map((p, i) => {
     const tooltip = `${p.date}: ${p.count} email` + (p.holiday ? ` — ${p.holiday}` : '') + (p.isToday ? ' (วันนี้)' : '');
@@ -1266,16 +1273,30 @@ function renderVolumeSparkline() {
       return `<circle cx="${x(i)}" cy="${y(p.count)}" r="3.5" fill="#1a73e8" stroke="white" stroke-width="1.2"><title>${tooltip}</title></circle>`;
     }
     if (p.holiday) {
-      return `<circle cx="${x(i)}" cy="${H - 2}" r="2" fill="#e53935"><title>${tooltip}</title></circle>`
+      return `<circle cx="${x(i)}" cy="${CHART_H - 2}" r="2" fill="#e53935"><title>${tooltip}</title></circle>`
            + `<circle cx="${x(i)}" cy="${y(p.count)}" r="7" fill="transparent"><title>${tooltip}</title></circle>`;
     }
     return `<circle cx="${x(i)}" cy="${y(p.count)}" r="7" fill="transparent"><title>${tooltip}</title></circle>`;
   }).join('');
 
+  // Date labels — every 5th day plus always "today", so 30 points don't
+  // crowd into unreadable overlapping text. Edge labels anchor inward
+  // (start/end instead of middle) so they don't clip past the SVG bounds.
+  const LABEL_STEP = 5;
+  let labels = '';
+  points.forEach((p, i) => {
+    if (i % LABEL_STEP !== 0 && !p.isToday) return;
+    const text = p.isToday ? 'วันนี้' : `${p.day}/${p.month}`;
+    const anchor = i === 0 ? 'start' : (i === points.length - 1 ? 'end' : 'middle');
+    labels += `<text x="${x(i)}" y="${H - 2}" font-size="9" fill="${p.isToday ? '#1a73e8' : '#999'}" font-weight="${p.isToday ? '700' : '400'}" text-anchor="${anchor}">${text}</text>`;
+  });
+
+  el.style.height = H + 'px';
   el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block">
     <polygon points="${areaPoints}" fill="#1a73e8" opacity="0.08"></polygon>
     <polyline points="${linePoints}" fill="none" stroke="#1a73e8" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"></polyline>
     ${marks}
+    ${labels}
   </svg>`;
 }
 window.addEventListener('resize', renderVolumeSparkline);
