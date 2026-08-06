@@ -1242,6 +1242,40 @@ async function loadHeatmap() {
 // Plain SVG line chart, no library — viewBox sized to the container's actual
 // pixel width (not a fixed number) so the line/dots render at 1:1 scale
 // instead of getting stretched into ellipses by a mismatched aspect ratio.
+const MONTHS_TH_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+// Custom floating tooltip (position:fixed, appended to <body>) instead of a
+// native <title> — shows up instantly at the cursor instead of waiting on
+// the browser's own hover-delay tooltip, and can be styled/positioned
+// precisely regardless of the chart's own overflow/scroll ancestors.
+function sparkTipEl() {
+  let tip = document.getElementById('spark-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'spark-tip';
+    tip.style.cssText = 'position:fixed;display:none;background:#1a1a1a;color:white;font-size:11px;font-weight:600;padding:4px 9px;border-radius:6px;pointer-events:none;z-index:10000;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25)';
+    document.body.appendChild(tip);
+  }
+  return tip;
+}
+function showSparkTip(evt, text) {
+  const tip = sparkTipEl();
+  tip.textContent = text;
+  tip.style.display = 'block';
+  tip.style.left = (evt.clientX + 12) + 'px';
+  tip.style.top = (evt.clientY - 30) + 'px';
+}
+function moveSparkTip(evt) {
+  const tip = document.getElementById('spark-tip');
+  if (!tip || tip.style.display === 'none') return;
+  tip.style.left = (evt.clientX + 12) + 'px';
+  tip.style.top = (evt.clientY - 30) + 'px';
+}
+function hideSparkTip() {
+  const tip = document.getElementById('spark-tip');
+  if (tip) tip.style.display = 'none';
+}
+
 function renderVolumeSparkline() {
   const el = document.getElementById('volume-sparkline');
   if (!el) return;
@@ -1254,7 +1288,10 @@ function renderVolumeSparkline() {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const dateStr = ymd(d);
-    points.push({ date: dateStr, day: d.getDate(), month: d.getMonth() + 1, count: _heatData[dateStr] || 0, isToday: i === 0, holiday: _heatHolidays.get(dateStr) });
+    points.push({
+      date: dateStr, day: d.getDate(), month: d.getMonth() + 1, year: d.getFullYear(),
+      count: _heatData[dateStr] || 0, isToday: i === 0, holiday: _heatHolidays.get(dateStr),
+    });
   }
 
   const W = el.clientWidth || 400;
@@ -1268,27 +1305,30 @@ function renderVolumeSparkline() {
   const areaPoints = `${x(0)},${CHART_H} ${linePoints} ${x(points.length - 1)},${CHART_H}`;
 
   const marks = points.map((p, i) => {
-    const tooltip = `${p.date}: ${p.count} email` + (p.holiday ? ` — ${p.holiday}` : '') + (p.isToday ? ' (วันนี้)' : '');
+    const tipText = `${p.day} ${MONTHS_TH_SHORT[p.month - 1]} ${p.year} — ${p.count} อีเมล`
+      + (p.holiday ? ` (${p.holiday})` : '') + (p.isToday ? ' [วันนี้]' : '');
+    const hoverAttrs = `onmouseenter="showSparkTip(event,'${tipText.replace(/'/g, "\\'")}')" onmousemove="moveSparkTip(event)" onmouseleave="hideSparkTip()"`;
+    let dot = '';
     if (p.isToday) {
-      return `<circle cx="${x(i)}" cy="${y(p.count)}" r="3.5" fill="#1a73e8" stroke="white" stroke-width="1.2"><title>${tooltip}</title></circle>`;
+      dot = `<circle cx="${x(i)}" cy="${y(p.count)}" r="3.5" fill="#1a73e8" stroke="white" stroke-width="1.2"></circle>`;
+    } else if (p.holiday) {
+      dot = `<circle cx="${x(i)}" cy="${CHART_H - 2}" r="2" fill="#e53935"></circle>`;
     }
-    if (p.holiday) {
-      return `<circle cx="${x(i)}" cy="${CHART_H - 2}" r="2" fill="#e53935"><title>${tooltip}</title></circle>`
-           + `<circle cx="${x(i)}" cy="${y(p.count)}" r="7" fill="transparent"><title>${tooltip}</title></circle>`;
-    }
-    return `<circle cx="${x(i)}" cy="${y(p.count)}" r="7" fill="transparent"><title>${tooltip}</title></circle>`;
+    // One transparent hit-target per day, oversized (r=7) vs the visible dot
+    // so hovering near — not just exactly on — a point still triggers it.
+    return dot + `<circle cx="${x(i)}" cy="${y(p.count)}" r="7" fill="transparent" ${hoverAttrs}></circle>`;
   }).join('');
 
-  // Date labels — every 5th day plus always "today", so 30 points don't
-  // crowd into unreadable overlapping text. Edge labels anchor inward
-  // (start/end instead of middle) so they don't clip past the SVG bounds.
-  const LABEL_STEP = 5;
+  // Every day gets a label now — just the day number to keep 30 of them
+  // from overlapping, except month-boundary days (and today) which spell
+  // out the month too so the range doesn't read as ambiguous. Edge labels
+  // anchor inward (start/end instead of middle) so they don't clip past
+  // the SVG bounds.
   let labels = '';
   points.forEach((p, i) => {
-    if (i % LABEL_STEP !== 0 && !p.isToday) return;
-    const text = p.isToday ? 'วันนี้' : `${p.day}/${p.month}`;
+    const text = p.isToday ? 'วันนี้' : (p.day === 1 ? `1 ${MONTHS_TH_SHORT[p.month - 1]}` : String(p.day));
     const anchor = i === 0 ? 'start' : (i === points.length - 1 ? 'end' : 'middle');
-    labels += `<text x="${x(i)}" y="${H - 2}" font-size="9" fill="${p.isToday ? '#1a73e8' : '#999'}" font-weight="${p.isToday ? '700' : '400'}" text-anchor="${anchor}">${text}</text>`;
+    labels += `<text x="${x(i)}" y="${H - 2}" font-size="7.5" fill="${p.isToday ? '#1a73e8' : '#999'}" font-weight="${p.isToday ? '700' : '400'}" text-anchor="${anchor}">${text}</text>`;
   });
 
   el.style.height = H + 'px';
