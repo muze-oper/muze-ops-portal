@@ -42,6 +42,14 @@
     .toolbar input { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; }
     .last-updated { font-size: 12px; color: #888; }
 
+    .subtab-bar { display: flex; gap: 6px; margin-bottom: 16px; }
+    .subtab-btn {
+      padding: 6px 14px; border: 1px solid #ddd; border-radius: 6px; background: white;
+      font-size: 12px; font-weight: 600; color: #555; cursor: pointer;
+    }
+    .subtab-btn:hover:not(.active) { background: #f7f8fa; }
+    .subtab-btn.active { background: #1a73e8; color: white; border-color: #1a73e8; }
+
     .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
     .panel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .panel h2 { font-size: 13px; font-weight: 700; color: #555; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -440,8 +448,9 @@ let NISSAN_ALL_TICKETS = [];
 let NISSAN_COLUMNS = [];
 let NISSAN_JIRA_BASE_URL = '';
 let NISSAN_CURRENT_TICKETS = [];
-let NISSAN_TABLE_FILTERS = { search: '', status: 'all' };
+let NISSAN_TABLE_FILTERS = { search: '', status: 'all', processIncident: 'all', processIncidentChild: 'all' };
 let NISSAN_SORT = { column: null, direction: 'asc' };
+let NISSAN_SUBTAB = 'graph';
 
 function humanizeColumn(col) {
   return col.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -494,6 +503,8 @@ function nissanFilterTickets(tickets) {
   const search = NISSAN_TABLE_FILTERS.search.trim().toLowerCase();
   return tickets.filter(t => {
     if (NISSAN_TABLE_FILTERS.status !== 'all' && (t.status || 'Unknown') !== NISSAN_TABLE_FILTERS.status) return false;
+    if (NISSAN_TABLE_FILTERS.processIncident !== 'all' && (t['Process Incident'] || 'Unknown') !== NISSAN_TABLE_FILTERS.processIncident) return false;
+    if (NISSAN_TABLE_FILTERS.processIncidentChild !== 'all' && (t['Process Incident (Child)'] || 'Unknown') !== NISSAN_TABLE_FILTERS.processIncidentChild) return false;
     if (search) {
       const haystack = [t.key, ...NISSAN_COLUMNS.map(c => t[c])].join(' ').toLowerCase();
       if (!haystack.includes(search)) return false;
@@ -515,6 +526,16 @@ function nissanOnSearchChange(value) {
 
 function nissanOnStatusFilterChange(value) {
   NISSAN_TABLE_FILTERS.status = value;
+  nissanRenderTicketTableBody();
+}
+
+function nissanOnProcessIncidentFilterChange(value) {
+  NISSAN_TABLE_FILTERS.processIncident = value;
+  nissanRenderTicketTableBody();
+}
+
+function nissanOnProcessIncidentChildFilterChange(value) {
+  NISSAN_TABLE_FILTERS.processIncidentChild = value;
   nissanRenderTicketTableBody();
 }
 
@@ -543,10 +564,14 @@ function nissanExportCsv() {
 
 function nissanRenderTicketTableSection(tickets) {
   NISSAN_CURRENT_TICKETS = tickets;
-  NISSAN_TABLE_FILTERS = { search: '', status: 'all' };
+  NISSAN_TABLE_FILTERS = { search: '', status: 'all', processIncident: 'all', processIncidentChild: 'all' };
 
   const hasStatus = NISSAN_COLUMNS.some(c => c.toLowerCase() === 'status');
+  const hasProcessIncident = NISSAN_COLUMNS.includes('Process Incident');
+  const hasProcessIncidentChild = NISSAN_COLUMNS.includes('Process Incident (Child)');
   const statuses = hasStatus ? Array.from(new Set(tickets.map(t => t.status || 'Unknown'))).sort() : [];
+  const processIncidents = hasProcessIncident ? Array.from(new Set(tickets.map(t => t['Process Incident'] || 'Unknown'))).sort() : [];
+  const processIncidentChildren = hasProcessIncidentChild ? Array.from(new Set(tickets.map(t => t['Process Incident (Child)'] || 'Unknown'))).sort() : [];
   const sorted = nissanSortTickets(tickets);
 
   // data-sort-col (not an inline onclick string) so column names with
@@ -563,6 +588,14 @@ function nissanRenderTicketTableSection(tickets) {
         ${hasStatus ? `<select onchange="nissanOnStatusFilterChange(this.value)">
           <option value="all">ทุกสถานะ</option>
           ${statuses.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
+        </select>` : ''}
+        ${hasProcessIncident ? `<select onchange="nissanOnProcessIncidentFilterChange(this.value)">
+          <option value="all">ทุก Process Incident</option>
+          ${processIncidents.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
+        </select>` : ''}
+        ${hasProcessIncidentChild ? `<select onchange="nissanOnProcessIncidentChildFilterChange(this.value)">
+          <option value="all">ทุก Process Incident (Child)</option>
+          ${processIncidentChildren.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
         </select>` : ''}
         <input type="text" placeholder="ค้นหา key/ข้อมูล..." oninput="nissanOnSearchChange(this.value)">
         <button onclick="nissanExportCsv()">📥 Export CSV</button>
@@ -625,7 +658,7 @@ function nissanRenderDashboard() {
   const firstTierTickets = hasFirstTier ? tickets.filter(t => (t['First Tier'] || '').toLowerCase() === 'yes') : [];
   const firstTierPercent = tickets.length > 0 ? Math.round(firstTierTickets.length / tickets.length * 100) : 0;
 
-  document.getElementById('nissan-body').innerHTML = `
+  const graphHtml = `
     <div class="panels">
       <div class="panel">
         <h2>ทั้งหมด${hasStatus ? ' / สถานะ' : ''}</h2>
@@ -645,12 +678,32 @@ function nissanRenderDashboard() {
       ${hasProcessIncident ? `<div class="panel"><h2>ประเภท (Process Incident)</h2>${renderColumnChart(groupBy(tickets, 'Process Incident'))}</div>` : ''}
     </div>
     ${hasProcessIncidentChild ? nissanRenderProcessIncidentPies(tickets, hasProcessIncident) : ''}
-    ${nissanRenderTicketTableSection(tickets)}
+  `;
+  const summaryHtml = nissanRenderTicketTableSection(tickets);
+
+  document.getElementById('nissan-body').innerHTML = `
+    <div class="subtab-bar">
+      <button class="subtab-btn${NISSAN_SUBTAB === 'graph' ? ' active' : ''}" data-subtab="graph" onclick="nissanSwitchSubtab('graph')">📊 Graph</button>
+      <button class="subtab-btn${NISSAN_SUBTAB === 'summary' ? ' active' : ''}" data-subtab="summary" onclick="nissanSwitchSubtab('summary')">📋 Summary</button>
+    </div>
+    <div id="nissan-graph-panel" style="display:${NISSAN_SUBTAB === 'graph' ? '' : 'none'}">${graphHtml}</div>
+    <div id="nissan-summary-panel" style="display:${NISSAN_SUBTAB === 'summary' ? '' : 'none'}">${summaryHtml}</div>
   `;
 
   document.querySelectorAll('#nissan-ticket-thead [data-sort-col]').forEach(th => {
     th.onclick = () => nissanOnSortColumn(th.dataset.sortCol);
   });
+}
+
+// Graph and Summary (ticket table) live in separate sub-tabs so the page
+// doesn't need a long scroll to get from the charts down to the table.
+function nissanSwitchSubtab(tab) {
+  NISSAN_SUBTAB = tab;
+  const graph = document.getElementById('nissan-graph-panel');
+  const summary = document.getElementById('nissan-summary-panel');
+  if (graph) graph.style.display = tab === 'graph' ? '' : 'none';
+  if (summary) summary.style.display = tab === 'summary' ? '' : 'none';
+  document.querySelectorAll('#nissan-body .subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.subtab === tab));
 }
 
 function nissanOnMonthChange() {
