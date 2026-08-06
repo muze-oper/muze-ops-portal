@@ -17,6 +17,12 @@ router.get('/assets/muze-logo.png', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'assets', 'muze-logo.png'));
 });
 
+// Unused by the current landing page (superseded by the design above), left
+// in place in case anything still links to the old asset directly.
+router.get('/muze-mark-blue.png', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'muze-mark-blue.png'));
+});
+
 router.get('/api/me', (req, res) => {
   res.json({ email: req.user?.email || null });
 });

@@ -57,7 +57,8 @@
   <main id="chat">
     <div class="empty-hint">
       พิมพ์คำถามหรือปัญหาที่ลูกค้าแจ้งเข้ามา<br>
-      ระบบจะค้นจากเคส Jira ของ project KTC (description + comment ทั้งหมด) และ Handover Document แล้วสรุปคำตอบให้
+      ระบบจะค้นเคสที่ใกล้เคียงที่สุดจาก Jira (project KTC) และ Handover Document มาให้ดูตรงๆ<br>
+      (ไม่มีการสรุป/เรียบเรียงใหม่ — อ่านแล้วปรับเป็นคำตอบเองก่อนส่งลูกค้า)
     </div>
   </main>
   <form id="form">
@@ -117,7 +118,7 @@
       input.value = '';
       input.style.height = 'auto';
       sendBtn.disabled = true;
-      const loadingEl = addMessage('bot', 'กำลังค้นเคสใน Jira และสรุปคำตอบ...', 'loading');
+      const loadingEl = addMessage('bot', 'กำลังค้นเคสใน Jira และ Handover Document...', 'loading');
 
       try {
         const res = await fetch('/api/ktc-chat', {

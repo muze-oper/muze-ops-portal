@@ -3,7 +3,7 @@
 // this runs server-side with no interactive login. REST API v2 is used
 // deliberately over v3: v2 returns description/comment bodies as plain
 // strings (Jira wiki markup) instead of ADF JSON, which is far simpler to
-// hand to an LLM as context.
+// display as-is.
 const JIRA_SITE = (process.env.JIRA_BASE_URL || 'https://mymuze.atlassian.net').replace(/\/$/, '');
 const JIRA_API_EMAIL = process.env.JIRA_API_EMAIL;
 const JIRA_API_TOKEN = process.env.JIRA_API_TOKEN;
@@ -48,9 +48,13 @@ async function runSearch(jql, maxResults) {
   throw lastErr || new Error('Jira search failed');
 }
 
+// \p{M} (combining marks) must stay alongside \p{L}/\p{N} in the "word"
+// character class — Thai tone marks/vowel signs are separate code points
+// from their base consonant, so splitting on "not letter/number" alone
+// chops words apart mid-character.
 function significantWords(text) {
   return Array.from(new Set(
-    text.split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3)
+    text.split(/[^\p{L}\p{M}\p{N}]+/u).filter((w) => w.length >= 3)
   ));
 }
 
@@ -86,20 +90,24 @@ function cleanText(text, limit = 4000) {
   return cleaned.length > limit ? `${cleaned.slice(0, limit)}\n...(truncated)` : cleaned;
 }
 
-function formatIssueForContext(issue) {
+// Renders one issue as-is (no rewriting/summarizing) for direct display in
+// the chat: key/status/link, the raw description, and only the most recent
+// comment (full comment history is one click away via the link).
+function formatIssueRaw(issue) {
   const f = issue.fields || {};
   const comments = (f.comment && f.comment.comments) || [];
-  const commentText = comments
-    .map((c) => `  - (${c.author?.displayName || 'unknown'}, ${c.created}): ${cleanText(c.body, 1500)}`)
-    .join('\n');
+  const lastComment = comments[comments.length - 1];
 
-  return [
-    `### ${issue.key}: ${f.summary || ''}`,
-    `Status: ${f.status?.name || ''} | Created: ${f.created || ''}`,
-    `Link: ${JIRA_SITE}/browse/${issue.key}`,
-    `Description: ${cleanText(f.description)}`,
-    comments.length ? `Comments:\n${commentText}` : 'Comments: (none)',
-  ].join('\n');
+  const lines = [
+    `**${issue.key}: ${f.summary || ''}**`,
+    `สถานะ: ${f.status?.name || '-'} | เปิดเคสเมื่อ: ${f.created || '-'} | ${JIRA_SITE}/browse/${issue.key}`,
+    '',
+    `Description: ${cleanText(f.description, 1200)}`,
+  ];
+  if (lastComment) {
+    lines.push('', `Comment ล่าสุด (${lastComment.author?.displayName || 'unknown'}, ${lastComment.created}): ${cleanText(lastComment.body, 1200)}`);
+  }
+  return lines.join('\n');
 }
 
-module.exports = { searchKtcCases, formatIssueForContext };
+module.exports = { searchKtcCases, formatIssueRaw };
