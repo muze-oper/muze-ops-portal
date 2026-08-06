@@ -44,9 +44,14 @@
     .mode-btn-sub { font-size: 10px; font-weight: 400; opacity: 0.8; }
     .mode-btn.active { background: #1a73e8; color: white; box-shadow: 0 1px 4px rgba(26,115,232,0.45); }
     .mode-btn:not(.active):hover { background: rgba(0,0,0,0.05); }
+    @keyframes notifSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
   </style>
 </head>
 <body>
+<!-- New-email toast stack — the in-page fallback/companion to the browser
+     Notification API, since permission can be denied or the OS can suppress
+     it while the tab is focused. Fixed top-right, newest on top. -->
+<div id="notif-toast-stack" style="position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:340px"></div>
 <div class="breadcrumb">
   <a href="/">🏠 Muze Tech Ops Portal</a>
   <span class="sep">/</span>
@@ -135,7 +140,8 @@
             <span style="background:#e53935;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔴 LIVE</span>
             <span id="last-updated" style="font-size:11px;opacity:0.9"></span>
             <span id="next-refresh" style="font-size:11px;opacity:0.9"></span>
-            <button id="db-pull-now" onclick="pullNow()" style="font-size:11px;font-weight:700;padding:4px 12px;border:none;border-radius:6px;background:white;color:#1a73e8;cursor:pointer;white-space:nowrap;margin-left:auto">⟳ Pull Now</button>
+            <button id="notif-toggle" onclick="toggleNotifications()" title="แจ้งเตือนเมื่อมี email ใหม่ (Action/ควรรู้)" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:12px;padding:4px 8px;border-radius:10px;cursor:pointer;margin-left:auto">🔕</button>
+            <button id="db-pull-now" onclick="pullNow()" style="font-size:11px;font-weight:700;padding:4px 12px;border:none;border-radius:6px;background:white;color:#1a73e8;cursor:pointer;white-space:nowrap">⟳ Pull Now</button>
             <button onclick="toggleScheduleInfo()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:10px;padding:4px 8px;border-radius:10px;cursor:pointer">ⓘ ตารางเวลาดึงอีเมล</button>
           </div>
         </div>
@@ -238,6 +244,63 @@ const CAT_TAG    = {'🔴 ต้อง Action':{bg:'#e53935',text:'white'},'🟡
 
 let _detailData = [];
 let _liveCounts = {}; // { 'email@': { action, mustRead, auto, total } }
+
+// ── New-item notifications (Live mode) ──
+// Toast always fires (works with no permission at all); the browser
+// Notification is an opt-in extra for when the tab isn't focused.
+let _notifEnabled = localStorage.getItem('digestNotifEnabled') === '1';
+let _seenMsgIds = new Set();
+let _seenInitialized = false; // first loadLive() just seeds _seenMsgIds — nothing "new" to announce yet
+
+function updateNotifButton() {
+  const btn = document.getElementById('notif-toggle');
+  if (!btn) return;
+  const blocked = typeof Notification !== 'undefined' && Notification.permission === 'denied';
+  btn.textContent = _notifEnabled && !blocked ? '🔔' : '🔕';
+  btn.title = blocked
+    ? 'การแจ้งเตือนถูกบล็อกในเบราว์เซอร์ — ต้องไปเปิดเองใน settings ของเบราว์เซอร์'
+    : (_notifEnabled ? 'ปิดแจ้งเตือน email ใหม่' : 'เปิดแจ้งเตือนเมื่อมี email ใหม่ (Action/ควรรู้)');
+}
+
+async function toggleNotifications() {
+  if (!_notifEnabled) {
+    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { updateNotifButton(); return; } // denied/dismissed — stays off, toast still works
+    }
+    _notifEnabled = true;
+  } else {
+    _notifEnabled = false;
+  }
+  localStorage.setItem('digestNotifEnabled', _notifEnabled ? '1' : '0');
+  updateNotifButton();
+}
+
+function showToast(title, bodyHtml) {
+  const stack = document.getElementById('notif-toast-stack');
+  if (!stack) return;
+  const toast = document.createElement('div');
+  toast.style.cssText = 'background:white;border-left:4px solid #e53935;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.25);padding:10px 14px;font-size:12px;color:#222;cursor:pointer;animation:notifSlideIn 0.25s ease-out';
+  toast.innerHTML = '<div style="font-weight:700;margin-bottom:3px">'+title+'</div><div style="color:#555;line-height:1.5">'+bodyHtml+'</div>';
+  toast.onclick = () => toast.remove();
+  stack.prepend(toast);
+  setTimeout(() => toast.remove(), 8000);
+}
+
+// Fires for newly-arrived 🔴/🟡 items (⚪ Auto is excluded — it was never
+// meant to need anyone's attention). Toast always shows; the OS-level
+// Notification only fires if the user opted in via the bell button.
+function notifyNewItems(items) {
+  if (!items.length) return;
+  const title = items.length === 1 ? '📋 Email ใหม่ 1 รายการ' : `📋 Email ใหม่ ${items.length} รายการ`;
+  const lines = items.slice(0, 3).map(i => `${i.category.split(' ')[0]} ${i.account.split('@')[0]}: ${i.subject}`);
+  if (items.length > 3) lines.push(`…และอีก ${items.length - 3} รายการ`);
+  showToast(title, lines.join('<br>'));
+  if (_notifEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    const n = new Notification(title, { body: lines.join('\n') });
+    n.onclick = () => { window.focus(); n.close(); };
+  }
+}
 // Filter mode's own dataset — populated by a live Gmail query (/api/digest/range)
 // scoped to whatever account+date-range is picked. Kept separate from _detailData
 // (Live mode's schedule-driven dataset) so switching back to Live never loses it,
@@ -868,6 +931,8 @@ async function loadLive() {
     if (data.counts && Object.keys(data.counts).length) {
       // data.counts = { 'email': { counts: {...}, emails: [...] } }
       _liveCounts = {};
+      const isFirstLoad = !_seenInitialized;
+      const newImportant = [];
       for (const [acc, entry] of Object.entries(data.counts)) {
         if (entry && entry.counts) {
           _liveCounts[acc] = entry.counts;
@@ -875,12 +940,26 @@ async function loadLive() {
           const existing = _detailData.find(d => d.account === acc);
           if (existing) existing.emails = entry.emails || [];
           else _detailData.push({ account: acc, emails: entry.emails || [] });
+
+          // New-item detection — by msgId, so an existing item that just
+          // changed status/category doesn't get treated as "new". Auto is
+          // excluded; the very first load only seeds _seenMsgIds (the whole
+          // current backlog isn't "new").
+          (entry.emails || []).forEach(function(e) {
+            if (!e.msgId) return;
+            if (!isFirstLoad && !_seenMsgIds.has(e.msgId) && e.category !== '⚪ แจ้งเตือนอัตโนมัติ') {
+              newImportant.push({ account: acc, subject: e.subject, category: e.category });
+            }
+            _seenMsgIds.add(e.msgId);
+          });
         }
       }
+      _seenInitialized = true;
       // remove any accounts not in live data (e.g. personal accounts removed from ACCOUNTS list)
       const liveAccounts = new Set(Object.keys(_liveCounts));
       _detailData = _detailData.filter(d => liveAccounts.has(d.account));
       if (_detailData.length) renderSummary(_lastTitle, _detailData);
+      if (newImportant.length) notifyNewItems(newImportant);
       _lastUpdatedAt = data.updatedAt || null;
       const ts = data.updatedAt ? new Date(data.updatedAt).toLocaleString('th-TH', { timeStyle: 'short' }) : '';
       document.getElementById('last-updated').textContent = `อัปเดต: ${ts} · live`;
@@ -1123,6 +1202,7 @@ if (localStorage.getItem('digestLeftColCollapsed') === '1') {
   document.getElementById('left-col-toggle').textContent = '▶';
 }
 
+updateNotifButton();
 startCountdown();
 loadLive(); // also triggers loadAllEmailStatuses() once accounts are known
 loadAssignments();
