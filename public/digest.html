@@ -78,14 +78,22 @@
         <span class="mode-btn-sub">ตามช่วงเวลาที่เลือก · ทุก category</span>
       </button>
     </div>
+    <!-- Volume sparkline — moved here from the left column's old calendar
+         panel, on the same line as the mode switcher since it's glanceable
+         context for either mode, not something that needed its own panel. -->
+    <div id="volume-sparkline-wrap" style="flex:1;min-width:220px">
+      <div style="font-size:9px;font-weight:700;color:#999;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:2px">📈 Email Volume · 30 วันล่าสุด</div>
+      <div id="volume-sparkline" style="height:36px"></div>
+      <div id="next-holiday-line" style="font-size:9px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+    </div>
   </div>
 </div>
 
 <div id="content">
-  <!-- left column: account summary table + calendar heatmap -->
+  <!-- left column: account summary table (Email Volume moved to the mode bar, above) -->
   <div id="left-col">
     <!-- Account summary table -->
-    <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden;margin-bottom:12px">
+    <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
       <div style="background:#1a73e8;color:white;padding:10px 14px;text-align:left">
         <div style="font-weight:700;font-size:13px">📬 Accounts</div>
         <!-- Same 🔴 LIVE / 🔍 FILTER split as the Dashboard header — these
@@ -110,13 +118,6 @@
           <tr><td colspan="4" style="padding:16px;text-align:center;color:#aaa">กำลังโหลด…</td></tr>
         </tbody>
       </table>
-    </div>
-
-    <!-- Calendar heatmap — next/current important day shown below the grid -->
-    <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
-      <div style="background:#1a73e8;color:white;padding:10px 14px;font-weight:700;font-size:13px">📅 Email Volume</div>
-      <div id="heatmap-container" style="padding:14px 16px"></div>
-      <div id="next-holiday-line" style="padding:0 16px 14px;font-size:11px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     </div>
   </div>
 
@@ -1197,157 +1198,87 @@ function renderNextHolidayLine() {
   el.textContent = `🗓 วันสำคัญ: ${fmt} — ${name || 'วันหยุด'}`;
 }
 
-// ── Calendar Heatmap ──────────────────────────────────────────
+// ── Email Volume sparkline — rolling 30 days, replaces the old month-grid
+// calendar heatmap (moved up to sit on the same line as the mode switcher). ──
 let _heatData = {};   // { 'YYYY-MM-DD': count }
 let _heatHolidays = new Map(); // 'YYYY-MM-DD' -> name
-let _heatYear = new Date().getFullYear();
-let _heatMonth = new Date().getMonth(); // 0-based
+const SPARKLINE_DAYS = 30;
 
-// Same 42-cell window renderHeatmap() draws — computed once so the fetch
-// only asks the backend for the snapshots it's actually about to display.
-function heatmapGridBounds(year, month) {
+function sparklineRange() {
   const pad = n => String(n).padStart(2,'0');
-  const toStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  const startOffset = new Date(year, month, 1).getDay();
-  const gridStart = new Date(year, month, 1 - startOffset);
-  const gridEnd = new Date(year, month, 1 - startOffset + 41);
-  return { from: toStr(gridStart), to: toStr(gridEnd) };
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - (SPARKLINE_DAYS - 1));
+  return { from: ymd(from), to: ymd(to) };
 }
 
-async function loadHeatmap(year = _heatYear, month = _heatMonth) {
+async function loadHeatmap() {
   try {
-    const { from, to } = heatmapGridBounds(year, month);
+    const { from, to } = sparklineRange();
     const res = await fetch(`/api/digest/heatmap?from=${from}&to=${to}`);
     if (!res.ok) return;
     const data = await res.json();
-    Object.assign(_heatData, data.daily || {}); // merge — keep previously-viewed months cached
+    _heatData = data.daily || {};
     _heatHolidays = new Map((data.holidays || []).map(h => {
       // entries are {date, name} (calendar sync) or a plain string (manual
       // legacy entry, no name); normalize: MM-DD -> prefix with current year
       const raw = typeof h === 'string' ? h : h.date;
       const name = typeof h === 'string' ? '' : (h.name || '');
-      const date = raw.length === 5 ? _heatYear + '-' + raw : raw;
+      const date = raw.length === 5 ? new Date().getFullYear() + '-' + raw : raw;
       return [date, name];
     }));
     renderNextHolidayLine();
-    renderHeatmap();
+    renderVolumeSparkline();
   } catch(e) { console.error('heatmap error', e); }
 }
 
-// Four clearly-distinct hues instead of a green gradient (adjacent tiers on
-// a same-color scale were hard to tell apart at a glance).
-// Yellow→orange→red for the low/mid tiers (ColorBrewer YlOrRd), then a
-// deliberate break to blue/red for the top two — 80-100 and 100+ are rare,
-// high-volume days worth flagging distinctly rather than just "a bit darker".
-function heatColor(count) {
-  if (count < 20)  return { bg: '#ffffb2', text: '#1a1a1a' }; // 0-20
-  if (count < 40)  return { bg: '#fecc5c', text: '#1a1a1a' }; // 20-40
-  if (count < 60)  return { bg: '#fd8d3c', text: '#1a1a1a' }; // 40-60
-  if (count < 80)  return { bg: '#f03b20', text: 'white' };   // 60-80
-  if (count < 100) return { bg: '#1565c0', text: 'white' };   // 80-100
-  return           { bg: '#b71c1c', text: 'white' };          // 100+
-}
+// Plain SVG line chart, no library — viewBox sized to the container's actual
+// pixel width (not a fixed number) so the line/dots render at 1:1 scale
+// instead of getting stretched into ellipses by a mismatched aspect ratio.
+function renderVolumeSparkline() {
+  const el = document.getElementById('volume-sparkline');
+  if (!el) return;
 
-function renderHeatmap() {
-  const container = document.getElementById('heatmap-container');
-  if (!container) return;
-
-  const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const DAYS_EN = ['S','M','T','W','T','F','S'];
-
-  const year = _heatYear, month = _heatMonth;
-  const today = new Date();
   const pad = n => String(n).padStart(2,'0');
-  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
-  function toDateStr(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
-
-  const firstOfMonth = new Date(year, month, 1);
-  const startOffset = firstOfMonth.getDay();
-  const gridStart = new Date(year, month, 1 - startOffset);
-
-  let html = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:0 2px">
-      <span style="font-size:15px;font-weight:700;color:#1a1a1a">${MONTHS_EN[month]} ${year}</span>
-      <div style="display:flex;gap:2px">
-        <button onclick="heatmapPrev()" style="background:none;border:1px solid #e0e0e0;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;color:#555;display:flex;align-items:center;justify-content:center">&#8249;</button>
-        <button onclick="heatmapNext()" style="background:none;border:1px solid #e0e0e0;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;color:#555;display:flex;align-items:center;justify-content:center">&#8250;</button>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:6px">`;
-  DAYS_EN.forEach(d => {
-    html += `<div style="text-align:center;font-size:11px;font-weight:600;color:#aaa;padding:3px 0">${d}</div>`;
-  });
-  html += '</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">';
-
-  for (let i = 0; i < 42; i++) {
-    const cur = new Date(gridStart);
-    cur.setDate(gridStart.getDate() + i);
-    const dateStr = toDateStr(cur);
-    const isCurrentMonth = cur.getMonth() === month;
-    const count = _heatData[dateStr] || 0;
-    const holidayName = isCurrentMonth ? _heatHolidays.get(dateStr) : undefined;
-    const isHoliday = holidayName !== undefined;
-    const isToday = dateStr === todayStr;
-
-    // Volume fills the whole cell now (was a tiny dot) — holiday/today are
-    // layered on top as a border ring so both signals stay visible together.
-    let cellBg = 'transparent', textColor = isCurrentMonth ? '#ccc' : '#ddd', fontWeight = '400', border = 'none';
-
-    if (isCurrentMonth) {
-      const heat = heatColor(count);
-      cellBg = heat.bg;
-      textColor = heat.text;
-    }
-    if (isToday) {
-      border = '2px solid #1a73e8'; fontWeight = '700';
-    } else if (isHoliday) {
-      border = '2px solid #e53935'; fontWeight = '600';
-    }
-
-    const tooltip = (isHoliday ? (holidayName || 'วันหยุด') + ' • ' : '') + (isCurrentMonth ? count + ' email' : '') + '\n' + dateStr;
-    html += `<div title="${tooltip}" style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;border-radius:8px;background:${cellBg};border:${border};box-sizing:border-box;cursor:default">
-      <span style="font-size:13px;font-weight:${fontWeight};color:${textColor};line-height:1">${cur.getDate()}</span>
-    </div>`;
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const today = new Date();
+  const points = [];
+  for (let i = SPARKLINE_DAYS - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = ymd(d);
+    points.push({ date: dateStr, count: _heatData[dateStr] || 0, isToday: i === 0, holiday: _heatHolidays.get(dateStr) });
   }
-  html += '</div>';
 
-  // legend — actual email-count range per color tier, not just "low/high".
-  // Two rows: color-fill tiers (Volume), then the border-ring markers
-  // (Today/วันสำคัญ) on their own line underneath — different visual
-  // language (fill vs. ring), so they read better apart than crammed
-  // into one wrapping row.
-  html += `<div style="margin-top:12px;font-size:10px;color:#888">
-    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
-      <span>Volume:</span>
-      <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#ffffb2;display:inline-block"></span>0–20</span>
-      <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#fecc5c;display:inline-block"></span>20–40</span>
-      <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#fd8d3c;display:inline-block"></span>40–60</span>
-      <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#f03b20;display:inline-block"></span>60–80</span>
-      <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#1565c0;display:inline-block"></span>80–100</span>
-      <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#b71c1c;display:inline-block"></span>100+</span>
-    </div>
-    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:6px">
-      <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:2px;background:#ebedf0;border:2px solid #1a73e8;display:inline-block"></span>วันนี้</span>
-      <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:2px;background:#ebedf0;border:2px solid #e53935;display:inline-block"></span>วันสำคัญ</span>
-    </div>
-  </div>`;
+  const W = el.clientWidth || 400, H = 36, PAD_X = 5, PAD_Y = 5;
+  const maxCount = Math.max(1, ...points.map(p => p.count));
+  const stepX = points.length > 1 ? (W - PAD_X * 2) / (points.length - 1) : 0;
+  const x = i => PAD_X + i * stepX;
+  const y = c => H - PAD_Y - (c / maxCount) * (H - PAD_Y * 2);
 
-  container.innerHTML = html;
+  const linePoints = points.map((p, i) => `${x(i)},${y(p.count)}`).join(' ');
+  const areaPoints = `${x(0)},${H} ${linePoints} ${x(points.length - 1)},${H}`;
+
+  const marks = points.map((p, i) => {
+    const tooltip = `${p.date}: ${p.count} email` + (p.holiday ? ` — ${p.holiday}` : '') + (p.isToday ? ' (วันนี้)' : '');
+    if (p.isToday) {
+      return `<circle cx="${x(i)}" cy="${y(p.count)}" r="3.5" fill="#1a73e8" stroke="white" stroke-width="1.2"><title>${tooltip}</title></circle>`;
+    }
+    if (p.holiday) {
+      return `<circle cx="${x(i)}" cy="${H - 2}" r="2" fill="#e53935"><title>${tooltip}</title></circle>`
+           + `<circle cx="${x(i)}" cy="${y(p.count)}" r="7" fill="transparent"><title>${tooltip}</title></circle>`;
+    }
+    return `<circle cx="${x(i)}" cy="${y(p.count)}" r="7" fill="transparent"><title>${tooltip}</title></circle>`;
+  }).join('');
+
+  el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block">
+    <polygon points="${areaPoints}" fill="#1a73e8" opacity="0.08"></polygon>
+    <polyline points="${linePoints}" fill="none" stroke="#1a73e8" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"></polyline>
+    ${marks}
+  </svg>`;
 }
-
-async function heatmapPrev() {
-  _heatMonth--;
-  if (_heatMonth < 0) { _heatMonth = 11; _heatYear--; }
-  renderHeatmap(); // paint immediately with whatever's cached, counts fill in after fetch
-  await loadHeatmap();
-}
-async function heatmapNext() {
-  _heatMonth++;
-  if (_heatMonth > 11) { _heatMonth = 0; _heatYear++; }
-  renderHeatmap();
-  await loadHeatmap();
-}
-
+window.addEventListener('resize', renderVolumeSparkline);
 // Sync the mode UI (date-range visibility, dropdown values) to the default
 // 'live' state — renderDashboard()/renderAccountTable() themselves run once
 // real data loads via loadLive() below, so this is just the static setup.
