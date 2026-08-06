@@ -141,6 +141,7 @@ router.post('/api/digest/live', async (req, res) => {
 
 // GET /api/digest/live — return live unread counts + emails filtered by logged-in user
 router.get('/api/digest/live', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
   try {
     const data = await drive.readFile(LIVE_FILENAME);
     if (!data) return res.json({ counts: {}, updatedAt: null });

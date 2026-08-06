@@ -27,6 +27,7 @@ app.use(requireAuth.optionalAuth);
 app.post('/api/digest', digestRoutes);
 app.get('/api/digest/debug', digestRoutes);
 app.post('/api/digest/live', digestRoutes);
+app.get('/api/digest/live', digestRoutes);
 app.get('/api/digest/training-rules', digestRoutes);
 app.post('/api/digest/train', digestRoutes);
 app.get('/api/digest/holidays', digestRoutes);
