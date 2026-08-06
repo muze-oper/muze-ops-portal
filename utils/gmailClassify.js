@@ -36,10 +36,22 @@ function classify(subject, snippet, from, rules) {
   return 'mustRead';
 }
 
+// Must be Bangkok-explicit, not host-local Date getters — this runs on the
+// portal's Vercel server (UTC), not the requester's machine, so d.getDate()/
+// d.getHours() would silently shift every timestamp by 7 hours and, for
+// anything before 07:00 Bangkok, onto the wrong calendar day entirely
+// (confirmed: a message correctly filtered into a requested date range still
+// displayed one calendar day earlier than the range's own start date).
 function formatDate(dateStr) {
   const d = new Date(dateStr);
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${String(d.getDate()).padStart(2,'0')}${months[d.getMonth()]}${String(d.getFullYear()).slice(-2)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Bangkok', year: '2-digit', month: 'numeric', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+  const p = Object.fromEntries(fmt.formatToParts(d).map(x => [x.type, x.value]));
+  const hour = p.hour === '24' ? '00' : p.hour;
+  return `${p.day}${months[+p.month - 1]}${p.year} ${hour}:${p.minute}`;
 }
 
 // Bangkok timezone helpers — see live.js for the full rationale (Gmail's own
