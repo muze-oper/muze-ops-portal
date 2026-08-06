@@ -139,16 +139,6 @@
     .tool-card--non { flex: 1; min-height: 0; display: flex; align-items: center; gap: 10px; background: rgba(185,140,255,.1); border: 2px solid #b98cff; }
     .tool-card--non:hover { background: rgba(185,140,255,.2); transform: translateY(-1px); }
 
-    /* Toast */
-    .toast {
-      position: fixed; right: 28px; bottom: 22px; display: none; align-items: center; gap: 10px;
-      padding: 11px 16px; background: rgba(4,18,46,.95); border: 1px solid #2f7dff; color: #eaf2ff;
-      border-radius: 24px; box-shadow: 0 14px 34px rgba(0,0,0,.5); font-size: 11px; font-weight: 600;
-      letter-spacing: .12em; text-transform: uppercase;
-    }
-    .toast.visible { display: flex; }
-    .toast-dot { width: 7px; height: 7px; border-radius: 50%; background: #4fe0c0; }
-
     @media (max-width: 1100px) {
       .shell { height: auto; min-height: 100vh; overflow: visible; }
       main { grid-template-columns: 1fr; }
@@ -196,14 +186,14 @@
               <span class="project-count">02</span>
             </div>
             <div class="project-body">
-              <a href="https://script.google.com/a/macros/muze.co.th/s/AKfycbx9s2HgME47aT6I9k02TbyLkirSmxM8EWv49qgo8SW7Y2E3iE6ds_U7LVdwdOUBE0cDWg/exec" target="_blank" rel="noopener" class="tool-card tool-card--tvn" data-card="tvn">
+              <a href="https://script.google.com/a/macros/muze.co.th/s/AKfycbwPc1DfCOObcz_XgHQvGte9G2iUktpVZ7z8W3KikjEpvmSGHs_Pga9U7qFrAmm2fjEE0A/exec" target="_blank" rel="noopener" class="tool-card tool-card--tvn" data-card="tvn">
                 <span class="icon-tile icon-tile--tvn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg></span>
                 <span class="tool-text">
                   <span class="tool-title">TVN Case Monitoring</span>
                   <span class="tool-meta" data-meta="tvn"></span>
                 </span>
               </a>
-              <a href="#" class="tool-card tool-card--tvn" data-card="tvs-kb" data-toast="TVS Error Code KB">
+              <a href="/tvs-error-code-kb" target="_blank" rel="noopener" class="tool-card tool-card--tvn" data-card="tvs-kb">
                 <span class="icon-tile icon-tile--tvn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></span>
                 <span class="tool-text">
                   <span class="tool-title">TVS Error Code KB</span>
@@ -320,11 +310,6 @@
         </section>
       </div>
     </main>
-
-    <div class="toast" id="toast">
-      <span class="toast-dot"></span>
-      <span id="toast-label"></span>
-    </div>
   </div>
 
   <script>
@@ -366,20 +351,6 @@
         });
       })
       .catch(() => {});
-
-    // Cards with a known real destination just navigate normally. Cards with
-    // no real destination yet (data-toast) show a placeholder toast instead.
-    let toastTimer;
-    document.querySelectorAll('[data-toast]').forEach(card => {
-      card.addEventListener('click', e => {
-        e.preventDefault();
-        const toast = document.getElementById('toast');
-        document.getElementById('toast-label').textContent = `Opening ${card.dataset.toast}`;
-        toast.classList.add('visible');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.remove('visible'), 1800);
-      });
-    });
   </script>
 </body>
 </html>
