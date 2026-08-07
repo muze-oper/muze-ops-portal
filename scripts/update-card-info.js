@@ -19,6 +19,7 @@ const GIT_BACKED_CARDS = {
   'nissan-mn': ['routes/nissanMn.js', 'public/mtscs.html'],
   'ktc-chat': ['routes/ktcChat.js', 'public/ktc-chat.html', 'services/jiraKtc.js', 'services/ktcHandoverSearch.js', 'data/ktc-handover.md'],
   'tvs-kb': ['routes/kb.js', 'public/tvs-error-code-kb.html'],
+  tdg: ['apps-script/muze-tdg-dashboard'],
 };
 
 function lastCommitDate(files) {
