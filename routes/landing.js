@@ -15,10 +15,41 @@ function bangkokDayPrefix(date) {
   return `${String(p.day).padStart(2, '0')}${months[p.month - 1]}${String(p.year).slice(-2)}`;
 }
 
-// Pulls together "what's new/urgent" for the landing page's hot-issues
-// summary. Only sources with real per-item dates are included:
+// Reformats digest.js's "06Aug26 14:30" into "6 Aug 2026" for display.
+function formatDigestDateLabel(dateStr) {
+  const m = /^(\d{2})([A-Za-z]{3})(\d{2})/.exec(dateStr || '');
+  return m ? `${+m[1]} ${m[2]} 20${m[3]}` : (dateStr || '');
+}
+
+function formatKtcDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Jira's real status names, mapped to the Thai badge labels ops actually
+// think in. Anything not listed falls back to showing the raw status name -
+// no fabricated status, just an unstyled badge.
+const JIRA_STATUS_BADGE = {
+  'To Do': { label: 'รอตอบ', tone: 'yellow' },
+  'Open': { label: 'รอตอบ', tone: 'yellow' },
+  'Waiting for support': { label: 'รอตอบ', tone: 'yellow' },
+  'In Progress': { label: 'กำลังดำเนินการ', tone: 'blue' },
+  'Escalated': { label: 'กำลังดำเนินการ', tone: 'blue' },
+};
+function jiraStatusBadge(status) {
+  return JIRA_STATUS_BADGE[status] || { label: status || '-', tone: 'gray' };
+}
+
+function cleanPreview(text, limit = 160) {
+  if (!text) return '';
+  const cleaned = String(text).replace(/\s+/g, ' ').trim();
+  return cleaned.length > limit ? `${cleaned.slice(0, limit)}…` : cleaned;
+}
+
+// Pulls together "what's new/needs attention" for the landing page's
+// hot-issues summary. Only sources with real per-item dates are included:
 // - Email Digest: 🔴 ต้อง Action emails from today/yesterday (Bangkok time)
-// - KTC: Jira tickets created in the last 2 days (real Jira API access)
+// - KTC: still-open Jira tickets created in the last 2 days
 // MTS, Nissan, and TVN are excluded - their data (Google Sheet exports /
 // an external Apps Script) has no per-ticket created/updated date field to
 // filter by "today/yesterday" with, only a month tag embedded in the ticket
@@ -28,40 +59,44 @@ router.get('/api/hot-issues', async (req, res) => {
   const todayPrefix = bangkokDayPrefix(now);
   const yesterdayPrefix = bangkokDayPrefix(new Date(now.getTime() - 24 * 60 * 60 * 1000));
 
-  let digestActionItems = [];
+  const items = [];
+
   try {
     const data = await drive.readFile(DIGEST_LIVE_FILENAME);
     for (const [account, entry] of Object.entries(data?.counts || {})) {
       for (const e of entry?.emails || []) {
         if (e.category !== ACTION_CATEGORY) continue;
         const dayPrefix = (e.date || '').slice(0, 7); // "06Aug26"
-        if (dayPrefix === todayPrefix || dayPrefix === yesterdayPrefix) {
-          digestActionItems.push({ account, subject: e.subject, from: e.from, date: e.date });
-        }
+        if (dayPrefix !== todayPrefix && dayPrefix !== yesterdayPrefix) continue;
+        items.push({
+          source: 'digest', key: null, title: e.subject || '(no subject)',
+          dateLabel: formatDigestDateLabel(e.date), status: { label: 'ต้อง Action', tone: 'red' },
+          meta: account, preview: cleanPreview(e.snippet), replyCount: null,
+        });
       }
     }
   } catch (err) {
     console.error('hot-issues digest fetch failed:', err.message);
   }
 
-  let ktcTickets = [];
   try {
     const issues = await searchRecentTickets(2, 10);
-    ktcTickets = issues.map(i => ({
-      key: i.key,
-      summary: i.fields?.summary || '',
-      status: i.fields?.status?.name || '',
-      created: i.fields?.created || '',
-    }));
+    for (const i of issues) {
+      const f = i.fields || {};
+      const comments = (f.comment && f.comment.comments) || [];
+      const last = comments[comments.length - 1];
+      items.push({
+        source: 'ktc', key: i.key, title: f.summary || '',
+        dateLabel: formatKtcDate(f.created), status: jiraStatusBadge(f.status?.name),
+        meta: f.assignee?.displayName || 'ยังไม่มอบหมาย',
+        preview: last ? cleanPreview(last.body) : '', replyCount: comments.length,
+      });
+    }
   } catch (err) {
     console.error('hot-issues KTC fetch failed:', err.message);
   }
 
-  res.json({
-    digestActionItems,
-    ktcTickets,
-    excludedProjects: ['mtscs', 'nissan-mn', 'tvn'],
-  });
+  res.json({ items, excludedProjects: ['mtscs', 'nissan-mn', 'tvn'] });
 });
 
 // Vercel's serverless functions ship neither .git nor a git binary, so these

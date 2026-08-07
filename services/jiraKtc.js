@@ -8,7 +8,7 @@ const JIRA_SITE = (process.env.JIRA_BASE_URL || 'https://mymuze.atlassian.net').
 const JIRA_API_EMAIL = process.env.JIRA_API_EMAIL;
 const JIRA_API_TOKEN = process.env.JIRA_API_TOKEN;
 const PROJECT_KEY = process.env.JIRA_KTC_PROJECT_KEY || 'KTC';
-const FIELDS = ['summary', 'description', 'comment', 'status', 'created', 'issuetype'];
+const FIELDS = ['summary', 'description', 'comment', 'status', 'created', 'issuetype', 'assignee'];
 
 function authHeader() {
   return `Basic ${Buffer.from(`${JIRA_API_EMAIL}:${JIRA_API_TOKEN}`).toString('base64')}`;
@@ -84,13 +84,14 @@ async function searchKtcCases(question, maxResults = 8) {
   return issues.slice(0, maxResults);
 }
 
-// Recently-created cases for the landing page's hot-issues summary - unlike
-// searchKtcCases this isn't a question match, just "what's new".
+// Recently-created, still-open cases for the landing page's hot-issues
+// summary - unlike searchKtcCases this isn't a question match, just "what
+// still needs attention". Excludes Done since a closed ticket isn't "hot".
 async function searchRecentTickets(days = 2, maxResults = 10) {
   if (!JIRA_API_EMAIL || !JIRA_API_TOKEN) {
     throw new Error('JIRA_API_EMAIL / JIRA_API_TOKEN is not configured');
   }
-  return runSearch(`project = ${PROJECT_KEY} AND created >= -${days}d ORDER BY created DESC`, maxResults);
+  return runSearch(`project = ${PROJECT_KEY} AND created >= -${days}d AND status != Done ORDER BY created DESC`, maxResults);
 }
 
 function cleanText(text, limit = 4000) {

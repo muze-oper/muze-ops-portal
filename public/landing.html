@@ -15,7 +15,7 @@
     :focus-visible { outline: 2px solid #5b5fef; outline-offset: 2px; border-radius: 10px; }
 
     .shell {
-      height: 100vh; min-height: 640px; display: flex; flex-direction: column; overflow: hidden;
+      min-height: 100vh;
       background:
         radial-gradient(1000px 560px at 82% -10%, rgba(91,95,239,.10), transparent 60%),
         radial-gradient(800px 480px at 4% 100%, rgba(79,209,229,.10), transparent 60%),
@@ -23,15 +23,18 @@
     }
 
     /* Header */
-    .app-header { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 24px; height: 58px; padding: 0 28px; background: #fff; border-bottom: 1px solid #e8ebf5; }
+    .app-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 14px 28px; background: #fff; border-bottom: 1px solid #e8ebf5; }
     .brand { display: flex; align-items: center; gap: 14px; }
-    .brand img { display: block; height: 26px; width: auto; }
-    .brand .divider { width: 1px; height: 18px; background: #dfe3f2; }
+    .brand .logo-badge { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; overflow: hidden; background: #04122e; }
+    .brand .logo-badge img { display: block; height: 15px; width: auto; }
+    .brand .divider { width: 1px; height: 28px; background: #dfe3f2; }
     .brand .brand-title { font-size: 17px; font-weight: 700; letter-spacing: -.01em; color: #1c2340; }
+    .brand .brand-subtitle { margin-top: 1px; font-size: 11.5px; color: #8891b0; }
     .header-right { display: flex; align-items: center; gap: 18px; }
-    .sync-line { font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: #8891b0; white-space: nowrap; }
+    .sync-line { text-align: right; font-size: 11px; font-weight: 500; letter-spacing: .05em; color: #8891b0; white-space: nowrap; line-height: 1.5; }
+    .sync-line b { display: block; font-size: 12px; font-weight: 700; letter-spacing: .05em; color: #1c2340; }
     .logout-btn {
-      flex: none; display: flex; align-items: center; gap: 7px; padding: 8px 16px;
+      flex: none; display: flex; align-items: center; gap: 7px; padding: 9px 16px;
       background: #5b5fef; border: none; border-radius: 24px;
       font: 600 13px/1 'Outfit', sans-serif; color: #fff; cursor: pointer; transition: background .16s, transform .16s;
       box-shadow: 0 4px 14px rgba(91,95,239,.35);
@@ -39,42 +42,58 @@
     .logout-btn:hover { background: #4b4fe0; transform: translateY(-1px); }
     .logout-btn:active { transform: translateY(0); }
 
-    /* Hot issues bar */
-    .hot-bar { flex: none; margin: 14px 28px 0; padding: 12px 16px; background: #fff; border-radius: 14px; box-shadow: 0 4px 18px rgba(30,41,89,.07); display: flex; align-items: center; gap: 14px; }
-    .hot-bar .hot-label { flex: none; display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 700; color: #1c2340; white-space: nowrap; }
-    .hot-bar .hot-label .dot { width: 8px; height: 8px; border-radius: 50%; background: #ff5c7a; box-shadow: 0 0 0 3px rgba(255,92,122,.18); }
-    .hot-scroll { flex: 1; min-width: 0; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
-    .hot-scroll::-webkit-scrollbar { display: none; }
-    .hot-chip {
-      flex: none; display: flex; align-items: center; gap: 6px; max-width: 320px; padding: 6px 12px;
-      border-radius: 20px; font-size: 11.5px; font-weight: 600; color: #1c2340; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis;
+    /* Hot issues panel */
+    .hot-panel { margin: 20px 28px 0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(30,41,89,.08); }
+    .hot-panel-head {
+      display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+      background: repeating-linear-gradient(135deg, #fff, #fff 10px, #fbeef1 10px, #fbeef1 20px);
+      border-bottom: 1px solid #f5e3e7;
     }
-    .hot-chip--digest { background: rgba(255,92,122,.1); }
-    .hot-chip--digest .tag { color: #d63b5c; }
-    .hot-chip--ktc { background: rgba(91,95,239,.1); }
-    .hot-chip--ktc .tag { color: #4b4fe0; }
-    .hot-chip .tag { font-weight: 700; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
-    .hot-empty { font-size: 12px; color: #8891b0; }
-    .hot-note { flex: none; font-size: 10.5px; color: #b0b7cf; white-space: nowrap; }
+    .hot-panel-head .hot-label { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; color: #1c2340; white-space: nowrap; }
+    .hot-panel-head .dot { width: 9px; height: 9px; border-radius: 50%; background: #ff5c7a; box-shadow: 0 0 0 4px rgba(255,92,122,.18); }
+    .hot-panel-head .pending-pill { flex: none; padding: 3px 10px; border-radius: 20px; background: #ffe1e8; color: #d63b5c; font-size: 11px; font-weight: 700; }
+    .hot-panel-head .hot-note { flex: 1; text-align: right; font-size: 10.5px; color: #b0b7cf; }
+    .hot-list { display: flex; flex-direction: column; background: #fff; }
+    .hot-item { display: flex; align-items: stretch; gap: 16px; padding: 14px 18px; border-bottom: 1px solid #f0f2fa; }
+    .hot-item:last-child { border-bottom: none; }
+    .hot-metric { flex: none; width: 52px; text-align: center; }
+    .hot-metric .num { font-size: 20px; font-weight: 800; color: #1c2340; line-height: 1; }
+    .hot-metric .label { margin-top: 3px; font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #b0b7cf; }
+    .hot-body { flex: 1; min-width: 0; }
+    .hot-item-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .hot-key { padding: 2px 8px; border-radius: 6px; background: rgba(91,95,239,.12); color: #4b4fe0; font-size: 10.5px; font-weight: 700; }
+    .hot-key--digest { background: rgba(255,92,122,.12); color: #d63b5c; }
+    .hot-date { font-size: 11px; color: #b0b7cf; }
+    .hot-title { font-size: 13.5px; font-weight: 600; color: #1c2340; }
+    .hot-preview { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; padding: 8px 10px; background: #f6f7fc; border-radius: 8px; font-size: 11.5px; color: #6b7396; }
+    .hot-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 8px; }
+    .hot-badge { padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+    .hot-badge--yellow { background: #fff2d6; color: #b9820b; }
+    .hot-badge--blue { background: #dce6ff; color: #3457d5; }
+    .hot-badge--red { background: #ffe1e8; color: #d63b5c; }
+    .hot-badge--gray { background: #eceef4; color: #6b7396; }
+    .hot-assignee { display: flex; align-items: center; gap: 6px; }
+    .hot-avatar { width: 20px; height: 20px; border-radius: 50%; background: #5b5fef; color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .hot-assignee-name { font-size: 11px; font-weight: 600; color: #4b5170; }
+    .hot-empty, .hot-loading { padding: 20px 18px; font-size: 12.5px; color: #8891b0; text-align: center; }
 
     /* Title row */
-    .title-row { flex: none; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 16px 28px 12px; }
+    .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 24px 28px 14px; }
     .title-left { display: flex; align-items: baseline; gap: 16px; }
     .page-title { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.03em; background: linear-gradient(96deg,#5b5fef,#4fd1e5); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .subtitle { margin: 0; font-size: 13.5px; color: #6b7396; }
     .count-meta { font-size: 11.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #8891b0; white-space: nowrap; }
 
     /* Main grid */
-    main { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.46fr 1fr; gap: 20px; padding: 0 28px 20px; }
-    .col-right { min-height: 0; display: grid; grid-template-rows: 1fr 1fr; gap: 20px; }
+    main { display: grid; grid-template-columns: 1.46fr 1fr; gap: 20px; padding: 0 28px 28px; align-items: start; }
+    .col-right { display: grid; gap: 20px; }
 
     /* Category frame */
-    .category { min-height: 0; display: flex; flex-direction: column; border-radius: 16px; background: #fff; overflow: hidden; box-shadow: 0 4px 20px rgba(30,41,89,.07); }
+    .category { display: flex; flex-direction: column; border-radius: 16px; background: #fff; overflow: hidden; box-shadow: 0 4px 20px rgba(30,41,89,.07); }
     .category--individual { border: 1px solid #e3e8fb; }
     .category--all { border: 1px solid #dff5f8; }
-    .category--non { min-height: 0; border: 1px solid #ece5fb; }
-    .category-band { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 16px; }
+    .category--non { border: 1px solid #ece5fb; }
+    .category-band { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; }
     .category--individual .category-band { background: linear-gradient(100deg,#5b5fef,#4653d6); }
     .category--all .category-band { background: linear-gradient(100deg,#22c3dd,#159ab0); }
     .category--non .category-band { background: linear-gradient(100deg,#9a6ef0,#7a4bd8); }
@@ -82,13 +101,13 @@
     .category-caption { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.85); }
 
     /* Individual Project body */
-    .individual-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1.7fr 1fr; gap: 16px; padding: 16px; }
-    .project-frame { min-height: 0; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; }
-    .project-band { flex: none; display: flex; align-items: center; gap: 10px; padding: 7px 9px; }
+    .individual-body { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; }
+    .project-frame { display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; }
+    .project-band { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
     .monogram { flex: none; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: #fff; font-size: 11px; font-weight: 800; box-shadow: 0 1px 3px rgba(30,41,89,.15); }
     .project-name { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .project-count { font-size: 11px; font-weight: 700; }
-    .project-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 9px; }
+    .project-body { display: flex; flex-direction: column; gap: 8px; padding: 9px; }
 
     .project-frame--tvn { background: rgba(34,195,221,.08); border: 1px solid rgba(34,195,221,.3); }
     .project-frame--tvn .project-band { background: rgba(34,195,221,.16); }
@@ -116,7 +135,7 @@
 
     /* Tool card */
     .tool-card {
-      flex: 1; min-height: 0; display: flex; align-items: center; gap: 9px; padding: 8px 10px;
+      display: flex; align-items: center; gap: 9px; padding: 10px 12px;
       background: #fff; border: 1px solid #eceef8; border-radius: 9px; color: #1c2340;
       transition: box-shadow .16s, border-color .16s, transform .16s; cursor: pointer;
       box-shadow: 0 1px 2px rgba(30,41,89,.05);
@@ -144,23 +163,24 @@
 
     /* All Project / Non Project standalone cards */
     .tool-card--standalone { border-radius: 12px; padding: 9px 11px; transition: box-shadow .16s, transform .16s; }
-    .all-project-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px; }
-    .all-project-card { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 13px 16px; background: rgba(34,195,221,.06); border: 1px solid rgba(34,195,221,.3); border-radius: 12px; color: #1c2340; transition: box-shadow .16s, transform .16s; }
+    .all-project-body { padding: 16px; }
+    .all-project-card { display: flex; flex-direction: column; gap: 12px; padding: 13px 16px; background: rgba(34,195,221,.06); border: 1px solid rgba(34,195,221,.3); border-radius: 12px; color: #1c2340; transition: box-shadow .16s, transform .16s; }
     .all-project-card:hover { box-shadow: 0 6px 18px rgba(34,195,221,.18); transform: translateY(-1px); }
     .all-project-card .row { display: flex; align-items: center; gap: 10px; }
     .all-project-title { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1c2340; }
+    .all-project-desc { margin: 0; font-size: 11.5px; color: #6b7396; }
     .pill-row { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 10px; border-top: 1px solid rgba(28,35,64,.08); }
     .pill { padding: 5px 11px; border: 1px solid rgba(28,35,64,.14); border-radius: 20px; font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #4b5170; }
     a.pill:hover { color: #4b4fe0; border-color: #4b4fe0; }
 
-    .non-project-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; padding: 16px; }
-    .tool-card--non { flex: 1; min-height: 0; display: flex; align-items: center; gap: 10px; background: rgba(154,110,240,.06); border: 1px solid rgba(154,110,240,.3); }
+    .non-project-body { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
+    .tool-card--non { display: flex; align-items: center; gap: 10px; background: rgba(154,110,240,.06); border: 1px solid rgba(154,110,240,.3); }
     .tool-card--non:hover { box-shadow: 0 6px 18px rgba(154,110,240,.18); transform: translateY(-1px); }
 
     @media (max-width: 1100px) {
-      .shell { height: auto; min-height: 100vh; overflow: visible; }
       main { grid-template-columns: 1fr; }
-      .individual-body { grid-template-columns: 1fr; grid-template-rows: none; }
+      .individual-body { grid-template-columns: 1fr; }
+      .hot-item { flex-wrap: wrap; }
     }
   </style>
 </head>
@@ -168,9 +188,12 @@
   <div class="shell">
     <header class="app-header">
       <div class="brand">
-        <img src="/muze-mark-blue.png" alt="Muze">
+        <span class="logo-badge"><img src="/assets/muze-logo.png" alt="Muze"></span>
         <span class="divider"></span>
-        <span class="brand-title">Tech Ops Portal</span>
+        <div>
+          <div class="brand-title">Tech Ops Portal</div>
+          <div class="brand-subtitle">Internal Console · Muze Innovation</div>
+        </div>
       </div>
       <div class="header-right">
         <span class="sync-line" id="sync-line"></span>
@@ -181,12 +204,15 @@
       </div>
     </header>
 
-    <div class="hot-bar">
-      <span class="hot-label"><span class="dot"></span>ประเด็นด่วนวันนี้/เมื่อวาน</span>
-      <div class="hot-scroll" id="hot-scroll">
-        <span class="hot-empty">กำลังโหลด...</span>
+    <div class="hot-panel">
+      <div class="hot-panel-head">
+        <span class="hot-label"><span class="dot"></span>ประเด็นด่วนวันนี้ / เมื่อวาน</span>
+        <span class="pending-pill" id="pending-pill" style="display:none"></span>
+        <span class="hot-note">ยังไม่รวม MTS / Nissan / TVN (ไม่มีข้อมูลวันที่รายเคส)</span>
       </div>
-      <span class="hot-note">ยังไม่รวม MTS / Nissan / TVN (ไม่มีข้อมูลวันที่รายเคส)</span>
+      <div class="hot-list" id="hot-list">
+        <div class="hot-loading">กำลังโหลด...</div>
+      </div>
     </div>
 
     <div class="title-row">
@@ -302,6 +328,7 @@
                 <span class="icon-tile icon-tile--lg icon-tile--all"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg></span>
                 <a href="/mtscs" class="all-project-title">Customer Support Dashboards</a>
               </div>
+              <p class="all-project-desc">แดชบอร์ดตกทุกโปรเจกต์ในมุมมองเดียว</p>
               <div class="pill-row">
                 <a href="/mtscs" class="pill">MTS</a>
                 <a href="/mtscs?tab=nissan" class="pill">Nissan</a>
@@ -358,17 +385,16 @@
     fetch('/api/last-updated')
       .then(r => r.json())
       .then(({ author, date }) => {
-        if (!author && !date) return;
         const el = document.getElementById('sync-line');
-        if (!date) { el.textContent = author ? `Synced by ${author}` : ''; return; }
+        if (!author && !date) { el.style.display = 'none'; return; }
+        if (!date) { el.innerHTML = author ? `<b>${escapeHtml(author)}</b>` : ''; return; }
         const d = new Date(date);
         const day = d.getDate();
         const month = d.toLocaleDateString('en-GB', { month: 'short' });
         const year = d.getFullYear() + 543;
         const hh = String(d.getHours()).padStart(2, '0');
         const mm = String(d.getMinutes()).padStart(2, '0');
-        const parts = [`Synced ${day} ${month} ${year}`, `${hh}:${mm}`, author].filter(Boolean);
-        el.textContent = parts.join(' · ');
+        el.innerHTML = `Synced ${day} ${month} ${year} · ${hh}:${mm}<b>${escapeHtml(author || '')}</b>`;
       })
       .catch(() => {});
 
@@ -382,20 +408,49 @@
       })
       .catch(() => {});
 
+    function hotItemHtml(item) {
+      const keyClass = item.source === 'digest' ? 'hot-key hot-key--digest' : 'hot-key';
+      const keyLabel = item.key || 'DIGEST';
+      const metric = item.replyCount != null
+        ? `<div class="hot-metric"><div class="num">${item.replyCount}</div><div class="label">Reply</div></div>`
+        : `<div class="hot-metric"><div class="num">✉</div><div class="label">Email</div></div>`;
+      const preview = item.preview
+        ? `<div class="hot-preview">↳ ${escapeHtml(item.preview)}</div>`
+        : '';
+      const initial = (item.meta || '?').trim().charAt(0).toUpperCase();
+      return `
+        <div class="hot-item">
+          ${metric}
+          <div class="hot-body">
+            <div class="hot-item-top">
+              <span class="${keyClass}">${escapeHtml(keyLabel)}</span>
+              <span class="hot-date">${escapeHtml(item.dateLabel || '')}</span>
+            </div>
+            <div class="hot-title">${escapeHtml(item.title || '')}</div>
+            ${preview}
+          </div>
+          <div class="hot-side">
+            <span class="hot-badge hot-badge--${item.status?.tone || 'gray'}">${escapeHtml(item.status?.label || '-')}</span>
+            <span class="hot-assignee"><span class="hot-avatar">${escapeHtml(initial)}</span><span class="hot-assignee-name">${escapeHtml(item.meta || '')}</span></span>
+          </div>
+        </div>`;
+    }
+
     fetch('/api/hot-issues')
       .then(r => r.json())
-      .then(({ digestActionItems = [], ktcTickets = [] }) => {
-        const scroll = document.getElementById('hot-scroll');
-        const chips = [
-          ...digestActionItems.map(e => `<span class="hot-chip hot-chip--digest"><span class="tag">Digest</span> ${escapeHtml(e.subject || '(no subject)')}</span>`),
-          ...ktcTickets.map(t => `<span class="hot-chip hot-chip--ktc"><span class="tag">KTC</span> ${escapeHtml(t.key)}: ${escapeHtml(t.summary || '')}</span>`),
-        ];
-        scroll.innerHTML = chips.length
-          ? chips.join('')
-          : '<span class="hot-empty">ไม่มีประเด็นด่วนวันนี้/เมื่อวาน 🎉</span>';
+      .then(({ items = [] }) => {
+        const list = document.getElementById('hot-list');
+        const pill = document.getElementById('pending-pill');
+        if (items.length) {
+          pill.textContent = `${items.length} กระทู้ค้าง`;
+          pill.style.display = '';
+          list.innerHTML = items.map(hotItemHtml).join('');
+        } else {
+          list.innerHTML = '<div class="hot-empty">ไม่มีประเด็นด่วนวันนี้/เมื่อวาน 🎉</div>';
+        }
       })
       .catch(() => {
-        document.getElementById('hot-scroll').innerHTML = '<span class="hot-empty">โหลดข้อมูลไม่สำเร็จ</span>';
+        document.getElementById('hot-list').innerHTML = '<div class="hot-empty">โหลดข้อมูลไม่สำเร็จ</div>';
       });
   </script>
 </body>
