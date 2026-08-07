@@ -54,23 +54,22 @@
     .hot-panel-head .pending-pill { flex: none; padding: 3px 10px; border-radius: 20px; background: #ffe1e8; color: #d63b5c; font-size: 11px; font-weight: 700; }
     .hot-panel-head .hot-note { flex: 0 0 100%; font-size: 10px; color: #b0b7cf; }
     .hot-list { display: flex; flex-direction: column; background: #fff; }
-    .hot-item { padding: 12px 16px; border-bottom: 1px solid #f0f2fa; }
-    .hot-item:last-child { border-bottom: none; }
-    .hot-item-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-    .hot-key { padding: 2px 8px; border-radius: 6px; background: rgba(91,95,239,.12); color: #4b4fe0; font-size: 10.5px; font-weight: 700; }
-    .hot-key--digest { background: rgba(255,92,122,.12); color: #d63b5c; }
-    .hot-date { font-size: 10.5px; color: #b0b7cf; white-space: nowrap; }
-    .hot-title { font-size: 13px; font-weight: 600; color: #1c2340; }
-    .hot-preview { display: flex; align-items: flex-start; gap: 6px; margin-top: 6px; padding: 7px 9px; background: #f6f7fc; border-radius: 8px; font-size: 11px; color: #6b7396; }
-    .hot-item-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
-    .hot-badge { padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+    .hot-group { padding: 12px 16px; border-bottom: 1px solid #f0f2fa; }
+    .hot-group:last-child { border-bottom: none; }
+    .hot-group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .hot-group-name { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #4b5170; }
+    .hot-group-count { padding: 1px 7px; border-radius: 10px; background: #eceef4; color: #6b7396; font-size: 10px; font-weight: 700; }
+    .hot-bullets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .hot-bullet { display: flex; align-items: center; gap: 7px; }
+    .hot-bullet-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: #b0b7cf; }
+    .hot-bullet-text { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: #1c2340; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hot-bullet-date { flex: none; font-size: 10px; color: #b0b7cf; white-space: nowrap; }
+    .hot-group-more { margin-top: 6px; padding-left: 12px; font-size: 10.5px; color: #8891b0; }
+    .hot-badge { flex: none; padding: 2px 8px; border-radius: 20px; font-size: 9.5px; font-weight: 700; white-space: nowrap; }
     .hot-badge--yellow { background: #fff2d6; color: #b9820b; }
     .hot-badge--blue { background: #dce6ff; color: #3457d5; }
     .hot-badge--red { background: #ffe1e8; color: #d63b5c; }
     .hot-badge--gray { background: #eceef4; color: #6b7396; }
-    .hot-assignee { display: flex; align-items: center; gap: 6px; min-width: 0; }
-    .hot-avatar { flex: none; width: 18px; height: 18px; border-radius: 50%; background: #5b5fef; color: #fff; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-    .hot-assignee-name { font-size: 10.5px; font-weight: 600; color: #4b5170; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .hot-empty, .hot-loading { padding: 20px 16px; font-size: 12.5px; color: #8891b0; text-align: center; }
 
     /* Title row */
@@ -416,28 +415,33 @@
       })
       .catch(() => {});
 
-    function hotItemHtml(item) {
-      const keyClass = item.source === 'digest' ? 'hot-key hot-key--digest' : 'hot-key';
-      const keyLabel = item.key || 'DIGEST';
-      const dateText = item.replyCount != null
-        ? `${item.dateLabel || ''} · ${item.replyCount} replies`
-        : (item.dateLabel || '');
-      const preview = item.preview
-        ? `<div class="hot-preview">↳ ${escapeHtml(item.preview)}</div>`
-        : '';
-      const initial = (item.meta || '?').trim().charAt(0).toUpperCase();
+    const MAX_BULLETS_PER_PROJECT = 5;
+
+    function hotBulletHtml(item) {
+      const badgeClass = `hot-badge hot-badge--${item.status?.tone || 'gray'}`;
+      const countText = item.replyCount != null ? ` · ${item.replyCount} replies` : '';
       return `
-        <div class="hot-item">
-          <div class="hot-item-top">
-            <span class="${keyClass}">${escapeHtml(keyLabel)}</span>
-            <span class="hot-date">${escapeHtml(dateText)}</span>
+        <li class="hot-bullet">
+          <span class="hot-bullet-dot"></span>
+          <span class="hot-bullet-text">${escapeHtml(item.title || '')}</span>
+          <span class="${badgeClass}">${escapeHtml(item.status?.label || '-')}</span>
+          <span class="hot-bullet-date">${escapeHtml(item.dateLabel || '')}${escapeHtml(countText)}</span>
+        </li>`;
+    }
+
+    function hotGroupHtml(project, groupItems) {
+      const sorted = [...groupItems].sort((a, b) => (b.sortKey || '').localeCompare(a.sortKey || ''));
+      const shown = sorted.slice(0, MAX_BULLETS_PER_PROJECT);
+      const hiddenCount = sorted.length - shown.length;
+      const more = hiddenCount > 0 ? `<div class="hot-group-more">+${hiddenCount} เพิ่มเติม</div>` : '';
+      return `
+        <div class="hot-group">
+          <div class="hot-group-head">
+            <span class="hot-group-name">${escapeHtml(project)}</span>
+            <span class="hot-group-count">${sorted.length}</span>
           </div>
-          <div class="hot-title">${escapeHtml(item.title || '')}</div>
-          ${preview}
-          <div class="hot-item-foot">
-            <span class="hot-badge hot-badge--${item.status?.tone || 'gray'}">${escapeHtml(item.status?.label || '-')}</span>
-            <span class="hot-assignee"><span class="hot-avatar">${escapeHtml(initial)}</span><span class="hot-assignee-name">${escapeHtml(item.meta || '')}</span></span>
-          </div>
+          <ul class="hot-bullets">${shown.map(hotBulletHtml).join('')}</ul>
+          ${more}
         </div>`;
     }
 
@@ -449,7 +453,14 @@
         if (items.length) {
           pill.textContent = `${items.length} กระทู้ค้าง`;
           pill.style.display = '';
-          list.innerHTML = items.map(hotItemHtml).join('');
+          const byProject = {};
+          items.forEach(item => {
+            const key = item.project || 'Other';
+            (byProject[key] = byProject[key] || []).push(item);
+          });
+          list.innerHTML = Object.entries(byProject)
+            .map(([project, groupItems]) => hotGroupHtml(project, groupItems))
+            .join('');
         } else {
           list.innerHTML = '<div class="hot-empty">ไม่มีประเด็นด่วนวันนี้/เมื่อวาน 🎉</div>';
         }

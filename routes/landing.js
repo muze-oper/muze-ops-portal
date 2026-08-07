@@ -46,6 +46,26 @@ function cleanPreview(text, limit = 160) {
   return cleaned.length > limit ? `${cleaned.slice(0, limit)}…` : cleaned;
 }
 
+// Groups a digest email's inbox account under the client project it belongs
+// to. Accounts that don't clearly match a known project (support@,
+// support-mea@) are shown under their own address instead of guessed.
+function projectForAccount(account) {
+  const a = (account || '').toLowerCase();
+  if (a.includes('nissan')) return 'Nissan';
+  if (a.includes('tvn')) return 'TVN';
+  if (a.includes('ktc')) return 'KTC';
+  return account || 'Other';
+}
+
+// Turns digest.js's "06Aug26 14:30" into a real, sortable ISO timestamp
+// (Bangkok is a fixed UTC+7, no DST) - the display label stays separate.
+function digestSortKey(dateStr) {
+  const m = /^(\d{2})([A-Za-z]{3})(\d{2}) (\d{2}):(\d{2})$/.exec(dateStr || '');
+  if (!m) return '';
+  const MONTHS = { Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12' };
+  return `20${m[3]}-${MONTHS[m[2]] || '01'}-${m[1]}T${m[4]}:${m[5]}:00+07:00`;
+}
+
 // Pulls together "what's new/needs attention" for the landing page's
 // hot-issues summary. Only sources with real per-item dates are included:
 // - Email Digest: 🔴 ต้อง Action emails from today/yesterday (Bangkok time)
@@ -72,6 +92,7 @@ router.get('/api/hot-issues', async (req, res) => {
           source: 'digest', key: null, title: e.subject || '(no subject)',
           dateLabel: formatDigestDateLabel(e.date), status: { label: 'ต้อง Action', tone: 'red' },
           meta: account, preview: cleanPreview(e.snippet), replyCount: null,
+          project: projectForAccount(account), sortKey: digestSortKey(e.date),
         });
       }
     }
@@ -90,6 +111,7 @@ router.get('/api/hot-issues', async (req, res) => {
         dateLabel: formatKtcDate(f.created), status: jiraStatusBadge(f.status?.name),
         meta: f.assignee?.displayName || 'ยังไม่มอบหมาย',
         preview: last ? cleanPreview(last.body) : '', replyCount: comments.length,
+        project: 'KTC', sortKey: f.created || '',
       });
     }
   } catch (err) {
