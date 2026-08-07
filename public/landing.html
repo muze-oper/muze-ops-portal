@@ -43,7 +43,7 @@
     .logout-btn:active { transform: translateY(0); }
 
     /* Hot issues panel */
-    .hot-panel { margin: 20px 28px 0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(30,41,89,.08); }
+    .hot-panel { margin: 0 28px 28px; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(30,41,89,.08); }
     .hot-panel-head {
       display: flex; align-items: center; gap: 12px; padding: 14px 18px;
       background: repeating-linear-gradient(135deg, #fff, #fff 10px, #fbeef1 10px, #fbeef1 20px);
@@ -204,17 +204,6 @@
       </div>
     </header>
 
-    <div class="hot-panel">
-      <div class="hot-panel-head">
-        <span class="hot-label"><span class="dot"></span>ประเด็นด่วนวันนี้ / เมื่อวาน</span>
-        <span class="pending-pill" id="pending-pill" style="display:none"></span>
-        <span class="hot-note">ยังไม่รวม MTS / Nissan / TVN (ไม่มีข้อมูลวันที่รายเคส)</span>
-      </div>
-      <div class="hot-list" id="hot-list">
-        <div class="hot-loading">กำลังโหลด...</div>
-      </div>
-    </div>
-
     <div class="title-row">
       <div class="title-left">
         <h1 class="page-title">Workspaces</h1>
@@ -363,6 +352,17 @@
         </section>
       </div>
     </main>
+
+    <div class="hot-panel">
+      <div class="hot-panel-head">
+        <span class="hot-label"><span class="dot"></span>ประเด็นด่วนวันนี้ / เมื่อวาน</span>
+        <span class="pending-pill" id="pending-pill" style="display:none"></span>
+        <span class="hot-note">ยังไม่รวม MTS / Nissan / TVN (ไม่มีข้อมูลวันที่รายเคส)</span>
+      </div>
+      <div class="hot-list" id="hot-list">
+        <div class="hot-loading">กำลังโหลด...</div>
+      </div>
+    </div>
   </div>
 
   <script>
