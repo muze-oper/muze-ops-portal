@@ -84,6 +84,15 @@ async function searchKtcCases(question, maxResults = 8) {
   return issues.slice(0, maxResults);
 }
 
+// Recently-created cases for the landing page's hot-issues summary - unlike
+// searchKtcCases this isn't a question match, just "what's new".
+async function searchRecentTickets(days = 2, maxResults = 10) {
+  if (!JIRA_API_EMAIL || !JIRA_API_TOKEN) {
+    throw new Error('JIRA_API_EMAIL / JIRA_API_TOKEN is not configured');
+  }
+  return runSearch(`project = ${PROJECT_KEY} AND created >= -${days}d ORDER BY created DESC`, maxResults);
+}
+
 function cleanText(text, limit = 4000) {
   if (!text) return '(none)';
   const cleaned = String(text).replace(/\n{3,}/g, '\n\n').trim();
@@ -110,4 +119,4 @@ function formatIssueRaw(issue) {
   return lines.join('\n');
 }
 
-module.exports = { searchKtcCases, formatIssueRaw };
+module.exports = { searchKtcCases, formatIssueRaw, searchRecentTickets };
