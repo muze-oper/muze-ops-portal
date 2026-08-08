@@ -426,7 +426,7 @@ function renderTodoPanel() {
 function projectSubitemsSummary(projectId) {
   const p = projects.find(p => p.id === projectId);
   if (!p || !p.subItems || !p.subItems.length) return '';
-  return p.subItems.map(s => esc(s.text)).join('<br>');
+  return p.subItems.filter(s => !s.done).map(s => esc(s.text)).join('<br>');
 }
 
 function buildSlotRow(slot) {
