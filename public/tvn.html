@@ -45,6 +45,9 @@
     .record-panel button { margin-top: 12px; padding: 7px 18px; border: none; border-radius: 6px; background: #159ab0; color: white; font-size: 12px; font-weight: 600; cursor: pointer; }
     .record-panel button:hover { background: #128296; }
     .record-panel button:disabled { opacity: 0.6; cursor: default; }
+    .record-panel #redo-btn { background: white; color: #159ab0; border: 1px solid #159ab0; margin-left: 8px; }
+    .record-panel #redo-btn:hover:not(:disabled) { background: #f0fbfc; }
+    .record-panel #redo-btn:disabled { color: #aaa; border-color: #ddd; }
     #record-result { white-space: pre-wrap; margin-top: 12px; font-size: 12px; color: #333; }
   </style>
 </head>
@@ -77,6 +80,7 @@
     <div class="hint">คั่นด้วย , หรือ : หรือ tab ก็ได้ — วันที่ต้องสะกดตรงกับคอลัมน์วันที่ในชีตเป๊ะ ๆ</div>
 
     <button id="record-btn" onclick="submitRecord()">บันทึก</button>
+    <button id="redo-btn" onclick="redoLastSubmit()" disabled>↩️ Redo (เอาค่าที่เพิ่งบันทึกกลับมา)</button>
     <div id="record-result"></div>
   </div>
 </div>
@@ -140,6 +144,8 @@ async function load(forceRefresh) {
   }
 }
 
+let lastSubmitted = null; // { platform, entries } from the most recent successful save, for the Redo button
+
 async function submitRecord() {
   const platform = document.getElementById('record-platform').value;
   const entries = document.getElementById('record-entries').value;
@@ -158,6 +164,8 @@ async function submitRecord() {
     if (data.error) throw new Error(data.error);
 
     resultEl.textContent = data.results.join('\n');
+    lastSubmitted = { platform, entries };
+    document.getElementById('redo-btn').disabled = false;
     document.getElementById('record-entries').value = '';
     await load(true); // refresh the table with what was just written
   } catch (err) {
@@ -165,6 +173,16 @@ async function submitRecord() {
   } finally {
     btn.disabled = false;
   }
+}
+
+// Brings back the platform + entries text from the last successful save, in
+// case it needs a correction and re-submitting - submitRecord() clears the
+// textarea on success, so without this the whole batch would need retyping.
+function redoLastSubmit() {
+  if (!lastSubmitted) return;
+  document.getElementById('record-platform').value = lastSubmitted.platform;
+  document.getElementById('record-entries').value = lastSubmitted.entries;
+  document.getElementById('record-result').textContent = '';
 }
 
 load(false);
