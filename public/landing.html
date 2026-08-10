@@ -66,6 +66,32 @@
     .subtitle { margin: 0; font-size: 13.5px; color: #6b7396; }
     .count-meta { font-size: 11.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #8891b0; white-space: nowrap; }
 
+    /* Today's Resource Planning strip */
+    .today-ops { margin: 0 28px 20px; border-radius: 16px; background: #fff; border: 1px solid #eceef8; box-shadow: 0 4px 20px rgba(30,41,89,.07); overflow: hidden; }
+    .today-ops-band { display: flex; align-items: center; gap: 12px; padding: 12px 18px; background: linear-gradient(100deg,#5b5fef,#4653d6); }
+    .today-ops-title { flex: 1; min-width: 0; margin: 0; font-size: 13.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .today-ops-date { flex: none; font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,.85); white-space: nowrap; }
+    .today-ops-link { flex: none; font-size: 11.5px; font-weight: 700; color: #fff; white-space: nowrap; }
+    .today-ops-link:hover { color: #dfe3ff; }
+    .today-ops-rows { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; }
+    .today-ops-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: #f7f8fd; }
+    .today-ops-time { flex: none; width: 88px; font-size: 11px; font-weight: 700; color: #4b5170; white-space: nowrap; }
+    .today-ops-status { flex: none; padding: 2px 8px; border-radius: 20px; font-size: 9px; font-weight: 700; white-space: nowrap; }
+    .today-ops-status--todo { background: #eceef4; color: #6b7396; }
+    .today-ops-status--scoping { background: #dce6ff; color: #3457d5; }
+    .today-ops-status--processing { background: #fff2d6; color: #b9820b; }
+    .today-ops-status--done { background: #d8f7ec; color: #128a6b; }
+    .today-ops-status--ignore { background: #f1f1f6; color: #a7acc4; text-decoration: line-through; }
+    .today-ops-project { flex: none; padding: 2px 9px; border-radius: 20px; font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+    .today-ops-project--tvn { background: rgba(34,195,221,.15); color: #159ab0; }
+    .today-ops-project--ktc { background: rgba(91,95,239,.13); color: #4b4fe0; }
+    .today-ops-project--mts { background: rgba(30,196,150,.15); color: #128a6b; }
+    .today-ops-project--nissan { background: rgba(154,110,240,.15); color: #7a4bd8; }
+    .today-ops-project--other { background: #eceef4; color: #8891b0; }
+    .today-ops-pic { flex: none; width: 52px; font-size: 10.5px; font-weight: 700; color: #6b7396; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .today-ops-topic { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .today-ops-empty { padding: 26px; text-align: center; color: #8891b0; font-size: 12.5px; }
+
     /* Main grid */
     main { display: grid; grid-template-columns: 1.46fr 1fr; gap: 20px; padding: 0 28px 28px; align-items: start; }
     .col-right { display: grid; gap: 20px; }
@@ -194,6 +220,15 @@
       </div>
       <span class="count-meta">4 Projects · 11 Workspaces</span>
     </div>
+
+    <section class="today-ops" id="today-ops">
+      <div class="today-ops-band">
+        <h2 class="today-ops-title">Operation Resource Planning · วันนี้</h2>
+        <span class="today-ops-date" id="today-ops-date"></span>
+        <a href="/resource-planning" class="today-ops-link">แก้ไขทั้งหมด →</a>
+      </div>
+      <div class="today-ops-rows" id="today-ops-rows"><div class="today-ops-empty">กำลังโหลด...</div></div>
+    </section>
 
     <main>
       <section class="category category--individual">
@@ -407,6 +442,39 @@
         });
       })
       .catch(() => {});
+
+    const STATUS_CLASS = { 'To Do': 'todo', 'Scoping': 'scoping', 'Processing': 'processing', 'Done': 'done', 'Ignore': 'ignore' };
+    const PROJECT_CLASS = { TVN: 'tvn', KTC: 'ktc', MTS: 'mts', Nissan: 'nissan' };
+
+    function todayOpsRowHtml(item) {
+      const time = [item.startTime, item.endTime].filter(Boolean).join('–');
+      const statusClass = STATUS_CLASS[item.status] || 'todo';
+      const projectClass = PROJECT_CLASS[item.project] || 'other';
+      const topic = escapeHtml(item.topic || '-');
+      const topicHtml = item.link
+        ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener" class="today-ops-topic">${topic}</a>`
+        : `<span class="today-ops-topic">${topic}</span>`;
+      return `
+        <div class="today-ops-row">
+          <span class="today-ops-time">${escapeHtml(time || '-')}</span>
+          <span class="today-ops-status today-ops-status--${statusClass}">${escapeHtml(item.status || '-')}</span>
+          <span class="today-ops-project today-ops-project--${projectClass}">${escapeHtml(item.project || '-')}</span>
+          <span class="today-ops-pic">${escapeHtml(item.pic || '')}</span>
+          ${topicHtml}
+        </div>`;
+    }
+
+    fetch('/api/resource-planning/today')
+      .then(r => r.json())
+      .then(({ dateLabel, items = [] }) => {
+        document.getElementById('today-ops-date').textContent = dateLabel || '';
+        document.getElementById('today-ops-rows').innerHTML = items.length
+          ? items.map(todayOpsRowHtml).join('')
+          : '<div class="today-ops-empty">ยังไม่มีรายการของวันนี้</div>';
+      })
+      .catch(() => {
+        document.getElementById('today-ops-rows').innerHTML = '<div class="today-ops-empty">โหลดข้อมูลไม่สำเร็จ</div>';
+      });
 
     const MAX_BULLETS_PER_FRAME = 3;
     const PROJECT_FRAME_ID = { TVN: 'hot-tvn', KTC: 'hot-ktc', MTS: 'hot-mts', Nissan: 'hot-nissan', All: 'hot-all' };
