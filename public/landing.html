@@ -161,7 +161,9 @@
 
     /* All Project / Non Project standalone cards */
     .tool-card--standalone { border-radius: 12px; padding: 9px 11px; transition: box-shadow .16s, transform .16s; }
-    .all-project-body { padding: 16px; }
+    .tool-card--allplan { background: rgba(34,195,221,.06); border: 1px solid rgba(34,195,221,.3); }
+    .tool-card--allplan:hover { box-shadow: 0 6px 18px rgba(34,195,221,.18); transform: translateY(-1px); }
+    .all-project-body { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
     .all-project-card { display: flex; flex-direction: column; gap: 12px; padding: 13px 16px; background: rgba(34,195,221,.06); border: 1px solid rgba(34,195,221,.3); border-radius: 12px; color: #1c2340; transition: box-shadow .16s, transform .16s; }
     .all-project-card:hover { box-shadow: 0 6px 18px rgba(34,195,221,.18); transform: translateY(-1px); }
     .all-project-card .row { display: flex; align-items: center; gap: 10px; }
@@ -207,7 +209,7 @@
         <h1 class="page-title">Workspaces</h1>
         <p class="subtitle">เครื่องมือและแดชบอร์ดของทีม Tech Ops · แยกตามขอบเขตการใช้งาน</p>
       </div>
-      <span class="count-meta">4 Projects · 10 Workspaces</span>
+      <span class="count-meta">4 Projects · 11 Workspaces</span>
     </div>
 
     <div class="page-columns">
@@ -331,6 +333,13 @@
                 <a href="https://script.google.com/a/macros/muze.co.th/s/AKfycbx9s2HgME47aT6I9k02TbyLkirSmxM8EWv49qgo8SW7Y2E3iE6ds_U7LVdwdOUBE0cDWg/exec" target="_blank" rel="noopener" class="pill">TVN</a>
               </div>
             </div>
+            <a href="https://docs.google.com/spreadsheets/d/1aydQYyGUQI0AsGqC2TRjZyqU-JaVBJhZIV4cevaYfFA/edit" target="_blank" rel="noopener" class="tool-card tool-card--standalone tool-card--allplan" data-card="resource-planning">
+              <span class="icon-tile icon-tile--lg icon-tile--all"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path></svg></span>
+              <span class="tool-text">
+                <span class="tool-title tool-title--lg">Operation Resource Planning</span>
+                <span class="tool-meta" data-meta="resource-planning"></span>
+              </span>
+            </a>
           </div>
         </section>
 
