@@ -20,6 +20,7 @@ const GIT_BACKED_CARDS = {
   'ktc-chat': ['routes/ktcChat.js', 'public/ktc-chat.html', 'services/jiraKtc.js', 'services/ktcHandoverSearch.js', 'data/ktc-handover.md'],
   'tvs-kb': ['routes/kb.js', 'public/tvs-error-code-kb.html'],
   tdg: ['apps-script/muze-tdg-dashboard'],
+  'resource-planning': ['routes/resourcePlanning.js', 'public/resource-planning.html', 'storage/googleSheets.js'],
 };
 
 function lastCommitDate(files) {

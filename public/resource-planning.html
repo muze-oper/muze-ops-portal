@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operation Resource Planning — Muze Tech Ops Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #f4f6fc; color: #1c2340; font-family: 'Outfit', 'Noto Sans Thai', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #4f5bd5; text-decoration: none; }
+    a:hover { color: #6f7bf0; }
+
+    .app-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 14px 28px; background: #04122e; }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand a { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: #8fa6cc; }
+    .brand a:hover { color: #fff; }
+    .brand .divider { width: 1px; height: 20px; background: rgba(255,255,255,.16); }
+    .brand .page-name { font-size: 15px; font-weight: 700; color: #fff; }
+    .logout-btn {
+      flex: none; display: flex; align-items: center; gap: 7px; padding: 9px 16px;
+      background: #5b5fef; border: none; border-radius: 24px;
+      font: 600 13px/1 'Outfit', sans-serif; color: #fff; cursor: pointer;
+    }
+    .logout-btn:hover { background: #4b4fe0; }
+
+    .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 24px 28px 16px; max-width: 900px; margin: 0 auto; }
+    .page-title { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+    .subtitle { margin: 2px 0 0; font-size: 13px; color: #6b7396; }
+    .refresh-btn {
+      flex: none; padding: 8px 14px; border-radius: 10px; border: 1px solid #dfe3f2; background: #fff;
+      font: 600 12.5px 'Outfit', sans-serif; color: #4b5170; cursor: pointer;
+    }
+    .refresh-btn:hover { border-color: #5b5fef; color: #4b4fe0; }
+
+    #rows { display: flex; flex-direction: column; gap: 14px; max-width: 900px; margin: 0 auto; padding: 0 28px 40px; }
+    .row-card { background: #fff; border: 1px solid #eceef8; border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px rgba(30,41,89,.05); }
+    .row-fields { display: grid; grid-template-columns: 90px 90px 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .row-fields input {
+      width: 100%; padding: 7px 9px; border: 1px solid #e3e6f2; border-radius: 8px;
+      font: 500 12.5px 'Outfit', 'Noto Sans Thai', sans-serif; color: #1c2340; background: #fbfbfe;
+    }
+    .row-fields input:focus, textarea:focus, .link-input:focus { outline: none; border-color: #5b5fef; background: #fff; }
+    .field-label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #b0b7cf; margin-bottom: 3px; display: block; }
+    textarea.f-topic {
+      width: 100%; min-height: 64px; padding: 9px 10px; border: 1px solid #e3e6f2; border-radius: 8px;
+      font: 500 13px/1.5 'Outfit', 'Noto Sans Thai', sans-serif; color: #1c2340; background: #fbfbfe; resize: vertical;
+      margin-bottom: 8px;
+    }
+    .link-input {
+      width: 100%; padding: 7px 9px; border: 1px solid #e3e6f2; border-radius: 8px;
+      font: 500 12px 'Outfit', sans-serif; color: #4f5bd5; background: #fbfbfe; margin-bottom: 10px;
+    }
+    .row-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .save-status { font-size: 11.5px; color: #8891b0; }
+    .save-status.ok { color: #1ec496; font-weight: 600; }
+    .save-status.err { color: #d63b5c; font-weight: 600; }
+    .save-btn {
+      padding: 8px 18px; border-radius: 20px; border: none; background: #5b5fef; color: #fff;
+      font: 600 12.5px 'Outfit', sans-serif; cursor: pointer;
+    }
+    .save-btn:hover { background: #4b4fe0; }
+    .save-btn:disabled { background: #c7cae8; cursor: default; }
+    .empty, .loading { text-align: center; padding: 60px 20px; color: #8891b0; font-size: 13px; max-width: 900px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <a href="/">🏠 Workspaces</a>
+      <span class="divider"></span>
+      <span class="page-name">Operation Resource Planning</span>
+    </div>
+    <button type="button" class="logout-btn" onclick="location.href='/logout'">Logout</button>
+  </header>
+
+  <div class="title-row">
+    <div>
+      <h1 class="page-title">วันนี้</h1>
+      <p class="subtitle" id="date-label">กำลังโหลด...</p>
+    </div>
+    <button type="button" class="refresh-btn" onclick="load()">🔄 รีเฟรช</button>
+  </div>
+
+  <div id="rows"><div class="loading">กำลังโหลดข้อมูล...</div></div>
+
+  <script>
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function rowCardHtml(item) {
+      return `
+        <div class="row-card" data-row="${item.rowNumber}">
+          <div class="row-fields">
+            <div><span class="field-label">Start</span><input class="f-startTime" value="${escapeHtml(item.startTime)}"></div>
+            <div><span class="field-label">End</span><input class="f-endTime" value="${escapeHtml(item.endTime)}"></div>
+            <div><span class="field-label">Status</span><input class="f-status" value="${escapeHtml(item.status)}"></div>
+            <div><span class="field-label">Project</span><input class="f-project" value="${escapeHtml(item.project)}"></div>
+            <div><span class="field-label">PIC</span><input class="f-pic" value="${escapeHtml(item.pic)}"></div>
+          </div>
+          <span class="field-label">Topic</span>
+          <textarea class="f-topic">${escapeHtml(item.topic)}</textarea>
+          <span class="field-label">Link</span>
+          <input class="link-input f-link" value="${escapeHtml(item.link)}" placeholder="https://...">
+          <div class="row-actions">
+            <span class="save-status"></span>
+            <button type="button" class="save-btn" onclick="saveRow(${item.rowNumber}, this)">บันทึก</button>
+          </div>
+        </div>`;
+    }
+
+    function load() {
+      const container = document.getElementById('rows');
+      container.innerHTML = '<div class="loading">กำลังโหลดข้อมูล...</div>';
+      fetch('/api/resource-planning/today')
+        .then(r => r.json())
+        .then(({ dateLabel, items = [] }) => {
+          document.getElementById('date-label').textContent = dateLabel || '';
+          container.innerHTML = items.length
+            ? items.map(rowCardHtml).join('')
+            : '<div class="empty">ยังไม่มีรายการของวันนี้</div>';
+        })
+        .catch(() => {
+          container.innerHTML = '<div class="empty">โหลดข้อมูลไม่สำเร็จ</div>';
+        });
+    }
+
+    function saveRow(rowNumber, btn) {
+      const card = btn.closest('.row-card');
+      const status = card.querySelector('.save-status');
+      const payload = {
+        startTime: card.querySelector('.f-startTime').value,
+        endTime: card.querySelector('.f-endTime').value,
+        status: card.querySelector('.f-status').value,
+        project: card.querySelector('.f-project').value,
+        pic: card.querySelector('.f-pic').value,
+        topic: card.querySelector('.f-topic').value,
+        link: card.querySelector('.f-link').value,
+      };
+      btn.disabled = true;
+      status.textContent = 'กำลังบันทึก...';
+      status.className = 'save-status';
+      fetch(`/api/resource-planning/row/${rowNumber}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+        .then(r => r.json().then(data => ({ ok: r.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) throw new Error(data.message || data.error || 'save failed');
+          status.textContent = 'บันทึกแล้ว ✓';
+          status.className = 'save-status ok';
+        })
+        .catch(err => {
+          status.textContent = 'บันทึกไม่สำเร็จ: ' + err.message;
+          status.className = 'save-status err';
+        })
+        .finally(() => { btn.disabled = false; });
+    }
+
+    load();
+  </script>
+</body>
+</html>
