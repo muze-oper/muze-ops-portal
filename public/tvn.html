@@ -30,13 +30,6 @@
     .panel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
     .panel h2 { font-size: 13px; font-weight: 700; color: #555; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
 
-    .col-chart { display: flex; align-items: flex-end; gap: 16px; padding-top: 8px; }
-    .col-item { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 0; }
-    .col-bar-track { width: 100%; max-width: 36px; height: 130px; display: flex; align-items: flex-end; background: #f7f8fa; border-radius: 4px; }
-    .col-bar-fill { width: 100%; background: #159ab0; border-radius: 4px 4px 0 0; min-height: 4px; }
-    .col-value { font-size: 11px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
-    .col-label { width: 100%; font-size: 10px; color: #666; margin-top: 8px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th { text-align: right; background: #f7f8fa; color: #888; font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; }
     th:first-child, td:first-child { text-align: left; }
@@ -69,8 +62,6 @@
 
 <div id="content">
   <div class="toolbar">
-    <label for="platform-filter">Platform:</label>
-    <select id="platform-filter" onchange="render()"></select>
     <button id="refresh-btn" onclick="load(true)">🔄 รีเฟรชข้อมูล</button>
     <div id="last-updated" class="last-updated">กำลังโหลด...</div>
   </div>
@@ -93,20 +84,6 @@
 <script>
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-// Same bar-chart approach as /mtscs's renderColumnChart - one bar per day,
-// height relative to the max value in the series.
-function renderColumnChart(entries) {
-  if (!entries.length) return '<div style="color:#aaa;font-size:12px">ไม่มีข้อมูล</div>';
-  const max = Math.max(...entries.map(e => e[1]), 0.01);
-  return `<div class="col-chart">` + entries.map(([label, value]) => `
-    <div class="col-item">
-      <div class="col-value">${value.toFixed(2)}%</div>
-      <div class="col-bar-track"><div class="col-bar-fill" style="height:${Math.max(4, Math.round(value / max * 100))}px"></div></div>
-      <div class="col-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
-    </div>
-  `).join('') + `</div>`;
 }
 
 function renderTable(platforms, series) {
@@ -133,15 +110,7 @@ let DATA = null;
 
 function render() {
   if (!DATA) return;
-  const platform = document.getElementById('platform-filter').value;
-  const series = DATA.series[platform] || [];
-  const entries = series.map(pt => [pt.date, pt.percent]);
-
   document.getElementById('body').innerHTML = `
-    <div class="panel">
-      <h2>Error Sessions % ต่อวัน — ${escapeHtml(platform)}</h2>
-      ${renderColumnChart(entries)}
-    </div>
     <div class="panel">
       <h2>ตารางข้อมูลทุก Platform</h2>
       ${renderTable(DATA.platforms, DATA.series)}
@@ -157,13 +126,9 @@ async function load(forceRefresh) {
     if (data.error) throw new Error(data.error);
 
     DATA = data;
-    const select = document.getElementById('platform-filter');
     const recordSelect = document.getElementById('record-platform');
-    if (!select.options.length) {
-      const optionsHtml = data.platforms.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
-      select.innerHTML = optionsHtml;
-      select.value = 'Android Mobile';
-      recordSelect.innerHTML = optionsHtml;
+    if (!recordSelect.options.length) {
+      recordSelect.innerHTML = data.platforms.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
       recordSelect.value = 'Android Mobile';
     }
     document.getElementById('last-updated').textContent = 'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH');
@@ -194,7 +159,7 @@ async function submitRecord() {
 
     resultEl.textContent = data.results.join('\n');
     document.getElementById('record-entries').value = '';
-    await load(true); // refresh the chart/table with what was just written
+    await load(true); // refresh the table with what was just written
   } catch (err) {
     resultEl.textContent = 'Error: ' + err.message;
   } finally {
