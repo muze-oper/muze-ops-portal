@@ -1305,8 +1305,10 @@ function renderVolumeSparkline() {
   const areaPoints = `${x(0)},${CHART_H} ${linePoints} ${x(points.length - 1)},${CHART_H}`;
 
   const marks = points.map((p, i) => {
-    const tipText = `${p.day} ${MONTHS_TH_SHORT[p.month - 1]} ${p.year} — ${p.count} อีเมล`
-      + (p.holiday ? ` (${p.holiday})` : '') + (p.isToday ? ' [วันนี้]' : '');
+    // No date in the tooltip at all — the axis label right below the point
+    // already says which day it is. Holiday name takes priority over "วันนี้"
+    // when a day happens to be both.
+    const tipText = `${p.count} email` + (p.holiday ? ` (${p.holiday})` : (p.isToday ? ' (วันนี้)' : ''));
     const hoverAttrs = `onmouseenter="showSparkTip(event,'${tipText.replace(/'/g, "\\'")}')" onmousemove="moveSparkTip(event)" onmouseleave="hideSparkTip()"`;
     let dot = '';
     if (p.isToday) {
@@ -1328,7 +1330,11 @@ function renderVolumeSparkline() {
   points.forEach((p, i) => {
     const text = p.isToday ? 'วันนี้' : (p.day === 1 ? `1 ${MONTHS_TH_SHORT[p.month - 1]}` : String(p.day));
     const anchor = i === 0 ? 'start' : (i === points.length - 1 ? 'end' : 'middle');
-    labels += `<text x="${x(i)}" y="${H - 2}" font-size="7.5" fill="${p.isToday ? '#1a73e8' : '#999'}" font-weight="${p.isToday ? '700' : '400'}" text-anchor="${anchor}">${text}</text>`;
+    // Today wins the emphasis styling; otherwise a holiday's day-number turns
+    // red so it stands out along the axis without needing to hover for it.
+    const color = p.isToday ? '#1a73e8' : (p.holiday ? '#e53935' : '#999');
+    const weight = (p.isToday || p.holiday) ? '700' : '400';
+    labels += `<text x="${x(i)}" y="${H - 2}" font-size="7.5" fill="${color}" font-weight="${weight}" text-anchor="${anchor}">${text}</text>`;
   });
 
   el.style.height = H + 'px';
