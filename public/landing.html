@@ -42,35 +42,20 @@
     .logout-btn:hover { background: #4b4fe0; transform: translateY(-1px); }
     .logout-btn:active { transform: translateY(0); }
 
-    /* Hot issues panel (right column - narrower, so items stack vertically) */
-    .hot-panel { border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(30,41,89,.08); background: #fff; }
-    .hot-panel-head {
-      display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 14px 16px;
-      background: repeating-linear-gradient(135deg, #fff, #fff 10px, #fbeef1 10px, #fbeef1 20px);
-      border-bottom: 1px solid #f5e3e7;
-    }
-    .hot-panel-head .hot-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #1c2340; white-space: nowrap; }
-    .hot-panel-head .dot { width: 9px; height: 9px; border-radius: 50%; background: #ff5c7a; box-shadow: 0 0 0 4px rgba(255,92,122,.18); }
-    .hot-panel-head .pending-pill { flex: none; padding: 3px 10px; border-radius: 20px; background: #ffe1e8; color: #d63b5c; font-size: 11px; font-weight: 700; }
-    .hot-panel-head .hot-note { flex: 0 0 100%; font-size: 10px; color: #b0b7cf; }
-    .hot-list { display: flex; flex-direction: column; background: #fff; }
-    .hot-group { padding: 12px 16px; border-bottom: 1px solid #f0f2fa; }
-    .hot-group:last-child { border-bottom: none; }
-    .hot-group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .hot-group-name { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #4b5170; }
-    .hot-group-count { padding: 1px 7px; border-radius: 10px; background: #eceef4; color: #6b7396; font-size: 10px; font-weight: 700; }
-    .hot-bullets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-    .hot-bullet { display: flex; align-items: center; gap: 7px; }
-    .hot-bullet-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: #b0b7cf; }
-    .hot-bullet-text { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: #1c2340; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .hot-bullet-date { flex: none; font-size: 10px; color: #b0b7cf; white-space: nowrap; }
-    .hot-group-more { margin-top: 6px; padding-left: 12px; font-size: 10.5px; color: #8891b0; }
-    .hot-badge { flex: none; padding: 2px 8px; border-radius: 20px; font-size: 9.5px; font-weight: 700; white-space: nowrap; }
+    /* Hot-issue bullets, embedded directly into each project's own frame */
+    .project-hot { padding: 8px 9px 9px; border-top: 1px dashed rgba(28,35,64,.14); }
+    .project-hot:empty { display: none; }
+    .hot-bullets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+    .hot-bullet { display: flex; align-items: center; gap: 6px; }
+    .hot-bullet-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: #ff5c7a; }
+    .hot-bullet-text { flex: 1; min-width: 0; font-size: 11px; font-weight: 600; color: #1c2340; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hot-bullet-date { flex: none; font-size: 9.5px; color: #b0b7cf; white-space: nowrap; }
+    .hot-group-more { margin-top: 5px; padding-left: 11px; font-size: 10px; color: #8891b0; }
+    .hot-badge { flex: none; padding: 1px 7px; border-radius: 20px; font-size: 9px; font-weight: 700; white-space: nowrap; }
     .hot-badge--yellow { background: #fff2d6; color: #b9820b; }
     .hot-badge--blue { background: #dce6ff; color: #3457d5; }
     .hot-badge--red { background: #ffe1e8; color: #d63b5c; }
     .hot-badge--gray { background: #eceef4; color: #6b7396; }
-    .hot-empty, .hot-loading { padding: 20px 16px; font-size: 12.5px; color: #8891b0; text-align: center; }
 
     /* Title row */
     .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 24px 28px 14px; }
@@ -79,11 +64,8 @@
     .subtitle { margin: 0; font-size: 13.5px; color: #6b7396; }
     .count-meta { font-size: 11.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #8891b0; white-space: nowrap; }
 
-    /* Page columns: workspace cards (left) + hot-issues board (right) */
-    .page-columns { display: grid; grid-template-columns: 2.2fr 1fr; gap: 20px; padding: 0 28px 28px; align-items: start; }
-
-    /* Main grid (cards column) */
-    main { display: grid; grid-template-columns: 1.46fr 1fr; gap: 20px; align-items: start; }
+    /* Main grid */
+    main { display: grid; grid-template-columns: 1.46fr 1fr; gap: 20px; padding: 0 28px 28px; align-items: start; }
     .col-right { display: grid; gap: 20px; }
 
     /* Category frame */
@@ -178,7 +160,6 @@
     .tool-card--non:hover { box-shadow: 0 6px 18px rgba(154,110,240,.18); transform: translateY(-1px); }
 
     @media (max-width: 1100px) {
-      .page-columns { grid-template-columns: 1fr; }
       main { grid-template-columns: 1fr; }
       .individual-body { grid-template-columns: 1fr; }
     }
@@ -212,7 +193,6 @@
       <span class="count-meta">4 Projects · 11 Workspaces</span>
     </div>
 
-    <div class="page-columns">
     <main>
       <section class="category category--individual">
         <div class="category-band">
@@ -250,6 +230,7 @@
                 </span>
               </a>
             </div>
+            <div class="project-hot" id="hot-tvn"></div>
           </div>
 
           <div class="project-frame project-frame--ktc">
@@ -274,6 +255,7 @@
                 </span>
               </a>
             </div>
+            <div class="project-hot" id="hot-ktc"></div>
           </div>
 
           <div class="project-frame project-frame--mts">
@@ -291,6 +273,7 @@
                 </span>
               </a>
             </div>
+            <div class="project-hot" id="hot-mts"></div>
           </div>
 
           <div class="project-frame project-frame--nissan">
@@ -308,6 +291,7 @@
                 </span>
               </a>
             </div>
+            <div class="project-hot" id="hot-nissan"></div>
           </div>
 
         </div>
@@ -367,18 +351,6 @@
         </section>
       </div>
     </main>
-
-    <div class="hot-panel">
-      <div class="hot-panel-head">
-        <span class="hot-label"><span class="dot"></span>ประเด็นด่วนวันนี้ / เมื่อวาน</span>
-        <span class="pending-pill" id="pending-pill" style="display:none"></span>
-        <span class="hot-note">ยังไม่รวม MTS / Nissan / TVN (ไม่มีข้อมูลวันที่รายเคส)</span>
-      </div>
-      <div class="hot-list" id="hot-list">
-        <div class="hot-loading">กำลังโหลด...</div>
-      </div>
-    </div>
-    </div>
   </div>
 
   <script>
@@ -424,7 +396,8 @@
       })
       .catch(() => {});
 
-    const MAX_BULLETS_PER_PROJECT = 5;
+    const MAX_BULLETS_PER_FRAME = 3;
+    const PROJECT_FRAME_ID = { TVN: 'hot-tvn', KTC: 'hot-ktc', MTS: 'hot-mts', Nissan: 'hot-nissan' };
 
     function hotBulletHtml(item) {
       const badgeClass = `hot-badge hot-badge--${item.status?.tone || 'gray'}`;
@@ -438,45 +411,33 @@
         </li>`;
     }
 
-    function hotGroupHtml(project, groupItems) {
+    function renderProjectHot(containerId, groupItems) {
+      const el = document.getElementById(containerId);
+      if (!el || !groupItems || !groupItems.length) return;
       const sorted = [...groupItems].sort((a, b) => (b.sortKey || '').localeCompare(a.sortKey || ''));
-      const shown = sorted.slice(0, MAX_BULLETS_PER_PROJECT);
+      const shown = sorted.slice(0, MAX_BULLETS_PER_FRAME);
       const hiddenCount = sorted.length - shown.length;
       const more = hiddenCount > 0 ? `<div class="hot-group-more">+${hiddenCount} เพิ่มเติม</div>` : '';
-      return `
-        <div class="hot-group">
-          <div class="hot-group-head">
-            <span class="hot-group-name">${escapeHtml(project)}</span>
-            <span class="hot-group-count">${sorted.length}</span>
-          </div>
-          <ul class="hot-bullets">${shown.map(hotBulletHtml).join('')}</ul>
-          ${more}
-        </div>`;
+      el.innerHTML = `<ul class="hot-bullets">${shown.map(hotBulletHtml).join('')}</ul>${more}`;
     }
 
+    // Items whose project doesn't match one of the four known frames (an
+    // inbox account we can't map, e.g. support@/support-mea@) have nowhere
+    // to render now that there's no standalone board - they're dropped
+    // rather than guessed into the wrong project.
     fetch('/api/hot-issues')
       .then(r => r.json())
       .then(({ items = [] }) => {
-        const list = document.getElementById('hot-list');
-        const pill = document.getElementById('pending-pill');
-        if (items.length) {
-          pill.textContent = `${items.length} กระทู้ค้าง`;
-          pill.style.display = '';
-          const byProject = {};
-          items.forEach(item => {
-            const key = item.project || 'Other';
-            (byProject[key] = byProject[key] || []).push(item);
-          });
-          list.innerHTML = Object.entries(byProject)
-            .map(([project, groupItems]) => hotGroupHtml(project, groupItems))
-            .join('');
-        } else {
-          list.innerHTML = '<div class="hot-empty">ไม่มีประเด็นด่วนวันนี้/เมื่อวาน 🎉</div>';
-        }
+        const byProject = {};
+        items.forEach(item => {
+          const key = item.project || 'Other';
+          (byProject[key] = byProject[key] || []).push(item);
+        });
+        Object.entries(PROJECT_FRAME_ID).forEach(([project, containerId]) => {
+          renderProjectHot(containerId, byProject[project]);
+        });
       })
-      .catch(() => {
-        document.getElementById('hot-list').innerHTML = '<div class="hot-empty">โหลดข้อมูลไม่สำเร็จ</div>';
-      });
+      .catch(() => {});
   </script>
 </body>
 </html>
