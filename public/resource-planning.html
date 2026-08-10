@@ -26,7 +26,7 @@
     }
     .logout-btn:hover { background: #4b4fe0; }
 
-    .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 24px 28px 16px; max-width: 900px; margin: 0 auto; }
+    .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 24px 28px 16px; max-width: 1400px; margin: 0 auto; }
     .page-title { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
     .subtitle { margin: 2px 0 0; font-size: 13px; color: #6b7396; }
     .refresh-btn {
@@ -35,35 +35,39 @@
     }
     .refresh-btn:hover { border-color: #5b5fef; color: #4b4fe0; }
 
-    #rows { display: flex; flex-direction: column; gap: 14px; max-width: 900px; margin: 0 auto; padding: 0 28px 40px; }
-    .row-card { background: #fff; border: 1px solid #eceef8; border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px rgba(30,41,89,.05); }
-    .row-fields { display: grid; grid-template-columns: 90px 90px 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-    .row-fields input {
+    #rows { display: flex; flex-direction: column; gap: 8px; max-width: 1400px; margin: 0 auto; padding: 0 28px 40px; }
+    /* One record = one row now (was a multi-row card) - each field is its
+       own tiny label+control stack, laid out side by side instead of
+       stacked, so a record never wraps past a single line. */
+    .row-card {
+      display: flex; align-items: flex-end; gap: 8px; background: #fff; border: 1px solid #eceef8;
+      border-radius: 12px; padding: 10px 12px; box-shadow: 0 2px 10px rgba(30,41,89,.05);
+    }
+    .row-card .field { display: flex; flex-direction: column; flex: none; }
+    .row-card .field.f-start, .row-card .field.f-end { width: 64px; }
+    .row-card .field.f-status { width: 108px; }
+    .row-card .field.f-project, .row-card .field.f-pic { width: 88px; }
+    .row-card .field.f-topic-wrap { flex: 1; min-width: 140px; }
+    .row-card .field.f-link-wrap { width: 180px; }
+    .row-card input, .row-card select {
       width: 100%; padding: 7px 9px; border: 1px solid #e3e6f2; border-radius: 8px;
       font: 500 12.5px 'Outfit', 'Noto Sans Thai', sans-serif; color: #1c2340; background: #fbfbfe;
     }
-    .row-fields input:focus, textarea:focus, .link-input:focus { outline: none; border-color: #5b5fef; background: #fff; }
+    .row-card select { cursor: pointer; }
+    .row-card input:focus, .row-card select:focus { outline: none; border-color: #5b5fef; background: #fff; }
     .field-label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #b0b7cf; margin-bottom: 3px; display: block; }
-    textarea.f-topic {
-      width: 100%; min-height: 64px; padding: 9px 10px; border: 1px solid #e3e6f2; border-radius: 8px;
-      font: 500 13px/1.5 'Outfit', 'Noto Sans Thai', sans-serif; color: #1c2340; background: #fbfbfe; resize: vertical;
-      margin-bottom: 8px;
-    }
-    .link-input {
-      width: 100%; padding: 7px 9px; border: 1px solid #e3e6f2; border-radius: 8px;
-      font: 500 12px 'Outfit', sans-serif; color: #4f5bd5; background: #fbfbfe; margin-bottom: 10px;
-    }
-    .row-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .save-status { font-size: 11.5px; color: #8891b0; }
+    .link-input { color: #4f5bd5; }
+    .row-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: none; }
+    .save-status { font-size: 10.5px; color: #8891b0; white-space: nowrap; }
     .save-status.ok { color: #1ec496; font-weight: 600; }
     .save-status.err { color: #d63b5c; font-weight: 600; }
     .save-btn {
-      padding: 8px 18px; border-radius: 20px; border: none; background: #5b5fef; color: #fff;
-      font: 600 12.5px 'Outfit', sans-serif; cursor: pointer;
+      padding: 7px 16px; border-radius: 20px; border: none; background: #5b5fef; color: #fff;
+      font: 600 12.5px 'Outfit', sans-serif; cursor: pointer; white-space: nowrap;
     }
     .save-btn:hover { background: #4b4fe0; }
     .save-btn:disabled { background: #c7cae8; cursor: default; }
-    .empty, .loading { text-align: center; padding: 60px 20px; color: #8891b0; font-size: 13px; max-width: 900px; margin: 0 auto; }
+    .empty, .loading { text-align: center; padding: 60px 20px; color: #8891b0; font-size: 13px; max-width: 1400px; margin: 0 auto; }
   </style>
 </head>
 <body>
@@ -91,20 +95,35 @@
       return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
+    // Same option sets already used elsewhere on the portal for this exact
+    // kind of field, so Resource Planning doesn't invent its own separate
+    // vocabulary: PIC = Email Digest's assignee roster, PROJECT = the same
+    // four client projects the landing page/Email Digest are organized
+    // around, STATUS = Email Digest's own per-item status list.
+    const PIC_OPTIONS = ['Aum', 'Noon', 'Beach', 'Aon', 'Noah'];
+    const PROJECT_OPTIONS = ['TVN', 'KTC', 'MTS', 'Nissan'];
+    const STATUS_OPTIONS = ['To Do', 'Scoping', 'Processing', 'Ignore', 'Done'];
+
+    // If the sheet already has a value that isn't in the known list (older
+    // free-text data), it's kept as an extra option instead of silently
+    // dropped/overwritten the moment this row loads.
+    function selectOptionsHtml(list, current) {
+      const options = list.includes(current) || !current ? list : [current, ...list];
+      return '<option value=""></option>' + options.map(v =>
+        `<option value="${escapeHtml(v)}"${v === current ? ' selected' : ''}>${escapeHtml(v)}</option>`
+      ).join('');
+    }
+
     function rowCardHtml(item) {
       return `
         <div class="row-card" data-row="${item.rowNumber}">
-          <div class="row-fields">
-            <div><span class="field-label">Start</span><input class="f-startTime" value="${escapeHtml(item.startTime)}"></div>
-            <div><span class="field-label">End</span><input class="f-endTime" value="${escapeHtml(item.endTime)}"></div>
-            <div><span class="field-label">Status</span><input class="f-status" value="${escapeHtml(item.status)}"></div>
-            <div><span class="field-label">Project</span><input class="f-project" value="${escapeHtml(item.project)}"></div>
-            <div><span class="field-label">PIC</span><input class="f-pic" value="${escapeHtml(item.pic)}"></div>
-          </div>
-          <span class="field-label">Topic</span>
-          <textarea class="f-topic">${escapeHtml(item.topic)}</textarea>
-          <span class="field-label">Link</span>
-          <input class="link-input f-link" value="${escapeHtml(item.link)}" placeholder="https://...">
+          <div class="field f-start"><span class="field-label">Start</span><input class="f-startTime" value="${escapeHtml(item.startTime)}"></div>
+          <div class="field f-end"><span class="field-label">End</span><input class="f-endTime" value="${escapeHtml(item.endTime)}"></div>
+          <div class="field f-status"><span class="field-label">Status</span><select class="f-status">${selectOptionsHtml(STATUS_OPTIONS, item.status)}</select></div>
+          <div class="field f-project"><span class="field-label">Project</span><select class="f-project">${selectOptionsHtml(PROJECT_OPTIONS, item.project)}</select></div>
+          <div class="field f-pic"><span class="field-label">PIC</span><select class="f-pic">${selectOptionsHtml(PIC_OPTIONS, item.pic)}</select></div>
+          <div class="field f-topic-wrap"><span class="field-label">Topic</span><input class="f-topic" value="${escapeHtml(item.topic)}"></div>
+          <div class="field f-link-wrap"><span class="field-label">Link</span><input class="link-input f-link" value="${escapeHtml(item.link)}" placeholder="https://..."></div>
           <div class="row-actions">
             <span class="save-status"></span>
             <button type="button" class="save-btn" onclick="saveRow(${item.rowNumber}, this)">บันทึก</button>
