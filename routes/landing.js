@@ -1,19 +1,15 @@
 const router = require('express').Router();
 const path = require('path');
 const drive = require('../storage/googleDrive');
-const { bangkokDateParts } = require('../utils/gmailClassify');
 const { searchRecentTickets } = require('../services/jiraKtc');
 
 const DIGEST_LIVE_FILENAME = 'digestlivecounts.json';
 const ACTION_CATEGORY = '🔴 ต้อง Action';
-
-// Matches routes/digest.js emails' `date` field, e.g. "06Aug26 14:30" -
-// built from the same Bangkok-local parts so string comparison works.
-function bangkokDayPrefix(date) {
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const p = bangkokDateParts(date);
-  return `${String(p.day).padStart(2, '0')}${months[p.month - 1]}${String(p.year).slice(-2)}`;
-}
+const MUSTREAD_CATEGORY = '🟡 ควรรับรู้';
+const DIGEST_STATUS_BADGE = {
+  [ACTION_CATEGORY]: { label: 'ต้อง Action', tone: 'red' },
+  [MUSTREAD_CATEGORY]: { label: 'ควรรับรู้', tone: 'yellow' },
+};
 
 // Reformats digest.js's "06Aug26 14:30" into "6 Aug 2026" for display.
 function formatDigestDateLabel(dateStr) {
@@ -67,30 +63,30 @@ function digestSortKey(dateStr) {
 }
 
 // Pulls together "what's new/needs attention" for the landing page's
-// hot-issues summary. Only sources with real per-item dates are included:
-// - Email Digest: 🔴 ต้อง Action emails from today/yesterday (Bangkok time)
+// hot-issues summary:
+// - Email Digest: every 🔴 ต้อง Action / 🟡 ควรรับรู้ email currently on the
+//   Live dashboard (same default view/categories as digest.html itself,
+//   ⚪ Auto excluded, no date cutoff - a pending item stays until resolved)
 // - KTC: still-open Jira tickets created in the last 2 days
-// MTS, Nissan, and TVN are excluded - their data (Google Sheet exports /
-// an external Apps Script) has no per-ticket created/updated date field to
-// filter by "today/yesterday" with, only a month tag embedded in the ticket
-// summary text.
+// MTS, Nissan, and TVN's OWN ticket sources (Google Sheet exports / an
+// external Apps Script, separate from their email accounts above) are
+// excluded - no per-ticket created/updated date field to filter by, only a
+// month tag embedded in the ticket summary text.
 router.get('/api/hot-issues', async (req, res) => {
-  const now = new Date();
-  const todayPrefix = bangkokDayPrefix(now);
-  const yesterdayPrefix = bangkokDayPrefix(new Date(now.getTime() - 24 * 60 * 60 * 1000));
-
   const items = [];
 
   try {
     const data = await drive.readFile(DIGEST_LIVE_FILENAME);
     for (const [account, entry] of Object.entries(data?.counts || {})) {
       for (const e of entry?.emails || []) {
-        if (e.category !== ACTION_CATEGORY) continue;
-        const dayPrefix = (e.date || '').slice(0, 7); // "06Aug26"
-        if (dayPrefix !== todayPrefix && dayPrefix !== yesterdayPrefix) continue;
+        // Every email the Live dashboard shows by default (🔴 Action + 🟡
+        // ควรรับรู้, ⚪ Auto excluded) - no date restriction, so anything
+        // still pending/carried-forward on the dashboard shows here too.
+        const badge = DIGEST_STATUS_BADGE[e.category];
+        if (!badge) continue;
         items.push({
           source: 'digest', key: null, title: e.subject || '(no subject)',
-          dateLabel: formatDigestDateLabel(e.date), status: { label: 'ต้อง Action', tone: 'red' },
+          dateLabel: formatDigestDateLabel(e.date), status: badge,
           meta: account, preview: cleanPreview(e.snippet), replyCount: null,
           project: projectForAccount(account), sortKey: digestSortKey(e.date),
         });
