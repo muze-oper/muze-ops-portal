@@ -43,13 +43,14 @@ function cleanPreview(text, limit = 160) {
 }
 
 // Groups a digest email's inbox account under the client project it belongs
-// to. Accounts that don't clearly match a known project (support@,
-// support-mea@) are shown under their own address instead of guessed.
+// to. support@/support-mea@ don't belong to any single client project - they
+// go under the landing page's "All Project" card instead.
 function projectForAccount(account) {
   const a = (account || '').toLowerCase();
   if (a.includes('nissan')) return 'Nissan';
   if (a.includes('tvn')) return 'TVN';
   if (a.includes('ktc')) return 'KTC';
+  if (a === 'support@muze.co.th' || a === 'support-mea@muze.co.th') return 'All';
   return account || 'Other';
 }
 
@@ -89,6 +90,7 @@ router.get('/api/hot-issues', async (req, res) => {
           dateLabel: formatDigestDateLabel(e.date), status: badge,
           meta: account, preview: cleanPreview(e.snippet), replyCount: null,
           project: projectForAccount(account), sortKey: digestSortKey(e.date),
+          msgId: e.msgId || null, account, // so the landing page can deep-link straight to this one email
         });
       }
     }

@@ -318,6 +318,9 @@
                 <a href="https://script.google.com/macros/s/AKfycbynl_yG-XHhGupSjCzBANJ-kQH-AvO72iH6zEx6RR_tCbssc03qfLLloMxgT320AgpO/exec" target="_blank" rel="noopener" class="pill">KTC</a>
                 <a href="https://script.google.com/a/macros/muze.co.th/s/AKfycbx9s2HgME47aT6I9k02TbyLkirSmxM8EWv49qgo8SW7Y2E3iE6ds_U7LVdwdOUBE0cDWg/exec" target="_blank" rel="noopener" class="pill">TVN</a>
               </div>
+              <!-- support@/support-mea@ don't belong to any single client project -
+                   their hot-issue emails show here instead of being dropped. -->
+              <div class="project-hot" id="hot-all"></div>
             </div>
             <a href="/resource-planning" class="tool-card tool-card--standalone tool-card--allplan" data-card="resource-planning">
               <span class="icon-tile icon-tile--lg icon-tile--all"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path></svg></span>
@@ -399,16 +402,19 @@
       .catch(() => {});
 
     const MAX_BULLETS_PER_FRAME = 3;
-    const PROJECT_FRAME_ID = { TVN: 'hot-tvn', KTC: 'hot-ktc', MTS: 'hot-mts', Nissan: 'hot-nissan' };
+    const PROJECT_FRAME_ID = { TVN: 'hot-tvn', KTC: 'hot-ktc', MTS: 'hot-mts', Nissan: 'hot-nissan', All: 'hot-all' };
 
     function hotBulletHtml(item) {
       const badgeClass = `hot-badge hot-badge--${item.status?.tone || 'gray'}`;
       const countText = item.replyCount != null ? ` · ${item.replyCount} replies` : '';
-      // Only 'digest' items are real emails - these open straight into the
-      // Email Digest dashboard on click. KTC items (Jira tickets) aren't
-      // emails and stay as-is.
+      // Only 'digest' items are real emails - these open straight into that
+      // ONE email in the Email Digest dashboard (not the whole inbox list).
+      // KTC items (Jira tickets) aren't emails and stay as-is.
       const isEmail = item.source === 'digest';
-      const clickAttrs = isEmail ? ` class="hot-bullet hot-bullet--clickable" onclick="window.location.href='/digest'"` : ` class="hot-bullet"`;
+      const digestUrl = item.account && item.msgId
+        ? `/digest?account=${encodeURIComponent(item.account)}&msgId=${encodeURIComponent(item.msgId)}`
+        : '/digest';
+      const clickAttrs = isEmail ? ` class="hot-bullet hot-bullet--clickable" onclick="window.location.href='${digestUrl}'"` : ` class="hot-bullet"`;
       return `
         <li${clickAttrs}>
           <span class="hot-bullet-dot"></span>

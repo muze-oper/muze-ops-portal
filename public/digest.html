@@ -1119,6 +1119,22 @@ async function loadLive() {
   } catch { /* silent */ }
 }
 
+// Deep link from the landing page's "hot issues" bullets (?account=&msgId=) -
+// opens just that one email's detail modal once the Live dataset has loaded,
+// instead of landing on the full dashboard list. Silently does nothing if the
+// email's no longer there (resolved/dropped since the bullet was rendered).
+function openFromQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  const qAccount = params.get('account');
+  const qMsgId = params.get('msgId');
+  if (!qAccount || !qMsgId) return;
+  const d = _detailData.find(x => x.account === qAccount);
+  if (!d) return;
+  const idx = (d.emails || []).findIndex(e => e.msgId === qMsgId);
+  if (idx === -1) return;
+  showEmailDetail(qAccount, idx);
+}
+
 function toggleScheduleInfo() {
   const el = document.getElementById('schedule-info');
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
@@ -1364,7 +1380,7 @@ document.getElementById('bulk-status').innerHTML =
 
 updateNotifButton();
 startCountdown();
-loadLive(); // also triggers loadAllEmailStatuses() once accounts are known
+loadLive().then(openFromQueryParams); // also triggers loadAllEmailStatuses() once accounts are known
 loadAssignments();
 loadHeatmap();
 </script>
