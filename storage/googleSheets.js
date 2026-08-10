@@ -17,6 +17,18 @@ async function fetchSheetRows(spreadsheetId, range) {
   return res.data.values || [];
 }
 
+// Looks up a tab's current name by its stable numeric gid, so callers don't
+// break when someone renames the tab (observed happening live on the TVN
+// sheet - the tab title changed between two checks a few minutes apart while
+// its gid stayed the same).
+async function resolveSheetTitleByGid(spreadsheetId, gid) {
+  const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+  const res = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties' });
+  const match = (res.data.sheets || []).find(s => s.properties.sheetId === gid);
+  if (!match) throw new Error(`ไม่พบแท็บที่มี gid=${gid} ใน spreadsheet ${spreadsheetId}`);
+  return match.properties.title;
+}
+
 // Overwrites a single row range (e.g. "Daily Shortnote!B371:H371") with the
 // given cell values, left-to-right matching the range's columns.
 async function updateSheetRow(spreadsheetId, range, values) {
@@ -66,4 +78,4 @@ function rowsToObjects(rows) {
   });
 }
 
-module.exports = { fetchSheetRows, rowsToObjects, updateSheetRow, fetchSheetFormatting, colorToHex };
+module.exports = { fetchSheetRows, rowsToObjects, updateSheetRow, fetchSheetFormatting, colorToHex, resolveSheetTitleByGid };

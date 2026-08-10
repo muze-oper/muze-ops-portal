@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TVN Error Sessions — Muze Tech Ops Portal</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+    .breadcrumb { background: #1a1a2e; color: rgba(255,255,255,0.7); padding: 6px 24px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+    .breadcrumb a { color: rgba(255,255,255,0.7); text-decoration: none; }
+    .breadcrumb a:hover { color: white; }
+    header {
+      background: #159ab0; color: white; padding: 16px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    header h1 { font-size: 18px; }
+    header div { display: flex; gap: 16px; align-items: center; }
+    header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
+
+    #content { max-width: 1100px; margin: 24px auto 48px; padding: 0 24px; }
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .toolbar label { font-size: 12px; font-weight: 600; color: #555; }
+    .toolbar select { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; background: white; }
+    .toolbar button { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; background: white; cursor: pointer; color: #444; }
+    .toolbar button:hover { background: #f7f8fa; }
+    .toolbar button:disabled { opacity: 0.5; cursor: default; }
+    .last-updated { font-size: 12px; color: #888; }
+
+    .panel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
+    .panel h2 { font-size: 13px; font-weight: 700; color: #555; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .col-chart { display: flex; align-items: flex-end; gap: 16px; padding-top: 8px; }
+    .col-item { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 0; }
+    .col-bar-track { width: 100%; max-width: 36px; height: 130px; display: flex; align-items: flex-end; background: #f7f8fa; border-radius: 4px; }
+    .col-bar-fill { width: 100%; background: #159ab0; border-radius: 4px 4px 0 0; min-height: 4px; }
+    .col-value { font-size: 11px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+    .col-label { width: 100%; font-size: 10px; color: #666; margin-top: 8px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: right; background: #f7f8fa; color: #888; font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; }
+    th:first-child, td:first-child { text-align: left; }
+    td { padding: 8px 10px; border-top: 1px solid #f0f0f0; color: #333; text-align: right; white-space: nowrap; }
+    .muted { color: #bbb; }
+    #empty-state { text-align: center; padding: 80px 24px; color: #666; }
+    #empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+<div class="breadcrumb">
+  <a href="/">🏠 Muze Tech Ops Portal</a>
+</div>
+<header>
+  <h1>📡 TVN Error Sessions</h1>
+  <div>
+    <a href="/">← กลับหน้าหลัก</a>
+    <a href="/logout">Logout</a>
+  </div>
+</header>
+
+<div id="content">
+  <div class="toolbar">
+    <label for="platform-filter">Platform:</label>
+    <select id="platform-filter" onchange="render()"></select>
+    <button id="refresh-btn" onclick="load(true)">🔄 รีเฟรชข้อมูล</button>
+    <div id="last-updated" class="last-updated">กำลังโหลด...</div>
+  </div>
+  <div id="body"><div id="empty-state"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
+</div>
+
+<script>
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Same bar-chart approach as /mtscs's renderColumnChart - one bar per day,
+// height relative to the max value in the series.
+function renderColumnChart(entries) {
+  if (!entries.length) return '<div style="color:#aaa;font-size:12px">ไม่มีข้อมูล</div>';
+  const max = Math.max(...entries.map(e => e[1]), 0.01);
+  return `<div class="col-chart">` + entries.map(([label, value]) => `
+    <div class="col-item">
+      <div class="col-value">${value.toFixed(2)}%</div>
+      <div class="col-bar-track"><div class="col-bar-fill" style="height:${Math.max(4, Math.round(value / max * 100))}px"></div></div>
+      <div class="col-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+    </div>
+  `).join('') + `</div>`;
+}
+
+function renderTable(platforms, series) {
+  // Union of every date label across all platform series, in first-seen order.
+  const dates = [];
+  platforms.forEach(p => (series[p] || []).forEach(pt => { if (!dates.includes(pt.date)) dates.push(pt.date); }));
+
+  if (!dates.length) return '<div style="color:#aaa;font-size:12px">ไม่มีข้อมูล</div>';
+
+  const cellFor = (platform, date) => {
+    const pt = (series[platform] || []).find(p => p.date === date);
+    return pt ? `${pt.percent.toFixed(2)}%` : '<span class="muted">—</span>';
+  };
+
+  return `<table>
+    <thead><tr><th>วันที่</th>${platforms.map(p => `<th>${escapeHtml(p)}</th>`).join('')}</tr></thead>
+    <tbody>${dates.map(date => `
+      <tr><td>${escapeHtml(date)}</td>${platforms.map(p => `<td>${cellFor(p, date)}</td>`).join('')}</tr>
+    `).join('')}</tbody>
+  </table>`;
+}
+
+let DATA = null;
+
+function render() {
+  if (!DATA) return;
+  const platform = document.getElementById('platform-filter').value;
+  const series = DATA.series[platform] || [];
+  const entries = series.map(pt => [pt.date, pt.percent]);
+
+  document.getElementById('body').innerHTML = `
+    <div class="panel">
+      <h2>Error Sessions % ต่อวัน — ${escapeHtml(platform)}</h2>
+      ${renderColumnChart(entries)}
+    </div>
+    <div class="panel">
+      <h2>ตารางข้อมูลทุก Platform</h2>
+      ${renderTable(DATA.platforms, DATA.series)}
+    </div>
+  `;
+}
+
+async function load(forceRefresh) {
+  document.getElementById('refresh-btn').disabled = true;
+  try {
+    const res = await fetch('/api/tvn' + (forceRefresh ? '?refresh=1' : ''));
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    DATA = data;
+    const select = document.getElementById('platform-filter');
+    if (!select.options.length) {
+      select.innerHTML = data.platforms.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+      select.value = 'Android Mobile';
+    }
+    document.getElementById('last-updated').textContent = 'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH');
+    render();
+  } catch (err) {
+    document.getElementById('body').innerHTML = `<div id="empty-state"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
+  } finally {
+    document.getElementById('refresh-btn').disabled = false;
+  }
+}
+
+load(false);
+</script>
+</body>
+</html>
