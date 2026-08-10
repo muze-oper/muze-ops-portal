@@ -114,16 +114,25 @@
       ).join('');
     }
 
+    // Cell background mirrors the actual Google Sheet cell (manual fill or a
+    // conditional-formatting rule - the backend already resolved either into
+    // one hex color per field). Falls back to nothing (the field's own CSS
+    // background) when the sheet cell has no color.
+    function bg(color) {
+      return color ? ` style="background:${color}"` : '';
+    }
+
     function rowCardHtml(item) {
+      const c = item.colors || {};
       return `
         <div class="row-card" data-row="${item.rowNumber}">
-          <div class="field f-start"><span class="field-label">Start</span><input class="f-startTime" value="${escapeHtml(item.startTime)}"></div>
-          <div class="field f-end"><span class="field-label">End</span><input class="f-endTime" value="${escapeHtml(item.endTime)}"></div>
-          <div class="field f-status"><span class="field-label">Status</span><select class="f-status">${selectOptionsHtml(STATUS_OPTIONS, item.status)}</select></div>
-          <div class="field f-project"><span class="field-label">Project</span><select class="f-project">${selectOptionsHtml(PROJECT_OPTIONS, item.project)}</select></div>
-          <div class="field f-pic"><span class="field-label">PIC</span><select class="f-pic">${selectOptionsHtml(PIC_OPTIONS, item.pic)}</select></div>
-          <div class="field f-topic-wrap"><span class="field-label">Topic</span><input class="f-topic" value="${escapeHtml(item.topic)}"></div>
-          <div class="field f-link-wrap"><span class="field-label">Link</span><input class="link-input f-link" value="${escapeHtml(item.link)}" placeholder="https://..."></div>
+          <div class="field f-start"><span class="field-label">Start</span><input class="f-startTime" value="${escapeHtml(item.startTime)}"${bg(c.startTime)}></div>
+          <div class="field f-end"><span class="field-label">End</span><input class="f-endTime" value="${escapeHtml(item.endTime)}"${bg(c.endTime)}></div>
+          <div class="field f-status"><span class="field-label">Status</span><select class="f-status"${bg(c.status)}>${selectOptionsHtml(STATUS_OPTIONS, item.status)}</select></div>
+          <div class="field f-project"><span class="field-label">Project</span><select class="f-project"${bg(c.project)}>${selectOptionsHtml(PROJECT_OPTIONS, item.project)}</select></div>
+          <div class="field f-pic"><span class="field-label">PIC</span><select class="f-pic"${bg(c.pic)}>${selectOptionsHtml(PIC_OPTIONS, item.pic)}</select></div>
+          <div class="field f-topic-wrap"><span class="field-label">Topic</span><input class="f-topic" value="${escapeHtml(item.topic)}"${bg(c.topic)}></div>
+          <div class="field f-link-wrap"><span class="field-label">Link</span><input class="link-input f-link" value="${escapeHtml(item.link)}" placeholder="https://..."${bg(c.link)}></div>
           <div class="row-actions">
             <span class="save-status"></span>
             <button type="button" class="save-btn" onclick="saveRow(${item.rowNumber}, this)">บันทึก</button>

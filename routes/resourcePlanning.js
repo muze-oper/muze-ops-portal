@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const path = require('path');
-const { fetchSheetRows, updateSheetRow } = require('../storage/googleSheets');
+const { fetchSheetRows, updateSheetRow, fetchSheetFormatting, colorToHex } = require('../storage/googleSheets');
 const { bangkokDateParts } = require('../utils/gmailClassify');
 
 const SHEET_ID = process.env.RESOURCE_PLANNING_SHEET_ID;
@@ -16,7 +16,11 @@ function todaySheetDateLabel() {
   return `${weekday} ${p.day} ${MONTHS[p.month - 1]}`;
 }
 
-function rowToItem(row, rowNumber) {
+// Columns B..H in sheet order - matches both rowToItem's row[] indices and
+// the column range fetchSheetFormatting is asked for below.
+const COLUMN_KEYS = ['startTime', 'endTime', 'status', 'project', 'pic', 'topic', 'link'];
+
+function rowToItem(row, rowNumber, colors) {
   return {
     rowNumber,
     startTime: row[1] || '',
@@ -26,6 +30,7 @@ function rowToItem(row, rowNumber) {
     pic: row[5] || '',
     topic: row[6] || '',
     link: row[7] || '',
+    colors: colors || {},
   };
 }
 
@@ -38,13 +43,33 @@ router.get('/api/resource-planning/today', async (req, res) => {
   try {
     const rows = await fetchSheetRows(SHEET_ID, `${TAB}!A1:H3000`);
     const targetLabel = todaySheetDateLabel();
-    const items = [];
+    const rowNumbers = [];
     let inTodayBlock = false;
     for (let i = 1; i < rows.length; i++) {
       const dateCell = (rows[i][0] || '').trim();
       if (dateCell) inTodayBlock = dateCell === targetLabel;
-      if (inTodayBlock) items.push(rowToItem(rows[i], i + 1));
+      if (inTodayBlock) rowNumbers.push(i + 1);
     }
+
+    // Cell colors mirror whatever's actually shown in the sheet (manual fill
+    // or a conditional-formatting rule) - fetched only for today's own row
+    // range, not the whole 3000-row sheet, so this stays cheap.
+    let formatting = [];
+    if (rowNumbers.length) {
+      const first = rowNumbers[0], last = rowNumbers[rowNumbers.length - 1];
+      formatting = await fetchSheetFormatting(SHEET_ID, `${TAB}!B${first}:H${last}`).catch(() => []);
+    }
+
+    const items = rowNumbers.map((rowNumber, idx) => {
+      const rawRowColors = formatting[idx] || [];
+      const colors = {};
+      COLUMN_KEYS.forEach((key, colIdx) => {
+        const hex = colorToHex(rawRowColors[colIdx]);
+        if (hex) colors[key] = hex;
+      });
+      return rowToItem(rows[rowNumber - 1], rowNumber, colors);
+    });
+
     res.json({ dateLabel: targetLabel, items });
   } catch (err) {
     res.status(500).json({ error: err.message });

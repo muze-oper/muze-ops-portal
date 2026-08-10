@@ -29,6 +29,32 @@ async function updateSheetRow(spreadsheetId, range, values) {
   });
 }
 
+// Cell background colors for a range - effectiveFormat (not userEnteredFormat)
+// so a conditional-formatting rule's color counts the same as a manually-set
+// one; either way it's what a person actually sees in the sheet. Returns a 2D
+// array [row][col] of {red,green,blue} (0-1 floats) or null for an unset cell.
+async function fetchSheetFormatting(spreadsheetId, range) {
+  const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId,
+    ranges: [range],
+    fields: 'sheets.data.rowData.values.effectiveFormat.backgroundColor',
+  });
+  const rowData = res.data.sheets?.[0]?.data?.[0]?.rowData || [];
+  return rowData.map(row => (row.values || []).map(cell => cell.effectiveFormat?.backgroundColor || null));
+}
+
+// White (the default/unstyled background) is treated as "no color" so a
+// plain cell doesn't override the page's own styling with a hard-coded white.
+function colorToHex(c) {
+  if (!c) return null;
+  const r = Math.round((c.red ?? 1) * 255);
+  const g = Math.round((c.green ?? 1) * 255);
+  const b = Math.round((c.blue ?? 1) * 255);
+  if (r >= 250 && g >= 250 && b >= 250) return null;
+  return `#${[r, g, b].map(n => n.toString(16).padStart(2, '0')).join('')}`;
+}
+
 // แถวแรกเป็น header — แปลงแถวที่เหลือเป็น object ตามชื่อคอลัมน์
 function rowsToObjects(rows) {
   if (rows.length < 2) return [];
@@ -40,4 +66,4 @@ function rowsToObjects(rows) {
   });
 }
 
-module.exports = { fetchSheetRows, rowsToObjects, updateSheetRow };
+module.exports = { fetchSheetRows, rowsToObjects, updateSheetRow, fetchSheetFormatting, colorToHex };
