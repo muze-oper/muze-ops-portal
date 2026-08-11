@@ -45,26 +45,83 @@ function colLetter(idx) {
 }
 
 const DATE_COL_IDX = 1; // column B
+const ACTION_DATE_COL_IDX = 0; // column A - filled in once a weekly row is complete (see below)
+const TIME_CHECK_COL_IDX = 2; // column C - same
+const LOG_BY_COL_IDX = 10; // column K ("Log by") - tagged "Claude" for anything this tool writes
 
-// The sheet packs two different tables into the same columns: rows 2-6 are a
-// granular multi-time-per-day log (col A "Action Date" filled in), rows 7+
-// are the weekly rollup this page cares about (col A blank, col B has a
-// "Mon-3-Aug" style label, one platform column filled in per week). We only
-// chart the weekly rollup - the granular rows are a different granularity
-// and don't belong on the same trend line.
+const WEEKLY_DAYS = 7; // "Today-7 to Today" window shown on /tvn
+const MONTH_INDEX = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// The automated hourly log (rows 2-6 today, but that block can grow) always
+// writes a bare hour number here ("14.00", "18.00", ...). Our own weekly
+// rows leave Time Check blank until complete, then get a "HH:MM" timestamp
+// (see the completeness check in POST /api/tvn/record below) - never a bare
+// hour number. This is what tells the two kinds of rows apart now, NOT
+// whether Action Date is blank, since a finished weekly row gets Action
+// Date filled in too.
+function isGranularTimeCheck(v) {
+  return /^\d{1,2}(\.\d{1,2})?$/.test(String(v || '').trim());
+}
+
+// Parses a "Mon-3-Aug" style label into a real UTC date, inferring the year
+// from whichever of (this year, ±1) lands closest to `reference` - the
+// sheet never records a year, and rollups can span a Dec/Jan boundary.
+function parseWeeklyLabel(label, reference) {
+  const m = /^[A-Za-z]{3}-(\d{1,2})-([A-Za-z]{3})$/.exec(String(label || '').trim());
+  if (!m) return null;
+  const day = parseInt(m[1], 10);
+  const month = MONTH_INDEX[m[2].toLowerCase()];
+  if (month === undefined) return null;
+
+  const year = reference.getUTCFullYear();
+  let candidate = new Date(Date.UTC(year, month, day));
+  const diffDays = (candidate - reference) / DAY_MS;
+  if (diffDays > 200) candidate = new Date(Date.UTC(year - 1, month, day));
+  else if (diffDays < -200) candidate = new Date(Date.UTC(year + 1, month, day));
+  return candidate;
+}
+
+// "Today" as a UTC-midnight date, computed from the calendar date in
+// Bangkok (where the team is) rather than the server's own timezone.
+function todayInBangkok() {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(new Date())
+    .reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+  return new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)));
+}
+
+function nowInBangkok() {
+  const now = new Date();
+  const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+  return { date, time };
+}
+
+// The sheet packs two different tables into the same columns: the automated
+// hourly log (identified by isGranularTimeCheck) and the weekly rollup this
+// page cares about (one row per day, one platform column filled per week).
+// Only the last WEEKLY_DAYS+1 days ("Today-7 to Today") are returned - older
+// rows stay in the sheet but drop off the displayed table.
 async function loadData() {
   const { rows, platformCol } = await fetchTitleAndRows();
   if (rows.length < 2) {
     return { series: {}, platforms: PLATFORMS, lastUpdated: new Date().toISOString() };
   }
 
+  const today = todayInBangkok();
+  const windowStart = new Date(today.getTime() - WEEKLY_DAYS * DAY_MS);
+
   const series = {};
   PLATFORMS.forEach(name => { series[name] = []; });
 
   rows.slice(1).forEach(row => {
-    const actionDate = (row[0] || '').toString().trim();
-    const dateLabel = (row[1] || '').toString().trim();
-    if (actionDate || !dateLabel) return; // skip granular rows and any fully-blank row
+    const dateLabel = (row[DATE_COL_IDX] || '').toString().trim();
+    const timeCheck = (row[TIME_CHECK_COL_IDX] || '').toString().trim();
+    if (!dateLabel || isGranularTimeCheck(timeCheck)) return; // skip the hourly log and any fully-blank row
+
+    const parsed = parseWeeklyLabel(dateLabel, today);
+    if (parsed && (parsed < windowStart || parsed > today)) return; // outside the Today-7..Today window
 
     PLATFORMS.forEach(name => {
       const idx = platformCol[name];
@@ -119,13 +176,13 @@ router.post('/api/tvn/record', async (req, res) => {
     }
 
     // Local copy of (dateLabel -> sheet row number) for the weekly-rollup
-    // block only (col A blank), same filter loadData uses. Sheet rows are
-    // 1-indexed and rows[0] is the header, so array index i -> sheet row i+1.
+    // block only, same isGranularTimeCheck filter loadData uses. Sheet rows
+    // are 1-indexed and rows[0] is the header, so array index i -> sheet row i+1.
     const dateRow = new Map();
     rows.forEach((row, i) => {
-      const actionDate = (row[0] || '').toString().trim();
       const dateLabel = (row[DATE_COL_IDX] || '').toString().trim();
-      if (i > 0 && !actionDate && dateLabel) dateRow.set(dateLabel.toLowerCase(), i + 1);
+      const timeCheck = (row[TIME_CHECK_COL_IDX] || '').toString().trim();
+      if (i > 0 && dateLabel && !isGranularTimeCheck(timeCheck)) dateRow.set(dateLabel.toLowerCase(), i + 1);
     });
     let nextNewRow = rows.length + 1;
 
@@ -136,6 +193,7 @@ router.post('/api/tvn/record', async (req, res) => {
 
     const platformColLetter = colLetter(platformIdx);
     const dateColLetter = colLetter(DATE_COL_IDX);
+    const logByColLetter = colLetter(LOG_BY_COL_IDX);
     const results = [];
 
     for (const line of lines) {
@@ -155,15 +213,39 @@ router.post('/api/tvn/record', async (req, res) => {
       const value = numeric / 100;
 
       const existingRow = dateRow.get(dateLabel.toLowerCase());
+      let rowNum;
       if (existingRow) {
         await updateSheetRow(SHEET_ID, `'${title}'!${platformColLetter}${existingRow}:${platformColLetter}${existingRow}`, [value]);
+        await updateSheetRow(SHEET_ID, `'${title}'!${logByColLetter}${existingRow}:${logByColLetter}${existingRow}`, ['Claude']);
         results.push(`${dateLabel}: อัปเดต ${platformColLetter}${existingRow} = ${parts[1]}`);
+        rowNum = existingRow;
       } else {
         const newRow = nextNewRow++;
         await updateSheetRow(SHEET_ID, `'${title}'!${dateColLetter}${newRow}:${dateColLetter}${newRow}`, [dateLabel]);
         await updateSheetRow(SHEET_ID, `'${title}'!${platformColLetter}${newRow}:${platformColLetter}${newRow}`, [value]);
+        await updateSheetRow(SHEET_ID, `'${title}'!${logByColLetter}${newRow}:${logByColLetter}${newRow}`, ['Claude']);
         results.push(`${dateLabel}: ไม่เจอแถวเดิม เพิ่มแถวใหม่ที่แถว ${newRow}`);
         dateRow.set(dateLabel.toLowerCase(), newRow);
+        rowNum = newRow;
+      }
+
+      // ถ้าทุก platform ในแถวนี้มีค่าครบแล้ว (ใช้ข้อมูลที่ fetch มาตอนต้น request บวกค่าที่
+      // เพิ่งเขียนไปด้านบน) ประทับเวลาที่ครบไว้ที่ Action Date + Time Check - ใช้ Time Check
+      // แบบมีทวิภาค "HH:MM" เจตนา เพื่อให้ isGranularTimeCheck() ยังแยกแถวนี้ออกจาก log
+      // อัตโนมัติได้ถูกต้องต่อไป แม้ Action Date จะไม่ว่างแล้วก็ตาม
+      const existingRowData = rows[rowNum - 1] || [];
+      const isRowComplete = Object.values(platformCol).every(idx => {
+        if (idx === platformIdx) return true; // เพิ่งเขียนค่านี้ไปเมื่อกี้ ถือว่ามีค่าแล้ว
+        const v = existingRowData[idx];
+        return v !== undefined && v !== '' && v !== 'N/A';
+      });
+      if (isRowComplete) {
+        const { date: nowDate, time: nowTime } = nowInBangkok();
+        const actionDateColLetter = colLetter(ACTION_DATE_COL_IDX);
+        const timeCheckColLetter = colLetter(TIME_CHECK_COL_IDX);
+        await updateSheetRow(SHEET_ID, `'${title}'!${actionDateColLetter}${rowNum}:${actionDateColLetter}${rowNum}`, [nowDate]);
+        await updateSheetRow(SHEET_ID, `'${title}'!${timeCheckColLetter}${rowNum}:${timeCheckColLetter}${rowNum}`, [nowTime]);
+        results.push(`${dateLabel}: ครบทุก platform แล้ว - ประทับเวลา ${nowDate} ${nowTime}`);
       }
     }
 
