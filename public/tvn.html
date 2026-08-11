@@ -39,10 +39,14 @@
     #empty-state { text-align: center; padding: 80px 24px; color: #666; }
     #empty-state .icon { font-size: 48px; margin-bottom: 16px; }
 
-    .cell-input { width: 84px; box-sizing: border-box; text-align: right; font-family: inherit; font-size: 12px; padding: 5px 7px; border: 1px solid #e2e2e2; border-radius: 5px; }
+    .cell-input { width: 84px; box-sizing: border-box; text-align: right; font-family: inherit; font-size: 12px; font-weight: 600; padding: 5px 7px; border: 1px solid #e2e2e2; border-radius: 5px; }
     .cell-input:focus { outline: none; border-color: #159ab0; box-shadow: 0 0 0 2px rgba(21,154,176,.15); }
     .date-cell-input { width: 110px; box-sizing: border-box; font-family: inherit; font-size: 12px; padding: 5px 7px; border: 1px solid #e2e2e2; border-radius: 5px; }
     .new-row td { background: #fbfefe; }
+
+    .heat-legend { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .heat-swatch { display: flex; flex-direction: column; align-items: center; font-size: 9px; color: #888; }
+    .heat-swatch .chip { width: 28px; height: 16px; border-radius: 3px; margin-bottom: 2px; }
 
     .table-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
     .table-actions button { padding: 7px 18px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
@@ -52,6 +56,20 @@
     #sync-btn { background: #159ab0; color: white; }
     #sync-btn:hover:not(:disabled) { background: #128296; }
     #sync-result { white-space: pre-wrap; margin-top: 12px; font-size: 12px; color: #333; }
+
+    .record-panel label { display: block; margin-top: 10px; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: #555; }
+    .record-panel textarea { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; }
+    .record-panel button { margin-top: 12px; padding: 7px 18px; border: none; border-radius: 6px; background: #159ab0; color: white; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .record-panel button:hover { background: #128296; }
+    .record-panel button:disabled { opacity: 0.6; cursor: default; }
+    .record-panel #redo-btn { background: white; color: #159ab0; border: 1px solid #159ab0; margin-left: 8px; }
+    .record-panel #redo-btn:hover:not(:disabled) { background: #f0fbfc; }
+    .record-panel #redo-btn:disabled { color: #aaa; border-color: #ddd; }
+    #record-result { white-space: pre-wrap; margin-top: 12px; font-size: 12px; color: #333; }
+
+    .platform-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 10px; }
+    .platform-input label { margin-top: 0; }
+    .platform-input textarea { height: 90px; resize: vertical; }
   </style>
 </head>
 <body>
@@ -72,6 +90,17 @@
     <div id="last-updated" class="last-updated">กำลังโหลด...</div>
   </div>
   <div id="body"><div id="empty-state"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
+
+  <div class="panel record-panel">
+    <h2>บันทึกข้อมูลใหม่ (Quick Record — Sync หลาย Platform พร้อมกัน)</h2>
+    <div class="hint">วางข้อมูลของ platform ไหนก็ได้ที่มีพร้อม เว้นว่างช่องที่ยังไม่มีข้อมูล บรรทัดละ 1 วัน เช่น "Mon-3-Aug, 2.07%" (คั่นด้วย , หรือ : หรือ tab ก็ได้ — วันที่ต้องสะกดตรงกับคอลัมน์วันที่ในชีตเป๊ะ ๆ) แล้วกด Sync ครั้งเดียวจะบันทึกทุก platform ที่กรอกไว้พร้อมกัน</div>
+
+    <div id="platform-inputs" class="platform-grid"></div>
+
+    <button id="record-btn" onclick="submitRecord()">🔄 Sync ข้อมูลทั้งหมด</button>
+    <button id="redo-btn" onclick="redoLastSubmit()" disabled>↩️ Redo (เอาค่าที่เพิ่ง sync กลับมา)</button>
+    <div id="record-result"></div>
+  </div>
 </div>
 
 <script>
@@ -81,6 +110,63 @@ function escapeHtml(s) {
 
 function slug(platform) {
   return platform.toLowerCase().replace(/\s+/g, '-');
+}
+
+// --- Heatmap: 10 shades from dark green (<=2.00%) to red (>=6.00%) -----
+// Level 0 = <=HEAT_MIN exactly (a flat "good" floor, not part of the even
+// split), level 9 = >=HEAT_MAX (flat "bad" ceiling), levels 1-8 split the
+// range between them into 8 equal 0.5-point bins.
+const HEAT_MIN = 2.00;
+const HEAT_MAX = 6.00;
+const HEAT_STEPS = 10;
+const HEAT_GREEN = [11, 110, 47];
+const HEAT_RED = [197, 42, 42];
+
+function heatLevel(value) {
+  if (value <= HEAT_MIN) return 0;
+  if (value >= HEAT_MAX) return HEAT_STEPS - 1;
+  const step = (HEAT_MAX - HEAT_MIN) / (HEAT_STEPS - 2); // 8 intermediate bins
+  return 1 + Math.floor((value - HEAT_MIN) / step);
+}
+
+function heatColorForLevel(level) {
+  const t = level / (HEAT_STEPS - 1);
+  const r = Math.round(HEAT_GREEN[0] + (HEAT_RED[0] - HEAT_GREEN[0]) * t);
+  const g = Math.round(HEAT_GREEN[1] + (HEAT_RED[1] - HEAT_GREEN[1]) * t);
+  const b = Math.round(HEAT_GREEN[2] + (HEAT_RED[2] - HEAT_GREEN[2]) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+function heatColorForValue(value) {
+  if (value === null || value === undefined || isNaN(value)) return null;
+  return heatColorForLevel(heatLevel(value));
+}
+
+function heatLegendHtml() {
+  const labels = ['≤2.00', '2.00-2.50', '2.50-3.00', '3.00-3.50', '3.50-4.00', '4.00-4.50', '4.50-5.00', '5.00-5.50', '5.50-6.00', '≥6.00'];
+  return `<div class="heat-legend">` + labels.map((label, i) => `
+    <div class="heat-swatch">
+      <div class="chip" style="background:${heatColorForLevel(i)}"></div>
+      ${label}
+    </div>
+  `).join('') + `</div>`;
+}
+
+// Reads whatever's typed in a cell (accepts "2.07" or "2.07%") and applies
+// the matching heatmap color live, so it updates as the user edits - not
+// just on initial render.
+function applyCellColor(input) {
+  const numeric = parseFloat(String(input.value).replace('%', '').trim());
+  const color = heatColorForValue(numeric);
+  if (color) {
+    input.style.backgroundColor = color;
+    input.style.color = '#fff';
+    input.style.borderColor = color;
+  } else {
+    input.style.backgroundColor = '';
+    input.style.color = '';
+    input.style.borderColor = '';
+  }
 }
 
 // Renders the date x platform grid as editable inputs: existing dates get a
@@ -101,7 +187,7 @@ function renderTable(platforms, series) {
   const rowsHtml = dates.map(date => `
     <tr data-date="${escapeHtml(date)}">
       <td>${escapeHtml(date)}</td>
-      ${platforms.map(p => `<td><input class="cell-input" data-platform="${escapeHtml(p)}" value="${valueFor(p, date)}" placeholder="—"></td>`).join('')}
+      ${platforms.map(p => `<td><input class="cell-input" data-platform="${escapeHtml(p)}" value="${valueFor(p, date)}" placeholder="—" oninput="applyCellColor(this)"></td>`).join('')}
     </tr>
   `).join('');
 
@@ -118,7 +204,8 @@ function render() {
   document.getElementById('body').innerHTML = `
     <div class="panel">
       <h2>ตารางข้อมูลทุก Platform</h2>
-      <div class="hint">แก้ค่าในช่องได้โดยตรง (พิมพ์ทับ เช่น "2.07" หรือ "2.07%" ก็ได้) เว้นว่างไว้คือไม่มีข้อมูล กด "+ เพิ่มวันที่" เพื่อเพิ่มวันที่ใหม่ที่ยังไม่มีในชีต แล้วกด Sync เพื่อบันทึกทุกช่องที่กรอกไว้กลับเข้าชีต</div>
+      <div class="hint">แก้ค่าในช่องได้โดยตรง (พิมพ์ทับ เช่น "2.07" หรือ "2.07%" ก็ได้) เว้นว่างไว้คือไม่มีข้อมูล กด "+ เพิ่มวันที่" เพื่อเพิ่มวันที่ใหม่ที่ยังไม่มีในชีต แล้วกด Sync เพื่อบันทึกทุกช่องที่กรอกไว้กลับเข้าชีต สีพื้นหลังไล่จากเขียวเข้ม (≤2.00%) ไปแดง (≥6.00%) ตามค่า</div>
+      ${heatLegendHtml()}
       ${renderTable(DATA.platforms, DATA.series)}
       <div class="table-actions">
         <button id="add-row-btn" onclick="addNewRow()">+ เพิ่มวันที่</button>
@@ -127,6 +214,7 @@ function render() {
       <div id="sync-result"></div>
     </div>
   `;
+  document.querySelectorAll('#data-table-body .cell-input').forEach(applyCellColor);
 }
 
 // Appends a blank row with an editable date label input (existing rows keep
@@ -139,7 +227,7 @@ function addNewRow() {
   row.className = 'new-row';
   row.innerHTML = `
     <td><input class="date-cell-input" placeholder="เช่น Tue-11-Aug"></td>
-    ${DATA.platforms.map(p => `<td><input class="cell-input" data-platform="${escapeHtml(p)}" placeholder="—"></td>`).join('')}
+    ${DATA.platforms.map(p => `<td><input class="cell-input" data-platform="${escapeHtml(p)}" placeholder="—" oninput="applyCellColor(this)"></td>`).join('')}
   `;
   tbody.appendChild(row);
   row.querySelector('.date-cell-input').focus();
@@ -153,6 +241,15 @@ async function load(forceRefresh) {
     if (data.error) throw new Error(data.error);
 
     DATA = data;
+    const inputsContainer = document.getElementById('platform-inputs');
+    if (!inputsContainer.children.length) {
+      inputsContainer.innerHTML = data.platforms.map(p => `
+        <div class="platform-input">
+          <label for="entries-${slug(p)}">${escapeHtml(p)}</label>
+          <textarea id="entries-${slug(p)}" data-platform="${escapeHtml(p)}" placeholder="Mon-3-Aug, 2.07%&#10;Tue-4-Aug, 2.57%"></textarea>
+        </div>
+      `).join('');
+    }
     document.getElementById('last-updated').textContent = 'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH');
     render();
   } catch (err) {
@@ -164,8 +261,8 @@ async function load(forceRefresh) {
 
 // Reads every filled-in cell straight out of the DOM, groups by platform
 // (the /api/tvn/record endpoint takes one platform's lines at a time), and
-// submits each platform sequentially - same endpoint the old Quick Record
-// panel used, just fed from table inputs instead of pasted text. Only
+// submits each platform sequentially - same endpoint the Quick Record panel
+// below uses, just fed from table inputs instead of pasted text. Only
 // platforms that fail keep their row's Sync state re-triable; on full
 // success the table reloads fresh from the sheet.
 async function syncTable() {
@@ -219,6 +316,72 @@ async function syncTable() {
   } finally {
     btn.disabled = false;
   }
+}
+
+let lastSubmitted = null; // { [platform]: entries } from the most recent successful sync, for the Redo button
+
+// Submits every platform textarea that has text in it, one platform at a
+// time (sequential, not parallel - each /api/tvn/record call does its own
+// read-then-write against the sheet, so overlapping calls could race). A
+// platform that fails keeps its textarea content (so it can be fixed and
+// re-synced) instead of being silently dropped along with the successes.
+async function submitRecord() {
+  const btn = document.getElementById('record-btn');
+  const resultEl = document.getElementById('record-result');
+  const toSync = [];
+  document.querySelectorAll('#platform-inputs textarea').forEach(ta => {
+    const entries = ta.value.trim();
+    if (entries) toSync.push({ platform: ta.dataset.platform, entries, el: ta });
+  });
+
+  if (toSync.length === 0) {
+    resultEl.textContent = 'ไม่มีข้อมูลให้ sync (ทุกช่องว่างอยู่)';
+    return;
+  }
+
+  btn.disabled = true;
+  resultEl.textContent = 'กำลัง sync...';
+  const synced = {};
+  const summary = [];
+  try {
+    for (const item of toSync) {
+      const res = await fetch('/api/tvn/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: item.platform, entries: item.entries }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        summary.push(`--- ${item.platform}: Error - ${data.error} ---`);
+        continue;
+      }
+      summary.push(`--- ${item.platform} ---\n${data.results.join('\n')}`);
+      synced[item.platform] = item.entries;
+      item.el.value = '';
+    }
+    resultEl.textContent = summary.join('\n\n');
+    if (Object.keys(synced).length > 0) {
+      lastSubmitted = synced;
+      document.getElementById('redo-btn').disabled = false;
+    }
+    await load(true); // refresh the table with what was just written
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Brings back the platform + entries text from the last successful sync, in
+// case one needs a correction and re-syncing - submitRecord() clears each
+// textarea on success, so without this the whole batch would need retyping.
+function redoLastSubmit() {
+  if (!lastSubmitted) return;
+  Object.entries(lastSubmitted).forEach(([platform, entries]) => {
+    const ta = document.getElementById('entries-' + slug(platform));
+    if (ta) ta.value = entries;
+  });
+  document.getElementById('record-result').textContent = '';
 }
 
 load(false);
