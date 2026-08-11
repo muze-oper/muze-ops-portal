@@ -19,6 +19,20 @@
     header div { display: flex; gap: 16px; align-items: center; }
     header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
 
+    .layout { display: flex; align-items: flex-start; max-width: 1200px; margin: 0 auto; }
+    .sidebar {
+      width: 220px; flex-shrink: 0; background: white; margin: 24px 0 24px 24px;
+      border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 8px; position: sticky; top: 24px;
+    }
+    .tab-btn {
+      display: block; width: 100%; text-align: left; padding: 10px 14px; margin-bottom: 2px;
+      border: none; background: none; cursor: pointer; border-radius: 6px;
+      font-size: 13px; font-weight: 600; color: #555;
+    }
+    .tab-btn:hover { background: #f7f8fa; }
+    .tab-btn.active { background: #e5f6f8; color: #128296; }
+    .main-content { flex: 1; min-width: 0; }
+
     #content { max-width: 1100px; margin: 24px auto 48px; padding: 0 24px; }
     .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
     .toolbar label { font-size: 12px; font-weight: 600; color: #555; }
@@ -73,6 +87,17 @@
     .platform-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 10px; }
     .platform-input label { margin-top: 0; }
     .platform-input textarea { height: 90px; resize: vertical; }
+
+    .mockup-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; background: #fff2d6; color: #b9820b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 8px; vertical-align: middle; }
+    .paste-area {
+      border: 2px dashed #ccc; border-radius: 10px; padding: 32px; text-align: center;
+      color: #888; font-size: 13px; cursor: pointer; background: #fafbfc;
+    }
+    .paste-area:focus { outline: none; border-color: #159ab0; background: #f0fbfc; }
+    .paste-area.has-image { padding: 12px; border-style: solid; }
+    .paste-area img { max-width: 100%; max-height: 320px; border-radius: 6px; display: block; margin: 0 auto; }
+    #mock-table-output table { margin-top: 16px; }
+    #mock-table-output .mockup-note { font-size: 11px; color: #b9820b; background: #fff8ea; border: 1px solid #ffe6a8; border-radius: 6px; padding: 8px 12px; margin-top: 16px; }
   </style>
 </head>
 <body>
@@ -87,22 +112,57 @@
   </div>
 </header>
 
-<div id="content">
-  <div class="toolbar">
-    <button id="refresh-btn" onclick="load(true)">🔄 รีเฟรชข้อมูล</button>
-    <div id="last-updated" class="last-updated">กำลังโหลด...</div>
+<div class="layout">
+  <div class="sidebar">
+    <button class="tab-btn active" data-tab="sessions" onclick="switchTab('sessions')">BITMOVIN Error Sessions</button>
+    <button class="tab-btn" data-tab="errorcodes" onclick="switchTab('errorcodes')">BITMOVIN Top Error Codes</button>
   </div>
-  <div id="body"><div id="empty-state"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
 
-  <div class="panel record-panel">
-    <h2>บันทึกข้อมูลใหม่ (Quick Record — Sync หลาย Platform พร้อมกัน)</h2>
-    <div class="hint">วางข้อมูลของ platform ไหนก็ได้ที่มีพร้อม เว้นว่างช่องที่ยังไม่มีข้อมูล บรรทัดละ 1 วัน เช่น "Mon-3-Aug, 2.07%" (คั่นด้วย , หรือ : หรือ tab ก็ได้ — วันที่ต้องสะกดตรงกับคอลัมน์วันที่ในชีตเป๊ะ ๆ) แล้วกด Sync ครั้งเดียวจะบันทึกทุก platform ที่กรอกไว้พร้อมกัน</div>
+  <div class="main-content">
+    <div id="tab-sessions" class="tab-panel">
+      <div id="content" style="max-width:none;margin:24px;padding:0;">
+        <div class="toolbar">
+          <button id="refresh-btn" onclick="load(true)">🔄 รีเฟรชข้อมูล</button>
+          <div id="last-updated" class="last-updated">กำลังโหลด...</div>
+        </div>
+        <div id="body"><div id="empty-state"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
 
-    <div id="platform-inputs" class="platform-grid"></div>
+        <div class="panel record-panel">
+          <h2>บันทึกข้อมูลใหม่ (Quick Record — Sync หลาย Platform พร้อมกัน)</h2>
+          <div class="hint">วางข้อมูลของ platform ไหนก็ได้ที่มีพร้อม เว้นว่างช่องที่ยังไม่มีข้อมูล บรรทัดละ 1 วัน เช่น "Mon-3-Aug, 2.07%" (คั่นด้วย , หรือ : หรือ tab ก็ได้ — วันที่ต้องสะกดตรงกับคอลัมน์วันที่ในชีตเป๊ะ ๆ) แล้วกด Sync ครั้งเดียวจะบันทึกทุก platform ที่กรอกไว้พร้อมกัน</div>
 
-    <button id="record-btn" onclick="submitRecord()">🔄 Sync ข้อมูลทั้งหมด</button>
-    <button id="redo-btn" onclick="redoLastSubmit()" disabled>↩️ Redo (เอาค่าที่เพิ่ง sync กลับมา)</button>
-    <div id="record-result"></div>
+          <div id="platform-inputs" class="platform-grid"></div>
+
+          <button id="record-btn" onclick="submitRecord()">🔄 Sync ข้อมูลทั้งหมด</button>
+          <button id="redo-btn" onclick="redoLastSubmit()" disabled>↩️ Redo (เอาค่าที่เพิ่ง sync กลับมา)</button>
+          <div id="record-result"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-errorcodes" class="tab-panel" style="display:none">
+      <div style="max-width:none;margin:24px;padding:0;">
+        <div class="panel">
+          <h2>BITMOVIN Top Error Codes <span class="mockup-badge">Mockup</span></h2>
+          <div class="hint">
+            ยังไม่ได้ตัดสินใจโครงสร้างข้อมูลสุดท้าย — หน้านี้เป็น mockup ให้ดูรูปแบบการใช้งานก่อน:
+            วาง screenshot กราฟ "Top Error Codes" ที่นี่ แล้วกด "สร้างตาราง" จะเห็นตัวอย่าง
+            (ไม่ใช่ค่าจริงจากรูป — ตอนนี้ยังไม่ได้ต่อระบบอ่านรูปอัตโนมัติ ยังคง flow เดิมคือวางรูปในแชท
+            Claude Code แล้วให้ Claude อ่านค่าให้ก่อน)
+          </div>
+
+          <div id="paste-area" class="paste-area" tabindex="0">
+            📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง
+          </div>
+
+          <button id="generate-table-btn" onclick="generateMockTable()" disabled style="margin-top:14px;padding:7px 18px;border:none;border-radius:6px;background:#159ab0;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">
+            🪄 สร้างตาราง (mockup)
+          </button>
+
+          <div id="mock-table-output"></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -426,6 +486,99 @@ function redoLastSubmit() {
   document.getElementById('record-result').textContent = '';
 }
 
+// ---- Tab switching (Error Sessions <-> Top Error Codes mockup) ----
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(panel => { panel.style.display = 'none'; });
+  document.getElementById('tab-' + tab).style.display = 'block';
+}
+
+// ---- Top Error Codes mockup: paste-image capture + fake "generate" ----
+// No real image-reading is wired up yet (that needs a vision-capable API
+// call, deliberately not built until the sheet schema below is settled) -
+// this only proves out the paste -> preview -> generate workflow so the
+// layout/columns can be reviewed before committing to a real schema.
+
+let pastedImageDataUrl = null;
+
+function setupPasteArea() {
+  const area = document.getElementById('paste-area');
+  if (!area || area.dataset.wired) return;
+  area.dataset.wired = '1';
+
+  area.addEventListener('click', () => area.focus());
+
+  area.addEventListener('paste', e => {
+    const items = (e.clipboardData || window.clipboardData).items || [];
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        showPastedImage(file);
+        e.preventDefault();
+        return;
+      }
+    }
+  });
+
+  area.addEventListener('dragover', e => { e.preventDefault(); area.style.background = '#f0fbfc'; });
+  area.addEventListener('dragleave', () => { area.style.background = ''; });
+  area.addEventListener('drop', e => {
+    e.preventDefault();
+    area.style.background = '';
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) showPastedImage(file);
+  });
+}
+
+function showPastedImage(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    pastedImageDataUrl = reader.result;
+    const area = document.getElementById('paste-area');
+    area.classList.add('has-image');
+    area.innerHTML = `<img src="${pastedImageDataUrl}" alt="pasted screenshot">`;
+    document.getElementById('generate-table-btn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+// Static example data - NOT read from the pasted image. Column choice
+// (Rank/Error Code/Sessions) is a starting suggestion for feedback, not a
+// final schema decision.
+const MOCK_ERROR_CODES = [
+  { rank: 1, code: 'media3-exoplayer-1.10.1: 1002', sessions: 3823 },
+  { rank: 2, code: 'media3-exoplayer-1.10.1: 4001', sessions: 3012 },
+  { rank: 3, code: 'media3-exoplayer-1.10.1: 2004', sessions: 2456 },
+  { rank: 4, code: 'media3-exoplayer-1.10.1: 6004', sessions: 2201 },
+  { rank: 5, code: 'media3-exoplayer-1.10.1: 3002', sessions: 1987 },
+  { rank: 6, code: 'media3-exoplayer-1.10.1: 4003', sessions: 1544 },
+  { rank: 7, code: 'media3-exoplayer-1.10.1: 1003', sessions: 1233 },
+  { rank: 8, code: 'media3-exoplayer-1.10.1: 2000', sessions: 980 },
+  { rank: 9, code: 'media3-exoplayer-1.10.1: 6006', sessions: 745 },
+  { rank: 10, code: 'media3-exoplayer-1.10.1: 10001', sessions: 512 },
+];
+
+function generateMockTable() {
+  const output = document.getElementById('mock-table-output');
+  const rowsHtml = MOCK_ERROR_CODES.map(r => `
+    <tr>
+      <td>${r.rank}</td>
+      <td style="text-align:left">${escapeHtml(r.code)}</td>
+      <td>${r.sessions.toLocaleString()}</td>
+    </tr>
+  `).join('');
+
+  output.innerHTML = `
+    <table>
+      <thead><tr><th>อันดับ</th><th style="text-align:left">Error Code</th><th>จำนวน Sessions</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div class="mockup-note">⚠️ ตัวอย่างเท่านั้น (mockup) — ไม่ใช่ค่าจริงจากรูปที่วาง ตัวเลข/คอลัมน์เหล่านี้ไว้ให้ดูรูปแบบก่อนตัดสินใจ schema จริง</div>
+  `;
+}
+
+setupPasteArea();
 load(false);
 </script>
 </body>
