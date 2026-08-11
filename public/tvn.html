@@ -207,8 +207,7 @@ function render() {
   document.getElementById('body').innerHTML = `
     <div class="panel">
       <div id="export-panel" style="background:#fff">
-        <h2>ตารางข้อมูลทุก Platform</h2>
-        <div class="hint">แก้ค่าในช่องได้โดยตรง (พิมพ์ทับ เช่น "2.07" หรือ "2.07%" ก็ได้) เว้นว่างไว้คือไม่มีข้อมูล กด "+ เพิ่มวันที่" เพื่อเพิ่มวันที่ใหม่ที่ยังไม่มีในชีต แล้วกด Sync เพื่อบันทึกทุกช่องที่กรอกไว้กลับเข้าชีต สีพื้นหลังไล่จากเขียวเข้ม (≤2.00%) ไปแดง (≥6.00%) ตามค่า</div>
+        <h2>BITMOVIN Error Sessions</h2>
         ${heatLegendHtml()}
         ${renderTable(DATA.platforms, DATA.series)}
       </div>
