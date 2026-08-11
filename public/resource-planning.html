@@ -56,7 +56,15 @@
     .row-card select { cursor: pointer; }
     .row-card input:focus, .row-card select:focus { outline: none; border-color: #5b5fef; background: #fff; }
     .field-label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #b0b7cf; margin-bottom: 3px; display: block; }
-    .link-input { color: #4f5bd5; }
+    .link-field { display: flex; gap: 4px; }
+    .link-input { flex: 1; min-width: 0; color: #4f5bd5; }
+    .link-open-btn {
+      flex: none; width: 30px; display: flex; align-items: center; justify-content: center;
+      border: 1px solid #e3e6f2; border-radius: 8px; background: #fbfbfe; color: #8891b0; cursor: pointer;
+    }
+    .link-open-btn:hover { border-color: #5b5fef; color: #4b4fe0; background: #fff; }
+    .link-open-btn:disabled { cursor: default; opacity: .45; }
+    .link-open-btn:disabled:hover { border-color: #e3e6f2; color: #8891b0; background: #fbfbfe; }
     .row-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: none; }
     .save-status { font-size: 10.5px; color: #8891b0; white-space: nowrap; }
     .save-status.ok { color: #1ec496; font-weight: 600; }
@@ -143,6 +151,12 @@
       return color ? ` style="background:${color}"` : '';
     }
 
+    function openLink(btn) {
+      const url = (btn.previousElementSibling.value || '').trim();
+      if (!url) return;
+      window.open(/^https?:\/\//i.test(url) ? url : `https://${url}`, '_blank', 'noopener');
+    }
+
     function rowCardHtml(item) {
       const c = item.colors || {};
       return `
@@ -154,7 +168,13 @@
           <div class="field f-pic"><span class="field-label">PIC</span><select class="f-pic"${bg(c.pic)}>${selectOptionsHtml(PIC_OPTIONS, item.pic)}</select></div>
           <div class="field f-topic-wrap"><span class="field-label">Topic</span><input class="f-topic" value="${escapeHtml(item.topic)}"${bg(c.topic)}></div>
           <div class="field f-doing-wrap"><span class="field-label">Doing</span><input class="f-doing" value="${escapeHtml(item.doing)}"${bg(c.doing)}></div>
-          <div class="field f-link-wrap"><span class="field-label">Link</span><input class="link-input f-link" value="${escapeHtml(item.link)}" placeholder="https://..."${bg(c.link)}></div>
+          <div class="field f-link-wrap">
+            <span class="field-label">Link</span>
+            <div class="link-field">
+              <input class="link-input f-link" value="${escapeHtml(item.link)}" placeholder="https://..."${bg(c.link)} oninput="this.nextElementSibling.disabled = !this.value.trim()">
+              <button type="button" class="link-open-btn" title="เปิดลิงก์" onclick="openLink(this)"${item.link ? '' : ' disabled'}>↗</button>
+            </div>
+          </div>
           <div class="row-actions">
             <span class="save-status"></span>
             <button type="button" class="save-btn" onclick="saveRow(${item.rowNumber}, this)">บันทึก</button>
