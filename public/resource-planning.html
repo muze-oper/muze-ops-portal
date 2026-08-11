@@ -35,7 +35,6 @@
     }
     .refresh-btn:hover { border-color: #5b5fef; color: #4b4fe0; }
 
-    #rows { display: flex; flex-direction: column; gap: 8px; max-width: 1400px; margin: 0 auto; padding: 0 28px 40px; }
     /* One record = one row now (was a multi-row card) - each field is its
        own tiny label+control stack, laid out side by side instead of
        stacked, so a record never wraps past a single line. */
@@ -47,7 +46,8 @@
     .row-card .field.f-start, .row-card .field.f-end { width: 64px; }
     .row-card .field.f-status { width: 108px; }
     .row-card .field.f-project, .row-card .field.f-pic { width: 88px; }
-    .row-card .field.f-topic-wrap { flex: 1; min-width: 140px; }
+    .row-card .field.f-topic-wrap { flex: 1.3; min-width: 140px; }
+    .row-card .field.f-doing-wrap { flex: 1; min-width: 120px; }
     .row-card .field.f-link-wrap { width: 180px; }
     .row-card input, .row-card select {
       width: 100%; padding: 7px 9px; border: 1px solid #e3e6f2; border-radius: 8px;
@@ -68,6 +68,13 @@
     .save-btn:hover { background: #4b4fe0; }
     .save-btn:disabled { background: #c7cae8; cursor: default; }
     .empty, .loading { text-align: center; padding: 60px 20px; color: #8891b0; font-size: 13px; max-width: 1400px; margin: 0 auto; }
+
+    .day-section { max-width: 1400px; margin: 0 auto; padding: 0 28px; }
+    .day-heading-row { display: flex; align-items: baseline; gap: 10px; padding: 20px 0 10px; }
+    .day-heading-row:first-child { padding-top: 4px; }
+    .day-heading { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+    .day-heading-date { font-size: 12px; color: #8891b0; }
+    .day-rows { display: flex; flex-direction: column; gap: 8px; }
   </style>
 </head>
 <body>
@@ -82,13 +89,27 @@
 
   <div class="title-row">
     <div>
-      <h1 class="page-title">วันนี้</h1>
-      <p class="subtitle" id="date-label">กำลังโหลด...</p>
+      <h1 class="page-title">Operation Resource Planning</h1>
+      <p class="subtitle">งานวันนี้และพรุ่งนี้</p>
     </div>
     <button type="button" class="refresh-btn" onclick="load()">🔄 รีเฟรช</button>
   </div>
 
-  <div id="rows"><div class="loading">กำลังโหลดข้อมูล...</div></div>
+  <div class="day-section" id="day-section-0">
+    <div class="day-heading-row">
+      <h2 class="day-heading">วันนี้</h2>
+      <span class="day-heading-date" id="date-label-0">กำลังโหลด...</span>
+    </div>
+    <div class="day-rows" id="rows-0"><div class="loading">กำลังโหลดข้อมูล...</div></div>
+  </div>
+
+  <div class="day-section" id="day-section-1">
+    <div class="day-heading-row">
+      <h2 class="day-heading">พรุ่งนี้</h2>
+      <span class="day-heading-date" id="date-label-1">กำลังโหลด...</span>
+    </div>
+    <div class="day-rows" id="rows-1"><div class="loading">กำลังโหลดข้อมูล...</div></div>
+  </div>
 
   <script>
     function escapeHtml(s) {
@@ -132,6 +153,7 @@
           <div class="field f-project"><span class="field-label">Project</span><select class="f-project"${bg(c.project)}>${selectOptionsHtml(PROJECT_OPTIONS, item.project)}</select></div>
           <div class="field f-pic"><span class="field-label">PIC</span><select class="f-pic"${bg(c.pic)}>${selectOptionsHtml(PIC_OPTIONS, item.pic)}</select></div>
           <div class="field f-topic-wrap"><span class="field-label">Topic</span><input class="f-topic" value="${escapeHtml(item.topic)}"${bg(c.topic)}></div>
+          <div class="field f-doing-wrap"><span class="field-label">Doing</span><input class="f-doing" value="${escapeHtml(item.doing)}"${bg(c.doing)}></div>
           <div class="field f-link-wrap"><span class="field-label">Link</span><input class="link-input f-link" value="${escapeHtml(item.link)}" placeholder="https://..."${bg(c.link)}></div>
           <div class="row-actions">
             <span class="save-status"></span>
@@ -141,18 +163,25 @@
     }
 
     function load() {
-      const container = document.getElementById('rows');
-      container.innerHTML = '<div class="loading">กำลังโหลดข้อมูล...</div>';
-      fetch('/api/resource-planning/today')
+      [0, 1].forEach(i => {
+        document.getElementById(`rows-${i}`).innerHTML = '<div class="loading">กำลังโหลดข้อมูล...</div>';
+      });
+      fetch('/api/resource-planning/upcoming')
         .then(r => r.json())
-        .then(({ dateLabel, items = [] }) => {
-          document.getElementById('date-label').textContent = dateLabel || '';
-          container.innerHTML = items.length
-            ? items.map(rowCardHtml).join('')
-            : '<div class="empty">ยังไม่มีรายการของวันนี้</div>';
+        .then(({ days = [] }) => {
+          days.forEach((day, i) => {
+            const container = document.getElementById(`rows-${i}`);
+            if (!container) return;
+            document.getElementById(`date-label-${i}`).textContent = day.dateLabel || '';
+            container.innerHTML = day.items.length
+              ? day.items.map(rowCardHtml).join('')
+              : '<div class="empty">ยังไม่มีรายการ</div>';
+          });
         })
         .catch(() => {
-          container.innerHTML = '<div class="empty">โหลดข้อมูลไม่สำเร็จ</div>';
+          [0, 1].forEach(i => {
+            document.getElementById(`rows-${i}`).innerHTML = '<div class="empty">โหลดข้อมูลไม่สำเร็จ</div>';
+          });
         });
     }
 
@@ -166,6 +195,7 @@
         project: card.querySelector('.f-project').value,
         pic: card.querySelector('.f-pic').value,
         topic: card.querySelector('.f-topic').value,
+        doing: card.querySelector('.f-doing').value,
         link: card.querySelector('.f-link').value,
       };
       btn.disabled = true;
