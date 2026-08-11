@@ -29,29 +29,29 @@
 
     .panel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
     .panel h2 { font-size: 13px; font-weight: 700; color: #555; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .panel .hint { font-size: 11px; color: #888; margin-bottom: 10px; }
 
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th { text-align: right; background: #f7f8fa; color: #888; font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; }
     th:first-child, td:first-child { text-align: left; }
-    td { padding: 8px 10px; border-top: 1px solid #f0f0f0; color: #333; text-align: right; white-space: nowrap; }
+    td { padding: 4px 6px; border-top: 1px solid #f0f0f0; color: #333; text-align: right; white-space: nowrap; }
     .muted { color: #bbb; }
     #empty-state { text-align: center; padding: 80px 24px; color: #666; }
     #empty-state .icon { font-size: 48px; margin-bottom: 16px; }
 
-    .record-panel label { display: block; margin-top: 10px; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: #555; }
-    .record-panel textarea { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; }
-    .record-panel .hint { font-size: 11px; color: #888; margin-top: 2px; }
-    .record-panel button { margin-top: 12px; padding: 7px 18px; border: none; border-radius: 6px; background: #159ab0; color: white; font-size: 12px; font-weight: 600; cursor: pointer; }
-    .record-panel button:hover { background: #128296; }
-    .record-panel button:disabled { opacity: 0.6; cursor: default; }
-    .record-panel #redo-btn { background: white; color: #159ab0; border: 1px solid #159ab0; margin-left: 8px; }
-    .record-panel #redo-btn:hover:not(:disabled) { background: #f0fbfc; }
-    .record-panel #redo-btn:disabled { color: #aaa; border-color: #ddd; }
-    #record-result { white-space: pre-wrap; margin-top: 12px; font-size: 12px; color: #333; }
+    .cell-input { width: 84px; box-sizing: border-box; text-align: right; font-family: inherit; font-size: 12px; padding: 5px 7px; border: 1px solid #e2e2e2; border-radius: 5px; }
+    .cell-input:focus { outline: none; border-color: #159ab0; box-shadow: 0 0 0 2px rgba(21,154,176,.15); }
+    .date-cell-input { width: 110px; box-sizing: border-box; font-family: inherit; font-size: 12px; padding: 5px 7px; border: 1px solid #e2e2e2; border-radius: 5px; }
+    .new-row td { background: #fbfefe; }
 
-    .platform-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 10px; }
-    .platform-input label { margin-top: 0; }
-    .platform-input textarea { height: 90px; resize: vertical; }
+    .table-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+    .table-actions button { padding: 7px 18px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .table-actions button:disabled { opacity: 0.6; cursor: default; }
+    #add-row-btn { background: white; color: #159ab0; border: 1px solid #159ab0 !important; }
+    #add-row-btn:hover:not(:disabled) { background: #f0fbfc; }
+    #sync-btn { background: #159ab0; color: white; }
+    #sync-btn:hover:not(:disabled) { background: #128296; }
+    #sync-result { white-space: pre-wrap; margin-top: 12px; font-size: 12px; color: #333; }
   </style>
 </head>
 <body>
@@ -72,17 +72,6 @@
     <div id="last-updated" class="last-updated">กำลังโหลด...</div>
   </div>
   <div id="body"><div id="empty-state"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
-
-  <div class="panel record-panel">
-    <h2>บันทึกข้อมูลใหม่ (Quick Record — Sync หลาย Platform พร้อมกัน)</h2>
-    <div class="hint">วางข้อมูลของ platform ไหนก็ได้ที่มีพร้อม เว้นว่างช่องที่ยังไม่มีข้อมูล บรรทัดละ 1 วัน เช่น "Mon-3-Aug, 2.07%" (คั่นด้วย , หรือ : หรือ tab ก็ได้ — วันที่ต้องสะกดตรงกับคอลัมน์วันที่ในชีตเป๊ะ ๆ) แล้วกด Sync ครั้งเดียวจะบันทึกทุก platform ที่กรอกไว้พร้อมกัน</div>
-
-    <div id="platform-inputs" class="platform-grid"></div>
-
-    <button id="record-btn" onclick="submitRecord()">🔄 Sync ข้อมูลทั้งหมด</button>
-    <button id="redo-btn" onclick="redoLastSubmit()" disabled>↩️ Redo (เอาค่าที่เพิ่ง sync กลับมา)</button>
-    <div id="record-result"></div>
-  </div>
 </div>
 
 <script>
@@ -94,23 +83,31 @@ function slug(platform) {
   return platform.toLowerCase().replace(/\s+/g, '-');
 }
 
+// Renders the date x platform grid as editable inputs: existing dates get a
+// read-only date cell (editing it would desync it from the sheet row it's
+// matched against) with a value input per platform, pre-filled where data
+// exists and blank where it doesn't - so filling in a blank cell for an
+// existing date works the same as correcting a filled one. New rows (for
+// dates not yet in the sheet) are added separately via addNewRow().
 function renderTable(platforms, series) {
-  // Union of every date label across all platform series, in first-seen order.
   const dates = [];
   platforms.forEach(p => (series[p] || []).forEach(pt => { if (!dates.includes(pt.date)) dates.push(pt.date); }));
 
-  if (!dates.length) return '<div style="color:#aaa;font-size:12px">ไม่มีข้อมูล</div>';
-
-  const cellFor = (platform, date) => {
+  const valueFor = (platform, date) => {
     const pt = (series[platform] || []).find(p => p.date === date);
-    return pt ? `${pt.percent.toFixed(2)}%` : '<span class="muted">—</span>';
+    return pt ? pt.percent.toFixed(2) : '';
   };
 
-  return `<table>
+  const rowsHtml = dates.map(date => `
+    <tr data-date="${escapeHtml(date)}">
+      <td>${escapeHtml(date)}</td>
+      ${platforms.map(p => `<td><input class="cell-input" data-platform="${escapeHtml(p)}" value="${valueFor(p, date)}" placeholder="—"></td>`).join('')}
+    </tr>
+  `).join('');
+
+  return `<table id="data-table">
     <thead><tr><th>วันที่</th>${platforms.map(p => `<th>${escapeHtml(p)}</th>`).join('')}</tr></thead>
-    <tbody>${dates.map(date => `
-      <tr><td>${escapeHtml(date)}</td>${platforms.map(p => `<td>${cellFor(p, date)}</td>`).join('')}</tr>
-    `).join('')}</tbody>
+    <tbody id="data-table-body">${rowsHtml}</tbody>
   </table>`;
 }
 
@@ -121,9 +118,31 @@ function render() {
   document.getElementById('body').innerHTML = `
     <div class="panel">
       <h2>ตารางข้อมูลทุก Platform</h2>
+      <div class="hint">แก้ค่าในช่องได้โดยตรง (พิมพ์ทับ เช่น "2.07" หรือ "2.07%" ก็ได้) เว้นว่างไว้คือไม่มีข้อมูล กด "+ เพิ่มวันที่" เพื่อเพิ่มวันที่ใหม่ที่ยังไม่มีในชีต แล้วกด Sync เพื่อบันทึกทุกช่องที่กรอกไว้กลับเข้าชีต</div>
       ${renderTable(DATA.platforms, DATA.series)}
+      <div class="table-actions">
+        <button id="add-row-btn" onclick="addNewRow()">+ เพิ่มวันที่</button>
+        <button id="sync-btn" onclick="syncTable()">🔄 Sync เข้าชีต</button>
+      </div>
+      <div id="sync-result"></div>
     </div>
   `;
+}
+
+// Appends a blank row with an editable date label input (existing rows keep
+// a read-only date cell - see renderTable) so a brand-new week's dates can
+// be typed in and synced without them existing in the sheet yet.
+function addNewRow() {
+  if (!DATA) return;
+  const tbody = document.getElementById('data-table-body');
+  const row = document.createElement('tr');
+  row.className = 'new-row';
+  row.innerHTML = `
+    <td><input class="date-cell-input" placeholder="เช่น Tue-11-Aug"></td>
+    ${DATA.platforms.map(p => `<td><input class="cell-input" data-platform="${escapeHtml(p)}" placeholder="—"></td>`).join('')}
+  `;
+  tbody.appendChild(row);
+  row.querySelector('.date-cell-input').focus();
 }
 
 async function load(forceRefresh) {
@@ -134,15 +153,6 @@ async function load(forceRefresh) {
     if (data.error) throw new Error(data.error);
 
     DATA = data;
-    const inputsContainer = document.getElementById('platform-inputs');
-    if (!inputsContainer.children.length) {
-      inputsContainer.innerHTML = data.platforms.map(p => `
-        <div class="platform-input">
-          <label for="entries-${slug(p)}">${escapeHtml(p)}</label>
-          <textarea id="entries-${slug(p)}" data-platform="${escapeHtml(p)}" placeholder="Mon-3-Aug, 2.07%&#10;Tue-4-Aug, 2.57%"></textarea>
-        </div>
-      `).join('');
-    }
     document.getElementById('last-updated').textContent = 'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH');
     render();
   } catch (err) {
@@ -152,70 +162,63 @@ async function load(forceRefresh) {
   }
 }
 
-let lastSubmitted = null; // { [platform]: entries } from the most recent successful sync, for the Redo button
+// Reads every filled-in cell straight out of the DOM, groups by platform
+// (the /api/tvn/record endpoint takes one platform's lines at a time), and
+// submits each platform sequentially - same endpoint the old Quick Record
+// panel used, just fed from table inputs instead of pasted text. Only
+// platforms that fail keep their row's Sync state re-triable; on full
+// success the table reloads fresh from the sheet.
+async function syncTable() {
+  const btn = document.getElementById('sync-btn');
+  const resultEl = document.getElementById('sync-result');
+  const byPlatform = {};
 
-// Submits every platform textarea that has text in it, one platform at a
-// time (sequential, not parallel - each /api/tvn/record call does its own
-// read-then-write against the sheet, so overlapping calls could race). A
-// platform that fails keeps its textarea content (so it can be fixed and
-// re-synced) instead of being silently dropped along with the successes.
-async function submitRecord() {
-  const btn = document.getElementById('record-btn');
-  const resultEl = document.getElementById('record-result');
-  const toSync = [];
-  document.querySelectorAll('#platform-inputs textarea').forEach(ta => {
-    const entries = ta.value.trim();
-    if (entries) toSync.push({ platform: ta.dataset.platform, entries, el: ta });
+  document.querySelectorAll('#data-table-body tr').forEach(row => {
+    const dateInput = row.querySelector('.date-cell-input');
+    const date = dateInput ? dateInput.value.trim() : row.dataset.date;
+    if (!date) return;
+
+    row.querySelectorAll('.cell-input').forEach(input => {
+      const value = input.value.trim();
+      if (!value) return;
+      const platform = input.dataset.platform;
+      (byPlatform[platform] = byPlatform[platform] || []).push(`${date}, ${value}`);
+    });
   });
 
-  if (toSync.length === 0) {
+  const platforms = Object.keys(byPlatform);
+  if (platforms.length === 0) {
     resultEl.textContent = 'ไม่มีข้อมูลให้ sync (ทุกช่องว่างอยู่)';
     return;
   }
 
   btn.disabled = true;
   resultEl.textContent = 'กำลัง sync...';
-  const synced = {};
   const summary = [];
+  let allOk = true;
   try {
-    for (const item of toSync) {
+    for (const platform of platforms) {
       const res = await fetch('/api/tvn/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: item.platform, entries: item.entries }),
+        body: JSON.stringify({ platform, entries: byPlatform[platform].join('\n') }),
       });
       const data = await res.json();
       if (data.error) {
-        summary.push(`--- ${item.platform}: Error - ${data.error} ---`);
+        allOk = false;
+        summary.push(`--- ${platform}: Error - ${data.error} ---`);
         continue;
       }
-      summary.push(`--- ${item.platform} ---\n${data.results.join('\n')}`);
-      synced[item.platform] = item.entries;
-      item.el.value = '';
+      summary.push(`--- ${platform} ---\n${data.results.join('\n')}`);
     }
     resultEl.textContent = summary.join('\n\n');
-    if (Object.keys(synced).length > 0) {
-      lastSubmitted = synced;
-      document.getElementById('redo-btn').disabled = false;
-    }
-    await load(true); // refresh the table with what was just written
+    if (allOk) await load(true); // reload fresh from the sheet now that everything's saved
   } catch (err) {
+    allOk = false;
     resultEl.textContent = 'Error: ' + err.message;
   } finally {
     btn.disabled = false;
   }
-}
-
-// Brings back the platform + entries text from the last successful sync, in
-// case one needs a correction and re-syncing - submitRecord() clears each
-// textarea on success, so without this the whole batch would need retyping.
-function redoLastSubmit() {
-  if (!lastSubmitted) return;
-  Object.entries(lastSubmitted).forEach(([platform, entries]) => {
-    const ta = document.getElementById('entries-' + slug(platform));
-    if (ta) ta.value = entries;
-  });
-  document.getElementById('record-result').textContent = '';
 }
 
 load(false);
