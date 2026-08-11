@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TVN Error Sessions — Muze Tech Ops Portal</title>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
@@ -55,6 +56,8 @@
     #add-row-btn:hover:not(:disabled) { background: #f0fbfc; }
     #sync-btn { background: #159ab0; color: white; }
     #sync-btn:hover:not(:disabled) { background: #128296; }
+    #copy-image-btn { background: white; color: #555; border: 1px solid #ccc !important; }
+    #copy-image-btn:hover:not(:disabled) { background: #f7f8fa; }
     #sync-result { white-space: pre-wrap; margin-top: 12px; font-size: 12px; color: #333; }
 
     .record-panel label { display: block; margin-top: 10px; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: #555; }
@@ -203,18 +206,58 @@ function render() {
   if (!DATA) return;
   document.getElementById('body').innerHTML = `
     <div class="panel">
-      <h2>ตารางข้อมูลทุก Platform</h2>
-      <div class="hint">แก้ค่าในช่องได้โดยตรง (พิมพ์ทับ เช่น "2.07" หรือ "2.07%" ก็ได้) เว้นว่างไว้คือไม่มีข้อมูล กด "+ เพิ่มวันที่" เพื่อเพิ่มวันที่ใหม่ที่ยังไม่มีในชีต แล้วกด Sync เพื่อบันทึกทุกช่องที่กรอกไว้กลับเข้าชีต สีพื้นหลังไล่จากเขียวเข้ม (≤2.00%) ไปแดง (≥6.00%) ตามค่า</div>
-      ${heatLegendHtml()}
-      ${renderTable(DATA.platforms, DATA.series)}
+      <div id="export-panel" style="background:#fff">
+        <h2>ตารางข้อมูลทุก Platform</h2>
+        <div class="hint">แก้ค่าในช่องได้โดยตรง (พิมพ์ทับ เช่น "2.07" หรือ "2.07%" ก็ได้) เว้นว่างไว้คือไม่มีข้อมูล กด "+ เพิ่มวันที่" เพื่อเพิ่มวันที่ใหม่ที่ยังไม่มีในชีต แล้วกด Sync เพื่อบันทึกทุกช่องที่กรอกไว้กลับเข้าชีต สีพื้นหลังไล่จากเขียวเข้ม (≤2.00%) ไปแดง (≥6.00%) ตามค่า</div>
+        ${heatLegendHtml()}
+        ${renderTable(DATA.platforms, DATA.series)}
+      </div>
       <div class="table-actions">
         <button id="add-row-btn" onclick="addNewRow()">+ เพิ่มวันที่</button>
         <button id="sync-btn" onclick="syncTable()">🔄 Sync เข้าชีต</button>
+        <button id="copy-image-btn" onclick="copyTableAsImage()">📋 Copy เป็นรูปภาพ</button>
       </div>
       <div id="sync-result"></div>
     </div>
   `;
   document.querySelectorAll('#data-table-body .cell-input').forEach(applyCellColor);
+}
+
+// Renders #export-panel (heading + legend + table, not the buttons below
+// it) to a canvas and copies it to the clipboard as an image. Uses PNG, not
+// JPG, for the clipboard write - the Clipboard API's ClipboardItem only
+// reliably supports "image/png" across browsers, so that's what actually
+// ends up pasteable (into Discord, chat, docs, etc.) even though the visual
+// result looks the same either way. Requires a Chromium/Edge-class browser
+// and a secure (HTTPS) context - both true for this portal in production.
+async function copyTableAsImage() {
+  const btn = document.getElementById('copy-image-btn');
+  const resultEl = document.getElementById('sync-result');
+  const target = document.getElementById('export-panel');
+
+  if (!window.html2canvas) {
+    resultEl.textContent = 'Error: โหลด html2canvas ไม่สำเร็จ (เช็คการเชื่อมต่ออินเทอร์เน็ต)';
+    return;
+  }
+  if (!navigator.clipboard || !window.ClipboardItem) {
+    resultEl.textContent = 'Error: เบราว์เซอร์นี้ไม่รองรับการ copy รูปภาพเข้า clipboard (ลองใช้ Chrome/Edge)';
+    return;
+  }
+
+  btn.disabled = true;
+  resultEl.textContent = 'กำลังสร้างรูปภาพ...';
+  try {
+    const canvas = await html2canvas(target, { backgroundColor: '#ffffff', scale: 2 });
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('สร้างรูปภาพไม่สำเร็จ');
+
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    resultEl.textContent = 'Copy รูปภาพเข้า clipboard แล้ว - วาง (Ctrl/Cmd+V) ที่ไหนก็ได้';
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // Appends a blank row with an editable date label input (existing rows keep
