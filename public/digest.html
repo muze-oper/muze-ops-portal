@@ -447,7 +447,7 @@ function extractZendeskId(text) {
 function defaultActionDone(account, subject, snippet) {
   if (account === NISSAN_ACCOUNT) {
     const tag = extractMnTag(subject);
-    return tag ? tag.replace(/[[\]]/g, '') : '';
+    return tag ? `Jira ${tag.replace(/[[\]]/g, '')}` : '';
   }
   if (account === TVN_ACCOUNT) {
     const zid = extractZendeskId(snippet) || extractZendeskId(subject);
