@@ -459,6 +459,15 @@ function extractCaseRef(subject) {
   const m = /\bC\d{8}\b/.exec(subject || '');
   return m ? m[0].toUpperCase() : null;
 }
+// Fallback exact-subject grouping key — two subjects that read identically
+// can still fail a strict === compare (different Unicode normalization form,
+// or a non-breaking space/tab in place of a regular space somewhere in the
+// middle, both invisible to the eye) - confirmed as the cause of two visibly
+// identical subjects not grouping. NFC-normalize and collapse all whitespace
+// (JS's \s already matches  ) before comparing instead of just trim().
+function normalizeSubjectKey(subject) {
+  return (subject || '').normalize('NFC').replace(/\s+/g, ' ').trim();
+}
 const TVN_ACCOUNT = 'support-tvn@muze.co.th';
 
 // True Digital Group's Zendesk auto-replies include a boilerplate line like
@@ -769,7 +778,7 @@ function renderDashboard() {
   const groups = [];
   const bySubject = new Map();
   rows.forEach(function(row) {
-    const key = extractCaseRef(row.e.subject) || extractMnTag(row.e.subject) || (row.e.subject || '').trim();
+    const key = extractCaseRef(row.e.subject) || extractMnTag(row.e.subject) || normalizeSubjectKey(row.e.subject);
     let group = bySubject.get(key);
     if (!group) { group = { members: [] }; bySubject.set(key, group); groups.push(group); }
     group.members.push(row);

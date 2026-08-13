@@ -100,12 +100,15 @@ const SHARED_ACCOUNTS = ['support@muze.co.th','support-mea@muze.co.th','support-
 // POST /api/digest/live — store live unread counts + email list (no SSO, secret-protected)
 //
 // Carries forward any 🔴/🟡 email that drops out of the new fetch (read on
-// Gmail, aged past maxResults, etc.) as long as its status isn't Done/Ignore
-// yet — otherwise an item a user hasn't finished triaging could silently
-// vanish from the dashboard just because someone opened it or a day rolled
-// over. ⚪ แจ้งเตือนอัตโนมัติ is excluded entirely — automated notifications
-// don't need triage, so they should just disappear normally instead of
-// piling up. "Ignore" remains the escape valve for the other two categories.
+// Gmail, aged past maxResults, etc.) as long as its status isn't Done/
+// Ignore/Skip yet — otherwise an item a user hasn't finished triaging could
+// silently vanish from the dashboard just because someone opened it or a day
+// rolled over. ⚪ แจ้งเตือนอัตโนมัติ is excluded entirely — automated
+// notifications don't need triage, so they should just disappear normally
+// instead of piling up. Skip (like Ignore/Done) also removes an item that's
+// STILL inside this fetch's own window, not just ones aging out of it — it
+// means "hide this going forward", so it shouldn't reappear just because
+// Gmail's own query still naturally returns it.
 router.post('/api/digest/live', async (req, res) => {
   const secret = req.headers['x-digest-secret'];
   if (secret !== DIGEST_SECRET) return res.status(403).json({ error: 'Forbidden' });
@@ -123,13 +126,29 @@ router.post('/api/digest/live', async (req, res) => {
         e.msgId && !newIds.has(e.msgId) && e.category !== '⚪ แจ้งเตือนอัตโนมัติ'
       );
 
-      const carried = (await Promise.all(candidates.map(async e => {
-        const statusData = await drive.readFile(statusKey(acc, e.msgId)).catch(() => null);
-        const status = statusData?.status || 'To Do';
-        return (status === 'Done' || status === 'Ignore') ? null : { ...e, carried: true };
-      }))).filter(Boolean);
+      // One status lookup per account (shared token + read-by-id, not each
+      // read doing its own token refresh + name search) covers BOTH: which
+      // carry-forward candidates are done/ignored/skipped, AND which items
+      // still inside this fetch's own window are flagged Skip - Skip means
+      // "hide this going forward", not just "stop carrying it once Gmail's
+      // own query stops returning it", so a still-in-window item needs the
+      // same check the carry-forward candidates already got.
+      const statusFiles = await drive.listFiles(`emailstatus_${acc.replace(/@|\./g, '_')}_`);
+      const accessToken = await drive.getAdminAccessToken();
+      const statusDocs = await Promise.all(statusFiles.map(f => drive.readFileById(f.id, accessToken).catch(() => null)));
+      const statusByMsgId = {};
+      statusDocs.filter(Boolean).forEach(s => { statusByMsgId[s.msgId] = s.status; });
 
-      merged[acc] = { counts: entry.counts, emails: [...newEmails, ...carried] };
+      const carried = candidates
+        .map(e => {
+          const status = statusByMsgId[e.msgId] || 'To Do';
+          return (status === 'Done' || status === 'Ignore' || status === 'Skip') ? null : { ...e, carried: true };
+        })
+        .filter(Boolean);
+
+      const freshFiltered = newEmails.filter(e => statusByMsgId[e.msgId] !== 'Skip');
+
+      merged[acc] = { counts: entry.counts, emails: [...freshFiltered, ...carried] };
     }
 
     await drive.writeFile(LIVE_FILENAME, { counts: merged, updatedAt });
