@@ -773,12 +773,25 @@ function renderDashboard() {
   // priority: the case reference (e.g. "C26080087" — present from the very
   // first email, so it's what actually ties "[MN-134] C26080087/..." to a
   // later "C26080087/..." reply that never got the ticket tag), then the
-  // [MN-xx] tag alone as a fallback, then the exact subject (a ticketing
-  // system pinging the same thing over and over, verbatim).
+  // [MN-xx] tag alone, then the Zendesk ticket ID (support-tvn — the same
+  // ticket shows up across multiple reply-chain subjects that don't share
+  // any subject text at all, only the ticket ID buried in the snippet/body,
+  // which is exactly what was showing as duplicate "Zendesk 300117" rows
+  // instead of one group), then the exact subject as the last resort (a
+  // ticketing system pinging the same thing over and over, verbatim).
+  function groupKeyFor(e) {
+    return extractCaseRef(e.subject)
+      || extractMnTag(e.subject)
+      || (function() {
+           const zid = extractZendeskId(e.subject) || extractZendeskId(e.snippet);
+           return zid ? 'ZD-' + zid : null;
+         })()
+      || normalizeSubjectKey(e.subject);
+  }
   const groups = [];
   const bySubject = new Map();
   rows.forEach(function(row) {
-    const key = extractCaseRef(row.e.subject) || extractMnTag(row.e.subject) || normalizeSubjectKey(row.e.subject);
+    const key = groupKeyFor(row.e);
     let group = bySubject.get(key);
     if (!group) { group = { members: [] }; bySubject.set(key, group); groups.push(group); }
     group.members.push(row);
