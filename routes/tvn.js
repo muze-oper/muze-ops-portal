@@ -280,6 +280,84 @@ router.post('/api/tvn/record', async (req, res) => {
   }
 });
 
+// --- BitMovin Error Sessions, hourly grid tab: a second, separate tab (same
+// title "BitMovin Error" as the weekly-rollup one above, but a different
+// gid - always resolve/write by gid, never by title, since the titles
+// collide). One row per platform, 24 hour-of-day columns (Bangkok time,
+// "10.00".."24.00","1.00".."9.00" - a full day starting at 10:00, with
+// midnight written as "24.00" not "0.00"), no date column - this tab is a
+// live intraday snapshot that gets overwritten, not a dated history.
+const HOURLY_SHEET_GID = 1338052572;
+const HOUR_COLUMNS = [
+  '10.00', '11.00', '12.00', '13.00', '14.00', '15.00', '16.00', '17.00', '18.00', '19.00', '20.00',
+  '21.00', '22.00', '23.00', '24.00', '1.00', '2.00', '3.00', '4.00', '5.00', '6.00', '7.00', '8.00', '9.00',
+];
+const HOURLY_PLATFORM_COL_IDX = 0; // column A
+const HOURLY_FILTERS_COL_IDX = 1; // column B
+const HOURLY_FIRST_HOUR_COL_IDX = 2; // column C - HOUR_COLUMNS[0] ("10.00")
+
+async function fetchHourlyTitleAndRows() {
+  const title = await resolveSheetTitleByGid(SHEET_ID, HOURLY_SHEET_GID);
+  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:Z20`);
+  return { title, rows };
+}
+
+router.get('/api/tvn/error-sessions-hourly', async (req, res) => {
+  if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
+  try {
+    const { rows } = await fetchHourlyTitleAndRows();
+    const platforms = rows
+      .slice(1)
+      .map(row => {
+        const values = {};
+        HOUR_COLUMNS.forEach((label, i) => { values[label] = row[HOURLY_FIRST_HOUR_COL_IDX + i] || ''; });
+        return { platform: row[HOURLY_PLATFORM_COL_IDX] || '', filters: row[HOURLY_FILTERS_COL_IDX] || '', values };
+      })
+      .filter(p => p.platform);
+    res.json({ platforms, hourColumns: HOUR_COLUMNS });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Overwrites only the hours present in `values` for one platform's row,
+// merging with (not replacing) whatever's already in the other hour cells -
+// a partial-day CSV export shouldn't blank out hours it doesn't cover.
+router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
+  if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
+  const { platform, values } = req.body || {};
+  try {
+    const { title, rows } = await fetchHourlyTitleAndRows();
+    const rowIdx = rows.findIndex(
+      (row, i) => i > 0 && (row[HOURLY_PLATFORM_COL_IDX] || '').trim().toLowerCase() === String(platform || '').trim().toLowerCase()
+    );
+    if (rowIdx === -1) {
+      return res.status(400).json({ error: `ไม่รู้จัก platform "${platform}" ในแท็บ hourly` });
+    }
+
+    const currentRow = rows[rowIdx] || [];
+    let updatedCount = 0;
+    const merged = HOUR_COLUMNS.map((label, i) => {
+      const provided = values ? values[label] : undefined;
+      if (provided !== undefined && provided !== '') {
+        updatedCount++;
+        return String(provided);
+      }
+      const existing = currentRow[HOURLY_FIRST_HOUR_COL_IDX + i];
+      return existing === undefined ? '' : existing;
+    });
+
+    const rowNum = rowIdx + 1;
+    const firstColLetter = colLetter(HOURLY_FIRST_HOUR_COL_IDX);
+    const lastColLetter = colLetter(HOURLY_FIRST_HOUR_COL_IDX + HOUR_COLUMNS.length - 1);
+    await updateSheetRow(SHEET_ID, `'${title}'!${firstColLetter}${rowNum}:${lastColLetter}${rowNum}`, merged);
+
+    res.json({ result: `${platform}: อัปเดต ${updatedCount} ช่วงเวลา` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Firebase Crashlytics tab: one row per platform, gid is stable (0) but
 // resolve the title anyway in case it ever gets renamed like BitMovin Error did.
 const CRASHLYTICS_SHEET_GID = 0;

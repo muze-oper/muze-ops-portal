@@ -57,6 +57,19 @@
   </section>
 
   <section class="block">
+    <div class="block-head"><h2 class="h">Import CSV รายชั่วโมง (Bitmovin)</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="hint">
+        Export CSV จาก Bitmovin (metric "Error Sessions", ตั้ง filter OS/Platform ให้ตรงกับ platform เดียวเท่านั้นก่อน export) แล้วเลือกไฟล์ที่นี่ —
+        ระบบจะตรวจ platform จาก filter ในไฟล์อัตโนมัติ แปลงเวลาเป็นเวลาไทย (Bangkok) ให้ตรวจสอบก่อน แล้วค่อยกด sync เข้าชีต
+        (แท็บ "hourly" นี้เก็บแค่ภาพรวมของวันล่าสุด ไม่มีคอลัมน์วันที่ — ค่าจะถูกเขียนทับทุกครั้งที่ sync)
+      </div>
+      <input type="file" id="hourly-csv-file" accept=".csv,text/csv" onchange="handleHourlyCsvFile(this)">
+      <div id="hourly-csv-preview"></div>
+    </div>
+  </section>
+
+  <section class="block">
     <div class="block-head"><h2 class="h">แนบ Screenshot</h2><div class="rule"></div></div>
     <div class="card">
       <div class="hint">แนบ/วาง screenshot ของกราฟ Error Session % ไว้ที่นี่เพื่อดูอ้างอิงตอนกรอกค่า (ไม่มีการวิเคราะห์อัตโนมัติ — ใช้ skill ด้านล่างในแชท Claude Code เพื่อให้ Claude อ่านค่าให้)</div>
@@ -306,6 +319,191 @@ function redoLastSubmit() {
     if (ta) ta.value = entries;
   });
   document.getElementById('record-result').textContent = '';
+}
+
+// ---- Hourly CSV import: parse a Bitmovin "Error Sessions" CSV export
+// (Global Filter table + a Date/Error Sessions/Sessions Considered/
+// Percentage table), auto-detect which platform it's for from the OS +
+// Platform filter, convert each hour's UTC timestamp to the Bangkok-time
+// column label used by the hourly sheet tab, and show a preview for the
+// human to confirm before writing anything. ----
+
+// Mirrors the "Filters" text already stored per platform row in the
+// hourly sheet tab (see routes/tvn.js HOURLY_SHEET_GID) - os is matched as
+// a set (order-independent), platformValue is an extra disambiguator only
+// where two platforms share the same OS (Android / Android TV).
+const HOURLY_PLATFORM_FILTERS = [
+  { platform: 'iOS Mobile', os: ['ipados', 'ios'], platformValue: 'ios' },
+  { platform: 'Android Mobile', os: ['android'], platformValue: 'android' },
+  { platform: 'Apple TV', os: ['tvos'], platformValue: 'tvos' },
+  { platform: 'Android TV', os: ['android'], platformValue: 'androidtv' },
+  { platform: 'Tizen', os: ['tizen'], platformValue: null },
+  { platform: 'LG', os: ['web0s'], platformValue: null },
+  { platform: 'Vidaa', os: ['vidaa'], platformValue: null },
+];
+const HOURLY_ALL_PLATFORMS = HOURLY_PLATFORM_FILTERS.map(p => p.platform);
+
+function detectHourlyPlatform(osList, platformValue) {
+  const osSet = osList.map(s => s.trim().toLowerCase()).filter(Boolean).sort();
+  const pv = platformValue ? platformValue.trim().toLowerCase() : null;
+  const matches = HOURLY_PLATFORM_FILTERS.filter(def => {
+    const defOs = [...def.os].sort();
+    if (JSON.stringify(defOs) !== JSON.stringify(osSet)) return false;
+    if (def.platformValue === null) return true;
+    return def.platformValue === pv;
+  });
+  return matches.length === 1 ? matches[0].platform : null;
+}
+
+// Basic quoted-CSV line parser - the Bitmovin export quotes every field and
+// at least one value ("iOS,iPadOS") contains a comma inside the quotes, so
+// a plain .split(',') would corrupt it.
+function parseCsvLine(line) {
+  const fields = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; }
+      } else {
+        cur += c;
+      }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      fields.push(cur);
+      cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  fields.push(cur);
+  return fields;
+}
+
+// UTC hour -> Bangkok-time column label used by the hourly sheet tab
+// ("10.00".."24.00","1.00".."9.00" - midnight is "24.00", not "0.00").
+function utcHourToBangkokLabel(isoTimestamp) {
+  const utcHour = new Date(isoTimestamp).getUTCHours();
+  const bangkokHour = (utcHour + 7) % 24;
+  return (bangkokHour === 0 ? 24 : bangkokHour) + '.00';
+}
+
+function parseHourlyCsv(text) {
+  const lines = text.split(/\r?\n/).map(parseCsvLine);
+  let osList = [];
+  let platformValue = null;
+  const hourValues = {}; // label -> percentage string, newest CSV row wins on duplicate labels
+
+  let dataStarted = false;
+  for (const fields of lines) {
+    const first = (fields[0] || '').trim();
+    if (!dataStarted) {
+      if (first === 'OPERATINGSYSTEM') {
+        osList = (fields[2] || '').split(',').map(s => s.trim()).filter(Boolean);
+      } else if (first === 'PLATFORM') {
+        platformValue = (fields[2] || '').trim();
+      } else if (first === 'Date' && (fields[1] || '').trim() === 'Error Sessions') {
+        dataStarted = true;
+      }
+      continue;
+    }
+    // Data row: Date, Error Sessions, Sessions Considered, Percentage
+    if (!first) continue;
+    const isoTimestamp = first;
+    const percentage = (fields[3] || '').trim();
+    if (!percentage || isNaN(new Date(isoTimestamp).getTime())) continue;
+    const label = utcHourToBangkokLabel(isoTimestamp);
+    if (!(label in hourValues)) hourValues[label] = percentage; // file lists newest-first
+  }
+
+  return { osList, platformValue, hourValues, detectedPlatform: detectHourlyPlatform(osList, platformValue) };
+}
+
+let hourlyParsed = null;
+
+function handleHourlyCsvFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      hourlyParsed = parseHourlyCsv(String(reader.result));
+      renderHourlyCsvPreview();
+    } catch (err) {
+      document.getElementById('hourly-csv-preview').innerHTML = `<div class="result-text">Error: อ่านไฟล์ไม่สำเร็จ - ${escapeHtml(err.message)}</div>`;
+    }
+  };
+  reader.readAsText(file);
+}
+
+function renderHourlyCsvPreview() {
+  const el = document.getElementById('hourly-csv-preview');
+  if (!hourlyParsed) { el.innerHTML = ''; return; }
+  const { osList, platformValue, hourValues, detectedPlatform } = hourlyParsed;
+  const filledCount = Object.keys(hourValues).length;
+
+  const platformPicker = detectedPlatform
+    ? `<span class="tag-pill" style="background:var(--good-soft);color:var(--good);">${escapeHtml(detectedPlatform)}</span>`
+    : `<select id="hourly-platform-manual">${HOURLY_ALL_PLATFORMS.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}</select>`;
+
+  const rowsHtml = HOUR_COLUMNS_JS.map(label => `
+    <tr>
+      <td>${label}</td>
+      <td>${hourValues[label] !== undefined ? escapeHtml(hourValues[label]) + '%' : '<span style="color:var(--ink-faint)">—</span>'}</td>
+    </tr>
+  `).join('');
+
+  el.innerHTML = `
+    <div class="hint" style="margin-top:12px;">
+      ตรวจพบ filter ในไฟล์: OS = ${escapeHtml(osList.join(', ') || '-')}, Platform = ${escapeHtml(platformValue || '-')}
+      ${detectedPlatform ? '→ ตรงกับ' : '→ ไม่พบ platform ที่ตรงกัน เลือกเองด้านล่าง:'} ${platformPicker}
+      — พบข้อมูล ${filledCount}/24 ชั่วโมง (เวลาไทย)
+    </div>
+    <table class="data" style="max-width:280px;">
+      <thead><tr><th>ชั่วโมง (ไทย)</th><th>Error Session %</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div class="table-actions">
+      <button class="btn-primary" id="hourly-sync-btn" onclick="syncHourlyCsv()">🔄 ยืนยัน &amp; Sync เข้าชีต</button>
+    </div>
+    <div id="hourly-csv-result" class="result-text"></div>
+  `;
+}
+
+const HOUR_COLUMNS_JS = [
+  '10.00', '11.00', '12.00', '13.00', '14.00', '15.00', '16.00', '17.00', '18.00', '19.00', '20.00',
+  '21.00', '22.00', '23.00', '24.00', '1.00', '2.00', '3.00', '4.00', '5.00', '6.00', '7.00', '8.00', '9.00',
+];
+
+async function syncHourlyCsv() {
+  if (!hourlyParsed) return;
+  const manualSelect = document.getElementById('hourly-platform-manual');
+  const platform = hourlyParsed.detectedPlatform || (manualSelect && manualSelect.value);
+  const btn = document.getElementById('hourly-sync-btn');
+  const resultEl = document.getElementById('hourly-csv-result');
+  if (!platform) {
+    resultEl.textContent = 'กรุณาเลือก platform ก่อน sync';
+    return;
+  }
+  btn.disabled = true;
+  resultEl.textContent = 'กำลัง sync...';
+  try {
+    const res = await fetch('/api/tvn/error-sessions-hourly/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, values: hourlyParsed.hourValues }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    resultEl.textContent = '✓ ' + data.result;
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 setupPasteArea('paste-area-sessions');
