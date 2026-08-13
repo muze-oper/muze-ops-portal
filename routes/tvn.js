@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const path = require('path');
 const { fetchSheetRows, resolveSheetTitleByGid, updateSheetRow } = require('../storage/googleSheets');
+const { readValueFromScreenshot } = require('../lib/anthropicVision');
 
 const SHEET_ID = process.env.TVN_SHEET_ID;
 // The tab's gid is stable; its name isn't - it was renamed from "BitMovin
@@ -253,6 +254,101 @@ router.post('/api/tvn/record', async (req, res) => {
     res.json({ results });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Firebase Crashlytics tab: one row per platform, gid is stable (0) but
+// resolve the title anyway in case it ever gets renamed like BitMovin Error did.
+const CRASHLYTICS_SHEET_GID = 0;
+const CRASHLYTICS_PLATFORM_COL_IDX = 0; // column A - "Andriod TV", "Apple TV", "Andriod", "iOS" (sheet's own spelling)
+const CRASHLYTICS_FILTER_COL_IDX = 1; // column B
+const CRASHLYTICS_ACTION_DATE_COL_IDX = 2; // column C
+const CRASHLYTICS_DATE_CHECK_COL_IDX = 3; // column D
+const CRASHLYTICS_VALUE_COL_IDX = 4; // column E - plain number, NOT percent-formatted (unlike BitMovin Error's columns)
+
+// "13 Aug 26" style, matching the existing cells in this tab (different from
+// BitMovin Error's "Mon-3-Aug" weekly-label format).
+function formatBangkokShortDate() {
+  const now = new Date();
+  const day = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', day: 'numeric' }).format(now);
+  const month = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', month: 'short' }).format(now);
+  const year = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', year: '2-digit' }).format(now);
+  return `${day} ${month} ${year}`;
+}
+
+async function fetchCrashlyticsTitleAndRows() {
+  const title = await resolveSheetTitleByGid(SHEET_ID, CRASHLYTICS_SHEET_GID);
+  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:G20`);
+  return { title, rows };
+}
+
+router.get('/api/tvn/crashlytics', async (req, res) => {
+  if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
+  try {
+    const { rows } = await fetchCrashlyticsTitleAndRows();
+    const platforms = rows
+      .slice(1)
+      .map((row) => ({
+        platform: row[CRASHLYTICS_PLATFORM_COL_IDX] || '',
+        filter: row[CRASHLYTICS_FILTER_COL_IDX] || '',
+        actionDate: row[CRASHLYTICS_ACTION_DATE_COL_IDX] || '',
+        dateCheck: row[CRASHLYTICS_DATE_CHECK_COL_IDX] || '',
+        value: row[CRASHLYTICS_VALUE_COL_IDX] || '',
+      }))
+      .filter((p) => p.platform);
+    res.json({ platforms });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/api/tvn/crashlytics/record', async (req, res) => {
+  if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
+  const { platform, value, filter } = req.body || {};
+  try {
+    const { title, rows } = await fetchCrashlyticsTitleAndRows();
+    const rowIdx = rows.findIndex(
+      (row, i) => i > 0 && (row[CRASHLYTICS_PLATFORM_COL_IDX] || '').trim().toLowerCase() === String(platform || '').trim().toLowerCase()
+    );
+    if (rowIdx === -1) {
+      return res.status(400).json({ error: `ไม่รู้จัก platform "${platform}" ในแท็บ Firebase Crashlytics` });
+    }
+    const numeric = parseFloat(String(value).replace('%', '').trim());
+    if (isNaN(numeric)) {
+      return res.status(400).json({ error: `ค่า "${value}" ไม่ใช่ตัวเลข` });
+    }
+
+    const rowNum = rowIdx + 1; // rows[] is 0-indexed, sheet rows are 1-indexed - they line up directly
+    const dateLabel = formatBangkokShortDate();
+    const valueColLetter = colLetter(CRASHLYTICS_VALUE_COL_IDX);
+    const actionDateColLetter = colLetter(CRASHLYTICS_ACTION_DATE_COL_IDX);
+    const dateCheckColLetter = colLetter(CRASHLYTICS_DATE_CHECK_COL_IDX);
+
+    await updateSheetRow(SHEET_ID, `'${title}'!${valueColLetter}${rowNum}:${valueColLetter}${rowNum}`, [numeric]);
+    await updateSheetRow(SHEET_ID, `'${title}'!${actionDateColLetter}${rowNum}:${actionDateColLetter}${rowNum}`, [dateLabel]);
+    await updateSheetRow(SHEET_ID, `'${title}'!${dateCheckColLetter}${rowNum}:${dateCheckColLetter}${rowNum}`, [dateLabel]);
+    if (filter) {
+      const filterColLetter = colLetter(CRASHLYTICS_FILTER_COL_IDX);
+      await updateSheetRow(SHEET_ID, `'${title}'!${filterColLetter}${rowNum}:${filterColLetter}${rowNum}`, [filter]);
+    }
+
+    res.json({ result: `${platform}: อัปเดต Crash Free User = ${numeric}% (${dateLabel})` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reads a value off an uploaded chart screenshot via Claude vision - review-only,
+// does NOT write anything. The caller (either tab's UI) writes via the existing
+// /api/tvn/record (BitMovin) or /api/tvn/crashlytics/record (Crashlytics) endpoint
+// once the human has confirmed the value.
+router.post('/api/tvn/vision-read', async (req, res) => {
+  const { tool, platform, imageDataUrl } = req.body || {};
+  try {
+    const result = await readValueFromScreenshot({ tool, platform, imageDataUrl });
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

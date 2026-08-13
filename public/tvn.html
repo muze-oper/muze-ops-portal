@@ -89,6 +89,16 @@
     .platform-input textarea { height: 90px; resize: vertical; }
 
     .mockup-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; background: #fff2d6; color: #b9820b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 8px; vertical-align: middle; }
+
+    .cl-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+    .cl-table th { text-align: left; background: #f7f8fa; color: #888; font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
+    .cl-table td { padding: 8px 10px; border-top: 1px solid #f0f0f0; vertical-align: middle; }
+    .cl-table input { font-family: inherit; font-size: 12px; padding: 5px 7px; border: 1px solid #e2e2e2; border-radius: 5px; box-sizing: border-box; }
+    .cl-table input.cl-value { width: 80px; font-weight: 700; }
+    .cl-table input.cl-filter { width: 100%; min-width: 160px; }
+    .cl-table button { padding: 5px 10px; border: 1px solid #159ab0; border-radius: 6px; background: #159ab0; color: #fff; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .cl-table button:hover { background: #128296; }
+    .cl-status-row td { padding: 2px 10px 10px; border-top: none; font-size: 11px; color: #555; white-space: pre-wrap; }
     .paste-area {
       border: 2px dashed #ccc; border-radius: 10px; padding: 32px; text-align: center;
       color: #888; font-size: 13px; cursor: pointer; background: #fafbfc;
@@ -115,6 +125,7 @@
 <div class="layout">
   <div class="sidebar">
     <button class="tab-btn active" data-tab="sessions" onclick="switchTab('sessions')">BITMOVIN Error Sessions</button>
+    <button class="tab-btn" data-tab="crashlytics" onclick="switchTab('crashlytics')">Firebase Crashlytics</button>
     <button class="tab-btn" data-tab="errorcodes" onclick="switchTab('errorcodes')">BITMOVIN Top Error Codes</button>
   </div>
 
@@ -136,6 +147,16 @@
           <button id="record-btn" onclick="submitRecord()">🔄 Sync ข้อมูลทั้งหมด</button>
           <button id="redo-btn" onclick="redoLastSubmit()" disabled>↩️ Redo (เอาค่าที่เพิ่ง sync กลับมา)</button>
           <div id="record-result"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-crashlytics" class="tab-panel" style="display:none">
+      <div style="max-width:none;margin:24px;padding:0;">
+        <div class="panel">
+          <h2>Firebase Crashlytics — Crash-free Users</h2>
+          <div class="hint">กรอกค่า Crash-free Users % และ Filter (version) ของแต่ละแถวตามที่อ่านได้จาก Firebase Console แล้วกด บันทึก ทีละแถว</div>
+          <div id="crashlytics-body"><div id="crashlytics-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
         </div>
       </div>
     </div>
@@ -486,12 +507,85 @@ function redoLastSubmit() {
   document.getElementById('record-result').textContent = '';
 }
 
-// ---- Tab switching (Error Sessions <-> Top Error Codes mockup) ----
+// ---- Firebase Crashlytics tab: one row per platform, each with a manual
+// value/filter edit + a per-row save (writes only that row) ----
+
+let crashlyticsLoaded = false;
+
+async function loadCrashlytics() {
+  const body = document.getElementById('crashlytics-body');
+  try {
+    const res = await fetch('/api/tvn/crashlytics');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderCrashlytics(data.platforms);
+  } catch (err) {
+    body.innerHTML = `<div id="crashlytics-empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderCrashlytics(platforms) {
+  const body = document.getElementById('crashlytics-body');
+  const rowsHtml = platforms.map(p => {
+    const s = slug(p.platform);
+    return `
+      <tr data-platform="${escapeHtml(p.platform)}">
+        <td>${escapeHtml(p.platform)}</td>
+        <td><input class="cl-filter" id="cl-filter-${s}" value="${escapeHtml(p.filter).replace(/\n/g, ', ')}"></td>
+        <td>${escapeHtml(p.actionDate)}</td>
+        <td>${escapeHtml(p.dateCheck)}</td>
+        <td><input class="cl-value" id="cl-value-${s}" type="number" step="0.01" value="${escapeHtml(p.value)}"></td>
+        <td>
+          <button onclick="saveCrashlyticsRow('${escapeHtml(p.platform)}')">💾 บันทึก</button>
+        </td>
+      </tr>
+      <tr class="cl-status-row"><td colspan="6" id="cl-status-${s}"></td></tr>
+    `;
+  }).join('');
+
+  body.innerHTML = `
+    <table class="cl-table">
+      <thead><tr><th>Platform</th><th>Filter (versions)</th><th>Action Date</th><th>Date Check</th><th>Crash Free User %</th><th>บันทึก</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  `;
+}
+
+async function saveCrashlyticsRow(platform) {
+  const s = slug(platform);
+  const statusEl = document.getElementById('cl-status-' + s);
+  const value = document.getElementById('cl-value-' + s).value.trim();
+  const filter = document.getElementById('cl-filter-' + s).value.trim();
+  if (!value) {
+    statusEl.textContent = 'กรุณากรอกค่า % ก่อนบันทึก';
+    return;
+  }
+  statusEl.textContent = 'กำลังบันทึก...';
+  try {
+    const res = await fetch('/api/tvn/crashlytics/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, value, filter }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    statusEl.textContent = '✓ ' + data.result;
+    loadCrashlytics();
+  } catch (err) {
+    statusEl.textContent = 'Error: ' + err.message;
+  }
+}
+
+// ---- Tab switching (Error Sessions <-> Crashlytics <-> Top Error Codes mockup) ----
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach(panel => { panel.style.display = 'none'; });
   document.getElementById('tab-' + tab).style.display = 'block';
+  if (tab === 'crashlytics' && !crashlyticsLoaded) {
+    crashlyticsLoaded = true;
+    loadCrashlytics();
+  }
 }
 
 // ---- Top Error Codes mockup: paste-image capture + fake "generate" ----
