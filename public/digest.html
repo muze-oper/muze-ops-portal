@@ -780,8 +780,26 @@ function renderDashboard() {
     const rep = members[0]; // representative — due/sender/category/account shown, Due editing applies here only
     const account = rep.account, e = rep.e, i = rep.i;
     const msgIds = members.map(m => m.e.msgId).filter(Boolean);
-    const st  = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
     const asg = e.msgId ? (_assignments[e.msgId] || null) : null;
+    const assigneeVal = asg?.assigneeEmail || '';
+    // asg.actionDone is only ever set once someone actually edits/saves the
+    // field - until then, default to the [MN-xx] tag / Zendesk ticket ref
+    // scanned off the subject/snippet, so the group starts pre-filled
+    // instead of blank.
+    const actionDoneVal = (asg && asg.actionDone != null) ? asg.actionDone : defaultActionDone(account, e.subject, e.snippet);
+
+    let st = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
+    // Business rule: a non-blank Action Done means work has already started
+    // (a ticket ref got attached) — it can't still be "To Do", so escalate
+    // to Processing the moment that becomes true rather than leaving the
+    // status stale until someone notices and flips it manually. Only ever
+    // escalates FROM "To Do" — never overrides Scoping/Ignore/Skip/Done —
+    // and persists immediately so it won't re-fire every render.
+    if (actionDoneVal && st === 'To Do') {
+      st = 'Processing';
+      msgIds.forEach(id => { _emailStatuses[id] = 'Processing'; });
+      applyStatusToMsgIds(msgIds, 'Processing');
+    }
     if (counts[st] !== undefined) counts[st]++;
     else counts['To Do']++;
     const sb = STATUS_BADGE[st] || STATUS_BADGE['To Do'];
@@ -790,11 +808,6 @@ function renderDashboard() {
     tr.onmouseover = function() { this.style.background='#f8f9fa'; };
     tr.onmouseout  = function() { this.style.background=''; };
     tr.onclick     = function(ev) { if (ev.target.tagName==='SELECT'||ev.target.tagName==='INPUT') return; showEmailDetail(account, i); };
-    const assigneeVal = asg?.assigneeEmail || '';
-    // asg.actionDone is only ever set once someone actually edits/saves the
-    // field - until then, default to the [MN-xx] tag scanned off the
-    // subject (nissan-ma only), so the group starts pre-filled instead of blank.
-    const actionDoneVal = (asg && asg.actionDone != null) ? asg.actionDone : defaultActionDone(account, e.subject, e.snippet);
     const dueVal = asg?.dueDate || emailInboxDue(e.date);
     const dueId  = 'tbl-due-'+account.replace(/[@.]/g,'_')+'-'+i;
     const shortAcc = account.split('@')[0];
@@ -860,7 +873,7 @@ function renderDashboard() {
       // idsAttr above) so a whole [MN-xx] thread shares one reference.
       // Defaults (until edited) to the [MN-xx] tag scanned off the subject.
       '<td style="padding:6px 4px;overflow:hidden" onclick="event.stopPropagation()">'+
-        '<input value="'+escapeHtmlSmall(actionDoneVal)+'" onchange="applyActionDoneToMsgIds([\''+msgIds.join("','")+'\'],this.value)" style="font-size:10px;padding:2px 4px;border:1px solid #ddd;border-radius:5px;width:100%;box-sizing:border-box">'+
+        '<input value="'+escapeHtmlSmall(actionDoneVal)+'" onchange="applyActionDoneToMsgIds([\''+msgIds.join("','")+'\'],this.value).then(renderDashboard)" style="font-size:10px;padding:2px 4px;border:1px solid #ddd;border-radius:5px;width:100%;box-sizing:border-box">'+
       '</td>';
     tbody.appendChild(tr);
 
