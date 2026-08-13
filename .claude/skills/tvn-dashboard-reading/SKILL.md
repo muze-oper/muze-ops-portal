@@ -1,65 +1,87 @@
 ---
 name: tvn-dashboard-reading
-description: Reads Error Session % (Bitmovin) or Crash-free Users % (Firebase Crashlytics) off a pasted TrueVisions NOW dashboard screenshot, for logging into the TVN-Operation Monitoring sheet via muze-ops-portal's /tvn page. Trigger whenever the user pastes/attaches a screenshot of a Bitmovin error-session chart or a Firebase Crashlytics crash-free-users stat and asks for the value, or explicitly invokes this skill.
+description: Reads Error Session % (Bitmovin), Crash-free Users % (Firebase Crashlytics), or a Bitmovin Top Error Codes ranked list off a pasted TrueVisions NOW dashboard screenshot, for logging into muze-ops-portal's /tvn page. Trigger whenever the user pastes/attaches a screenshot of a Bitmovin error-session chart, a Bitmovin Top Error Codes table, or a Firebase Crashlytics crash-free-users stat and asks for the value(s), or explicitly invokes this skill.
 ---
 
-Read the exact numeric % shown on the dashboard screenshot - never estimate
+Read the exact numbers shown on the dashboard screenshot - never estimate
 from the position of a line on a trend chart. A visual guess off a chart
 line is meaningfully noisy at the sub-1%-precision this tracking needs;
-always prefer a printed number/stat/badge over eyeballing a curve.
+always prefer a printed number/stat/badge/table row over eyeballing a curve.
 
-## Step 1 - identify the tool and platform
+## Step 1 - identify the tool and what kind of read this is
 
-Look at the screenshot for which tool it is:
+Look at the screenshot for which tool it is, and whether it's a single
+stat or a ranked list:
 
-- **Bitmovin** - a streaming-analytics dashboard, metric is "Error Session %".
+- **Bitmovin - Error Session %** - a streaming-analytics dashboard, single
+  metric "Error Session %".
+- **Bitmovin - Top Error Codes** - a ranked table/list of error codes with
+  a session count next to each one (e.g. `media3-exoplayer-1.10.1: 1002`
+  with a session count). This is a **list read**, not a single value.
 - **Firebase Crashlytics** - shows "Crash-free users", usually with a big
   percentage stat near a "Users" count and a trend line above it.
 
-Then identify the platform from the visible app/filter name (iOS, iOS
-Mobile, Android, Android Mobile, Apple TV, Android TV, Tizen, LG, Vidaa).
+For the two single-stat tools, identify the platform from the visible
+app/filter name (iOS, iOS Mobile, Android, Android Mobile, Apple TV,
+Android TV, Tizen, LG, Vidaa).
 
-## Step 2 - sanity-check the filter before trusting the number
+## Step 2 - sanity-check the filter before trusting the number(s)
 
-A wrong filter gives a real-looking but wrong number - check this before
-reading the value, not after:
+A wrong filter gives a real-looking but wrong result - check this before
+reading anything, not after:
 
-- **Bitmovin**: confirm the OS + Platform filter shown matches the platform
-  you're about to log a value for (e.g. iOS Mobile = OS "iPadOS, iOS" +
-  Platform "iOS"). If the filter looks like it's for a different platform or
-  is unset, say so and ask before reading a value.
+- **Bitmovin (either read)**: confirm the OS + Platform filter shown
+  matches the platform you're about to log (e.g. iOS Mobile = OS "iPadOS,
+  iOS" + Platform "iOS"), and confirm the time window (e.g. "24 hours",
+  "7 days") matches what's being asked for. If the filter looks like it's
+  for a different platform/window or is unset, say so and ask before
+  reading.
 - **Firebase Crashlytics**: confirm the time range is "Last 7 days", and
   that the **Versions** filter is ticked to the current top ~3 builds still
   receiving traffic (not old retired versions, and not "all versions" -
   either skews the number). If the visible version list looks stale, flag it.
 
-## Step 3 - read the value
+## Step 3 - read the value(s)
 
+**Single-stat read (Bitmovin Error Session % / Crashlytics Crash-free %):**
 Report:
 
 - **Platform**
 - **Value** - the exact number shown, to 2 decimal places if available
   (e.g. `99.83`, `3.97`)
-- **Filter shown** - what OS/Platform (Bitmovin) or Versions (Crashlytics)
-  filter was actually active in the screenshot, so the person entering it
-  can double check it matches what they intended to check
+- **Filter shown** - what OS/Platform/time-window (Bitmovin) or Versions
+  (Crashlytics) filter was actually active, so the person entering it can
+  double check it matches what they intended to check
 
-If any digit is genuinely unreadable (blur, glare, cropped), say which part
-is uncertain rather than silently rounding or guessing.
+**List read (Bitmovin Top Error Codes):** Report every row visible in the
+screenshot as a numbered list of `rank, error code, session count` -
+don't truncate to just the top few unless asked to. Keep the error code
+string exactly as shown (it usually includes a library/version prefix
+like `media3-exoplayer-1.10.1:` before the numeric code - that prefix is
+part of the code, not noise to strip).
+
+If any digit or character is genuinely unreadable (blur, glare, cropped),
+say which part is uncertain rather than silently rounding or guessing -
+for a list read this means flagging the specific row, not the whole table.
 
 ## Step 4 - tell them exactly where it goes in muze-ops-portal
 
-The value gets typed into `/tvn` on muze-ops-portal, not written automatically
-by this skill:
+Everything gets typed into the `/tvn` page by hand - this skill only reads,
+it never writes anywhere itself:
 
-- **Bitmovin -> "BITMOVIN Error Sessions" tab**: a line in the Quick Record
-  box for that platform, formatted `<date label>, <value>%` - e.g.
+- **Bitmovin Error Session % -> "BITMOVIN" section**: a line in the Quick
+  Record box for that platform, formatted `<date label>, <value>%` - e.g.
   `Mon-3-Aug, 2.07%`. The date label must match the sheet's existing format
   exactly (`Mon-3-Aug` weekday-day-month style).
-- **Crashlytics -> "Firebase Crashlytics" tab**: the `Crash Free User %`
+- **Bitmovin Top Error Codes -> "BITMOVIN" section, Top Error Codes table**:
+  one row per error code (rank / error code / sessions). This table is a
+  scratch/reference table only - there's no sheet tab for this data yet, so
+  it doesn't sync anywhere; it's there to type into and optionally copy as
+  an image to share.
+- **Crashlytics -> "Firebase Crashlytics" section**: the `Crash Free User %`
   input for that platform's row, plus the `Filter` field if the version list
   changed from what's already recorded there.
 
-Either way, the human still reviews the prefilled value and clicks the
-existing Sync / บันทึก button themselves - this skill only reads, it never
-writes to the sheet.
+For the two sheet-backed reads (Bitmovin Error Sessions, Crashlytics), the
+human still reviews the prefilled value and clicks the existing Sync /
+บันทึก button themselves before anything is written.

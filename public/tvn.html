@@ -139,19 +139,6 @@
     .cl-table input.cl-filter { width: 100%; min-width: 160px; }
     .cl-status-row td { padding: 2px 10px 10px; border-top: none; font-size: 11px; color: var(--ink-dim); white-space: pre-wrap; font-family: var(--font-mono); }
 
-    /* ---------- Paste-area / mockup ---------- */
-    .paste-area {
-      border: 1.5px dashed var(--border); border-radius: 10px; padding: 32px; text-align: center;
-      color: var(--ink-faint); font-size: 13px; cursor: pointer; background: var(--surface-2);
-    }
-    .paste-area:hover, .paste-area:focus { outline: none; border-color: var(--accent); background: var(--accent-soft); }
-    .paste-area.has-image { padding: 12px; border-style: solid; }
-    .paste-area img { max-width: 100%; max-height: 320px; border-radius: 6px; display: block; margin: 0 auto; }
-    #mock-table-output table.data { margin-top: 16px; }
-    .callout { display: flex; gap: 10px; border-radius: 10px; padding: 12px 14px; font-size: 12.5px; margin-top: 14px; }
-    .callout.warn { background: var(--warn-soft); color: var(--ink); border: 1px solid rgba(166, 106, 0, 0.3); }
-    .callout .icon { flex: none; font-family: var(--font-mono); font-weight: 700; color: var(--warn); }
-    .callout p { margin: 0; }
   </style>
 </head>
 <body>
@@ -196,24 +183,25 @@
     <div class="card">
       <div style="display:flex;align-items:center;margin-bottom:10px;">
         <h3 style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-dim);">Top Error Codes</h3>
-        <span class="tag-pill">Mockup</span>
       </div>
       <div class="hint">
-        ยังไม่ได้ตัดสินใจโครงสร้างข้อมูลสุดท้าย — หน้านี้เป็น mockup ให้ดูรูปแบบการใช้งานก่อน:
-        วาง screenshot กราฟ "Top Error Codes" ที่นี่ แล้วกด "สร้างตาราง" จะเห็นตัวอย่าง
-        (ไม่ใช่ค่าจริงจากรูป — ตอนนี้ยังไม่ได้ต่อระบบอ่านรูปอัตโนมัติ ยังคง flow เดิมคือวางรูปในแชท
-        Claude Code แล้วให้ Claude อ่านค่าให้ก่อน)
+        ยังไม่มีแท็บในชีตสำหรับข้อมูลนี้ ตารางด้านล่างไว้กรอกเก็บดู/แชร์เป็นรูปเท่านั้น (ยังไม่ sync เข้าชีต):
+        แคป screenshot กราฟ "Top Error Codes" จาก Bitmovin → วางในแชท Claude Code ที่เปิดใน repo นี้
+        (มี skill <code style="font-family:var(--font-mono);background:var(--surface-2);padding:1px 5px;border-radius:4px;">tvn-dashboard-reading</code>
+        ช่วยอ่าน Error Code + จำนวน Session ให้) → พิมพ์ผลที่ได้ลงตารางด้านล่างนี้
       </div>
 
-      <div id="paste-area" class="paste-area" tabindex="0">
-        📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง
+      <div id="error-codes-export-panel" style="background:var(--surface)">
+        <table class="data" id="error-codes-table">
+          <thead><tr><th>อันดับ</th><th style="text-align:left">Error Code</th><th>จำนวน Sessions</th></tr></thead>
+          <tbody id="error-codes-table-body"></tbody>
+        </table>
       </div>
-
-      <button class="btn-primary" id="generate-table-btn" onclick="generateMockTable()" disabled style="margin-top:14px;">
-        🪄 สร้างตาราง (mockup)
-      </button>
-
-      <div id="mock-table-output"></div>
+      <div class="table-actions">
+        <button class="btn-ghost" id="add-error-code-btn" onclick="addErrorCodeRow()">+ เพิ่มแถว</button>
+        <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyErrorCodesAsImage()">📋 Copy เป็นรูปภาพ</button>
+      </div>
+      <div id="error-codes-result"></div>
     </div>
   </section>
 
@@ -611,90 +599,60 @@ async function saveCrashlyticsRow(platform) {
   }
 }
 
-// ---- Top Error Codes mockup: paste-image capture + fake "generate" ----
-// No real image-reading is wired up yet (that needs a vision-capable API
-// call, deliberately not built until the sheet schema below is settled) -
-// this only proves out the paste -> preview -> generate workflow so the
-// layout/columns can be reviewed before committing to a real schema.
+// ---- Top Error Codes: real editable scratch table, no auto-reading here -
+// the actual reading happens in a Claude Code chat using the
+// tvn-dashboard-reading skill; this table is just for typing in what Claude
+// reported and sharing/copying it, since there's no sheet tab for it yet. ----
 
-let pastedImageDataUrl = null;
-
-function setupPasteArea() {
-  const area = document.getElementById('paste-area');
-  if (!area || area.dataset.wired) return;
-  area.dataset.wired = '1';
-
-  area.addEventListener('click', () => area.focus());
-
-  area.addEventListener('paste', e => {
-    const items = (e.clipboardData || window.clipboardData).items || [];
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile();
-        showPastedImage(file);
-        e.preventDefault();
-        return;
-      }
-    }
-  });
-
-  area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('has-image'); });
-  area.addEventListener('dragleave', () => { if (!pastedImageDataUrl) area.classList.remove('has-image'); });
-  area.addEventListener('drop', e => {
-    e.preventDefault();
-    const file = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) showPastedImage(file);
-  });
-}
-
-function showPastedImage(file) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    pastedImageDataUrl = reader.result;
-    const area = document.getElementById('paste-area');
-    area.classList.add('has-image');
-    area.innerHTML = `<img src="${pastedImageDataUrl}" alt="pasted screenshot">`;
-    document.getElementById('generate-table-btn').disabled = false;
-  };
-  reader.readAsDataURL(file);
-}
-
-// Static example data - NOT read from the pasted image. Column choice
-// (Rank/Error Code/Sessions) is a starting suggestion for feedback, not a
-// final schema decision.
-const MOCK_ERROR_CODES = [
-  { rank: 1, code: 'media3-exoplayer-1.10.1: 1002', sessions: 3823 },
-  { rank: 2, code: 'media3-exoplayer-1.10.1: 4001', sessions: 3012 },
-  { rank: 3, code: 'media3-exoplayer-1.10.1: 2004', sessions: 2456 },
-  { rank: 4, code: 'media3-exoplayer-1.10.1: 6004', sessions: 2201 },
-  { rank: 5, code: 'media3-exoplayer-1.10.1: 3002', sessions: 1987 },
-  { rank: 6, code: 'media3-exoplayer-1.10.1: 4003', sessions: 1544 },
-  { rank: 7, code: 'media3-exoplayer-1.10.1: 1003', sessions: 1233 },
-  { rank: 8, code: 'media3-exoplayer-1.10.1: 2000', sessions: 980 },
-  { rank: 9, code: 'media3-exoplayer-1.10.1: 6006', sessions: 745 },
-  { rank: 10, code: 'media3-exoplayer-1.10.1: 10001', sessions: 512 },
-];
-
-function generateMockTable() {
-  const output = document.getElementById('mock-table-output');
-  const rowsHtml = MOCK_ERROR_CODES.map(r => `
-    <tr>
-      <td>${r.rank}</td>
-      <td style="text-align:left;font-family:var(--font-sans);font-variant-numeric:normal;">${escapeHtml(r.code)}</td>
-      <td>${r.sessions.toLocaleString()}</td>
-    </tr>
-  `).join('');
-
-  output.innerHTML = `
-    <table class="data">
-      <thead><tr><th>อันดับ</th><th style="text-align:left">Error Code</th><th>จำนวน Sessions</th></tr></thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>
-    <div class="callout warn"><span class="icon">!</span><p>ตัวอย่างเท่านั้น (mockup) — ไม่ใช่ค่าจริงจากรูปที่วาง ตัวเลข/คอลัมน์เหล่านี้ไว้ให้ดูรูปแบบก่อนตัดสินใจ schema จริง</p></div>
+function addErrorCodeRow(rank, code, sessions) {
+  const tbody = document.getElementById('error-codes-table-body');
+  const nextRank = rank !== undefined ? rank : tbody.children.length + 1;
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td><input class="cell-input" style="width:44px;" value="${escapeHtml(nextRank)}"></td>
+    <td><input class="cell-input" style="width:100%;min-width:200px;text-align:left;font-weight:400;" value="${escapeHtml(code || '')}" placeholder="เช่น media3-exoplayer-1.10.1: 1002"></td>
+    <td><input class="cell-input" style="width:90px;" value="${escapeHtml(sessions || '')}" placeholder="เช่น 3823"></td>
   `;
+  tbody.appendChild(row);
+  return row;
 }
 
-setupPasteArea();
+// Renders #error-codes-export-panel (the table only, not the buttons below
+// it) to a canvas and copies it to the clipboard as an image - same
+// approach as copyTableAsImage() for the Error Sessions table above.
+async function copyErrorCodesAsImage() {
+  const btn = document.getElementById('copy-error-codes-btn');
+  const resultEl = document.getElementById('error-codes-result');
+  const target = document.getElementById('error-codes-export-panel');
+
+  if (!window.html2canvas) {
+    resultEl.textContent = 'Error: โหลด html2canvas ไม่สำเร็จ (เช็คการเชื่อมต่ออินเทอร์เน็ต)';
+    return;
+  }
+  if (!navigator.clipboard || !window.ClipboardItem) {
+    resultEl.textContent = 'Error: เบราว์เซอร์นี้ไม่รองรับการ copy รูปภาพเข้า clipboard (ลองใช้ Chrome/Edge)';
+    return;
+  }
+
+  btn.disabled = true;
+  resultEl.textContent = 'กำลังสร้างรูปภาพ...';
+  try {
+    const canvas = await html2canvas(target, { backgroundColor: '#ffffff', scale: 2 });
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('สร้างรูปภาพไม่สำเร็จ');
+
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    resultEl.textContent = 'Copy รูปภาพเข้า clipboard แล้ว - วาง (Ctrl/Cmd+V) ที่ไหนก็ได้';
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Seed a few blank rows so the table isn't empty on first load.
+for (let i = 1; i <= 5; i++) addErrorCodeRow(i);
+
 load(false);
 loadCrashlytics();
 </script>
