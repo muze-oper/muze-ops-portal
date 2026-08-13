@@ -6,185 +6,224 @@
   <title>TVN Error Sessions — Muze Tech Ops Portal</title>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
-    .breadcrumb { background: #1a1a2e; color: rgba(255,255,255,0.7); padding: 6px 24px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
-    .breadcrumb a { color: rgba(255,255,255,0.7); text-decoration: none; }
-    .breadcrumb a:hover { color: white; }
-    header {
-      background: #159ab0; color: white; padding: 16px 24px;
-      display: flex; justify-content: space-between; align-items: center;
+    :root {
+      --bg: #F3F5F3;
+      --surface: #FFFFFF;
+      --surface-2: #EAEDEA;
+      --ink: #16211D;
+      --ink-dim: #57635C;
+      --ink-faint: #7C8981;
+      --border: #D6DBD3;
+      --accent: #0E6F63;
+      --accent-ink: #0A5049;
+      --accent-soft: #DCEFEA;
+      --good: #2E7D46;
+      --good-soft: #E3F3E6;
+      --warn: #A66A00;
+      --warn-soft: #F7EBD6;
+      --critical: #B3261E;
+      --critical-soft: #FBE4E2;
+      --font-sans: -apple-system, "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, "Liberation Mono", monospace;
     }
-    header h1 { font-size: 18px; }
-    header div { display: flex; gap: 16px; align-items: center; }
-    header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
-
-    .layout { display: flex; align-items: flex-start; max-width: 1200px; margin: 0 auto; }
-    .sidebar {
-      width: 220px; flex-shrink: 0; background: white; margin: 24px 0 24px 24px;
-      border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 8px; position: sticky; top: 24px;
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0F1513;
+        --surface: #16201D;
+        --surface-2: #1C2723;
+        --ink: #E7ECE8;
+        --ink-dim: #A8B5AE;
+        --ink-faint: #74827A;
+        --border: #2A362F;
+        --accent: #4FD9C6;
+        --accent-ink: #8CEBDD;
+        --accent-soft: #16302C;
+        --good: #63C77E;
+        --good-soft: #163420;
+        --warn: #E3AC4E;
+        --warn-soft: #3A2C10;
+        --critical: #F0716A;
+        --critical-soft: #3A1613;
+      }
     }
-    .tab-btn {
-      display: block; width: 100%; text-align: left; padding: 10px 14px; margin-bottom: 2px;
-      border: none; background: none; cursor: pointer; border-radius: 6px;
-      font-size: 13px; font-weight: 600; color: #555;
+
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+    a { color: var(--accent-ink); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ---------- Console header ---------- */
+    .console { background: #0A0F0D; color: var(--bg); padding: 26px 24px 22px; }
+    .console-inner { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+    .console-main { min-width: 0; }
+    .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+    .eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(79, 217, 198, 0.25); flex: none; }
+    h1.title { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 6px; color: #F3F5F3; }
+    .subtitle { margin: 0; color: #AEBDB6; font-size: 13.5px; max-width: 60ch; }
+    .header-actions { display: flex; gap: 8px; flex-wrap: wrap; flex: none; }
+    .ghost-link { font-family: var(--font-sans); font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.16); color: #D3DED9; background: rgba(255,255,255,0.04); }
+    .ghost-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; background: rgba(255,255,255,0.08); }
+    .stat-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .stat-chip { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px 12px; min-width: 100px; }
+    .stat-chip .label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #8FA098; display: block; margin-bottom: 3px; }
+    .stat-chip .value { font-family: var(--font-mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: #F3F5F3; }
+
+    /* ---------- Body layout ---------- */
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 24px 72px; }
+    section.block { margin: 0 0 40px; }
+    .block-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+    h2.h { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); margin: 0; white-space: nowrap; }
+    .rule { flex: 1; height: 1px; background: var(--border); }
+    .tag-pill { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); text-transform: uppercase; font-weight: 700; margin-left: 8px; vertical-align: middle; }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+    .card .hint { font-size: 12.5px; color: var(--ink-faint); margin-bottom: 12px; max-width: 76ch; }
+
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .last-updated { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+    #empty-state { text-align: center; padding: 48px 24px; color: var(--ink-faint); }
+    #empty-state .icon { font-size: 36px; margin-bottom: 12px; }
+
+    /* ---------- Buttons ---------- */
+    .btn-primary, .btn-ghost {
+      font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; border-radius: 8px;
+      padding: 8px 14px; cursor: pointer; border: 1px solid transparent;
     }
-    .tab-btn:hover { background: #f7f8fa; }
-    .tab-btn.active { background: #e5f6f8; color: #128296; }
-    .main-content { flex: 1; min-width: 0; }
+    .btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
+    .btn-ghost { background: var(--surface); color: var(--ink-dim); border-color: var(--border); }
+    .btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-ink); }
+    button:disabled { opacity: 0.55; cursor: default; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-    #content { max-width: 1100px; margin: 24px auto 48px; padding: 0 24px; }
-    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-    .toolbar label { font-size: 12px; font-weight: 600; color: #555; }
-    .toolbar select { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; background: white; }
-    .toolbar button { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; background: white; cursor: pointer; color: #444; }
-    .toolbar button:hover { background: #f7f8fa; }
-    .toolbar button:disabled { opacity: 0.5; cursor: default; }
-    .last-updated { font-size: 12px; color: #888; }
+    /* ---------- Tables ---------- */
+    table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    table.data th { text-align: right; background: var(--surface-2); color: var(--ink-faint); font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; font-family: var(--font-mono); border-bottom: 1px solid var(--border); }
+    table.data th:first-child, table.data td:first-child { text-align: left; }
+    table.data td { padding: 6px 8px; border-top: 1px solid var(--border); color: var(--ink); text-align: right; white-space: nowrap; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+    table.data td:first-child { font-family: var(--font-sans); font-variant-numeric: normal; }
 
-    .panel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
-    .panel h2 { font-size: 13px; font-weight: 700; color: #555; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .panel .hint { font-size: 11px; color: #888; margin-bottom: 10px; }
-
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th { text-align: right; background: #f7f8fa; color: #888; font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; }
-    th:first-child, td:first-child { text-align: left; }
-    td { padding: 4px 6px; border-top: 1px solid #f0f0f0; color: #333; text-align: right; white-space: nowrap; }
-    .muted { color: #bbb; }
-    #empty-state { text-align: center; padding: 80px 24px; color: #666; }
-    #empty-state .icon { font-size: 48px; margin-bottom: 16px; }
-
-    .cell-input { width: 84px; box-sizing: border-box; text-align: right; font-family: inherit; font-size: 12px; font-weight: 600; padding: 5px 7px; border: 1px solid #e2e2e2; border-radius: 5px; }
-    .cell-input:focus { outline: none; border-color: #159ab0; box-shadow: 0 0 0 2px rgba(21,154,176,.15); }
-    .date-cell-input { width: 110px; box-sizing: border-box; font-family: inherit; font-size: 12px; padding: 5px 7px; border: 1px solid #e2e2e2; border-radius: 5px; }
-    .new-row td { background: #fbfefe; }
+    .cell-input, .date-cell-input, .cl-filter, .cl-value {
+      font-family: var(--font-mono); font-size: 12.5px; padding: 5px 7px; border: 1px solid var(--border);
+      border-radius: 6px; background: var(--surface); color: var(--ink); box-sizing: border-box;
+    }
+    .cell-input { width: 84px; text-align: right; font-weight: 600; }
+    .cell-input:focus, .date-cell-input:focus, .cl-filter:focus, .cl-value:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+    .date-cell-input { width: 110px; font-family: var(--font-sans); }
+    .new-row td { background: var(--accent-soft); }
 
     .heat-legend { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-    .heat-swatch { display: flex; flex-direction: column; align-items: center; font-size: 9px; color: #888; }
-    .heat-swatch .chip { width: 28px; height: 16px; border-radius: 3px; margin-bottom: 2px; }
+    .heat-swatch { display: flex; flex-direction: column; align-items: center; font-size: 9px; color: var(--ink-faint); font-family: var(--font-mono); }
+    .heat-box { width: 26px; height: 14px; border-radius: 3px; margin-bottom: 2px; }
 
-    .table-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
-    .table-actions button { padding: 7px 18px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
-    .table-actions button:disabled { opacity: 0.6; cursor: default; }
-    #add-row-btn { background: white; color: #159ab0; border: 1px solid #159ab0 !important; }
-    #add-row-btn:hover:not(:disabled) { background: #f0fbfc; }
-    #sync-btn { background: #159ab0; color: white; }
-    #sync-btn:hover:not(:disabled) { background: #128296; }
-    #copy-image-btn { background: white; color: #555; border: 1px solid #ccc !important; }
-    #copy-image-btn:hover:not(:disabled) { background: #f7f8fa; }
-    #sync-result { white-space: pre-wrap; margin-top: 12px; font-size: 12px; color: #333; }
+    .table-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    #sync-result, #record-result { white-space: pre-wrap; margin-top: 12px; font-size: 12px; color: var(--ink-dim); font-family: var(--font-mono); }
 
-    .record-panel label { display: block; margin-top: 10px; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: #555; }
-    .record-panel textarea { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; }
-    .record-panel button { margin-top: 12px; padding: 7px 18px; border: none; border-radius: 6px; background: #159ab0; color: white; font-size: 12px; font-weight: 600; cursor: pointer; }
-    .record-panel button:hover { background: #128296; }
-    .record-panel button:disabled { opacity: 0.6; cursor: default; }
-    .record-panel #redo-btn { background: white; color: #159ab0; border: 1px solid #159ab0; margin-left: 8px; }
-    .record-panel #redo-btn:hover:not(:disabled) { background: #f0fbfc; }
-    .record-panel #redo-btn:disabled { color: #aaa; border-color: #ddd; }
-    #record-result { white-space: pre-wrap; margin-top: 12px; font-size: 12px; color: #333; }
+    .record-panel label { display: block; margin-top: 10px; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--ink-dim); }
+    .record-panel textarea {
+      width: 100%; box-sizing: border-box; font-family: var(--font-mono); font-size: 12.5px; padding: 7px 10px;
+      border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--ink);
+    }
+    .record-panel textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+    #redo-btn { margin-left: 8px; }
 
-    .platform-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 10px; }
+    .platform-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 10px 0 14px; }
     .platform-input label { margin-top: 0; }
-    .platform-input textarea { height: 90px; resize: vertical; }
+    .platform-input textarea { height: 84px; resize: vertical; }
 
-    .mockup-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; background: #fff2d6; color: #b9820b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 8px; vertical-align: middle; }
-
-    .cl-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
-    .cl-table th { text-align: left; background: #f7f8fa; color: #888; font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
-    .cl-table td { padding: 8px 10px; border-top: 1px solid #f0f0f0; vertical-align: middle; }
-    .cl-table input { font-family: inherit; font-size: 12px; padding: 5px 7px; border: 1px solid #e2e2e2; border-radius: 5px; box-sizing: border-box; }
+    /* ---------- Crashlytics table ---------- */
+    .cl-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .cl-table th { text-align: left; background: var(--surface-2); color: var(--ink-faint); font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; font-family: var(--font-mono); border-bottom: 1px solid var(--border); }
+    .cl-table td { padding: 8px 10px; border-top: 1px solid var(--border); vertical-align: middle; }
     .cl-table input.cl-value { width: 80px; font-weight: 700; }
     .cl-table input.cl-filter { width: 100%; min-width: 160px; }
-    .cl-table button { padding: 5px 10px; border: 1px solid #159ab0; border-radius: 6px; background: #159ab0; color: #fff; font-size: 11px; font-weight: 600; cursor: pointer; }
-    .cl-table button:hover { background: #128296; }
-    .cl-status-row td { padding: 2px 10px 10px; border-top: none; font-size: 11px; color: #555; white-space: pre-wrap; }
+    .cl-status-row td { padding: 2px 10px 10px; border-top: none; font-size: 11px; color: var(--ink-dim); white-space: pre-wrap; font-family: var(--font-mono); }
+
+    /* ---------- Paste-area / mockup ---------- */
     .paste-area {
-      border: 2px dashed #ccc; border-radius: 10px; padding: 32px; text-align: center;
-      color: #888; font-size: 13px; cursor: pointer; background: #fafbfc;
+      border: 1.5px dashed var(--border); border-radius: 10px; padding: 32px; text-align: center;
+      color: var(--ink-faint); font-size: 13px; cursor: pointer; background: var(--surface-2);
     }
-    .paste-area:focus { outline: none; border-color: #159ab0; background: #f0fbfc; }
+    .paste-area:hover, .paste-area:focus { outline: none; border-color: var(--accent); background: var(--accent-soft); }
     .paste-area.has-image { padding: 12px; border-style: solid; }
     .paste-area img { max-width: 100%; max-height: 320px; border-radius: 6px; display: block; margin: 0 auto; }
-    #mock-table-output table { margin-top: 16px; }
-    #mock-table-output .mockup-note { font-size: 11px; color: #b9820b; background: #fff8ea; border: 1px solid #ffe6a8; border-radius: 6px; padding: 8px 12px; margin-top: 16px; }
+    #mock-table-output table.data { margin-top: 16px; }
+    .callout { display: flex; gap: 10px; border-radius: 10px; padding: 12px 14px; font-size: 12.5px; margin-top: 14px; }
+    .callout.warn { background: var(--warn-soft); color: var(--ink); border: 1px solid rgba(166, 106, 0, 0.3); }
+    .callout .icon { flex: none; font-family: var(--font-mono); font-weight: 700; color: var(--warn); }
+    .callout p { margin: 0; }
   </style>
 </head>
 <body>
-<div class="breadcrumb">
-  <a href="/">🏠 Muze Tech Ops Portal</a>
+
+<div class="console">
+  <div class="console-inner">
+    <div class="console-main">
+      <p class="eyebrow">Muze Tech Ops Portal · TVN</p>
+      <h1 class="title">TVN Error Sessions</h1>
+      <p class="subtitle">ติดตาม Error Session % (Bitmovin) และ Crash-free Users % (Firebase Crashlytics) ของแอป TrueVisions NOW แล้ว sync เข้าชีต TVN-Operation Monitoring</p>
+    </div>
+    <div class="header-actions">
+      <a class="ghost-link" href="/">← กลับหน้าหลัก</a>
+      <a class="ghost-link" href="/logout">Logout</a>
+    </div>
+  </div>
 </div>
-<header>
-  <h1>📡 TVN Error Sessions</h1>
-  <div>
-    <a href="/">← กลับหน้าหลัก</a>
-    <a href="/logout">Logout</a>
-  </div>
-</header>
 
-<div class="layout">
-  <div class="sidebar">
-    <button class="tab-btn active" data-tab="sessions" onclick="switchTab('sessions')">BITMOVIN Error Sessions</button>
-    <button class="tab-btn" data-tab="crashlytics" onclick="switchTab('crashlytics')">Firebase Crashlytics</button>
-    <button class="tab-btn" data-tab="errorcodes" onclick="switchTab('errorcodes')">BITMOVIN Top Error Codes</button>
-  </div>
+<div class="wrap">
 
-  <div class="main-content">
-    <div id="tab-sessions" class="tab-panel">
-      <div id="content" style="max-width:none;margin:24px;padding:0;">
-        <div class="toolbar">
-          <button id="refresh-btn" onclick="load(true)">🔄 รีเฟรชข้อมูล</button>
-          <div id="last-updated" class="last-updated">กำลังโหลด...</div>
-        </div>
-        <div id="body"><div id="empty-state"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
-
-        <div class="panel record-panel">
-          <h2>บันทึกข้อมูลใหม่ (Quick Record — Sync หลาย Platform พร้อมกัน)</h2>
-          <div class="hint">วางข้อมูลของ platform ไหนก็ได้ที่มีพร้อม เว้นว่างช่องที่ยังไม่มีข้อมูล บรรทัดละ 1 วัน เช่น "Mon-3-Aug, 2.07%" (คั่นด้วย , หรือ : หรือ tab ก็ได้ — วันที่ต้องสะกดตรงกับคอลัมน์วันที่ในชีตเป๊ะ ๆ) แล้วกด Sync ครั้งเดียวจะบันทึกทุก platform ที่กรอกไว้พร้อมกัน</div>
-
-          <div id="platform-inputs" class="platform-grid"></div>
-
-          <button id="record-btn" onclick="submitRecord()">🔄 Sync ข้อมูลทั้งหมด</button>
-          <button id="redo-btn" onclick="redoLastSubmit()" disabled>↩️ Redo (เอาค่าที่เพิ่ง sync กลับมา)</button>
-          <div id="record-result"></div>
-        </div>
+  <section class="block" id="section-sessions">
+    <div class="block-head"><h2 class="h">BitMovin Error Sessions</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="toolbar">
+        <button class="btn-ghost" id="refresh-btn" onclick="load(true)">🔄 รีเฟรชข้อมูล</button>
+        <div id="last-updated" class="last-updated">กำลังโหลด...</div>
       </div>
+      <div id="body"><div id="empty-state"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
     </div>
 
-    <div id="tab-crashlytics" class="tab-panel" style="display:none">
-      <div style="max-width:none;margin:24px;padding:0;">
-        <div class="panel">
-          <h2>Firebase Crashlytics — Crash-free Users</h2>
-          <div class="hint">กรอกค่า Crash-free Users % และ Filter (version) ของแต่ละแถวตามที่อ่านได้จาก Firebase Console แล้วกด บันทึก ทีละแถว</div>
-          <div id="crashlytics-body"><div id="crashlytics-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
-        </div>
-      </div>
+    <div class="card record-panel">
+      <div class="block-head" style="margin-bottom:10px;"><h2 class="h" style="font-size:12px;">Quick Record — Sync หลาย Platform พร้อมกัน</h2></div>
+      <div class="hint">วางข้อมูลของ platform ไหนก็ได้ที่มีพร้อม เว้นว่างช่องที่ยังไม่มีข้อมูล บรรทัดละ 1 วัน เช่น "Mon-3-Aug, 2.07%" (คั่นด้วย , หรือ : หรือ tab ก็ได้ — วันที่ต้องสะกดตรงกับคอลัมน์วันที่ในชีตเป๊ะ ๆ) แล้วกด Sync ครั้งเดียวจะบันทึกทุก platform ที่กรอกไว้พร้อมกัน</div>
+
+      <div id="platform-inputs" class="platform-grid"></div>
+
+      <button class="btn-primary" id="record-btn" onclick="submitRecord()">🔄 Sync ข้อมูลทั้งหมด</button>
+      <button class="btn-ghost" id="redo-btn" onclick="redoLastSubmit()" disabled>↩️ Redo (เอาค่าที่เพิ่ง sync กลับมา)</button>
+      <div id="record-result"></div>
     </div>
+  </section>
 
-    <div id="tab-errorcodes" class="tab-panel" style="display:none">
-      <div style="max-width:none;margin:24px;padding:0;">
-        <div class="panel">
-          <h2>BITMOVIN Top Error Codes <span class="mockup-badge">Mockup</span></h2>
-          <div class="hint">
-            ยังไม่ได้ตัดสินใจโครงสร้างข้อมูลสุดท้าย — หน้านี้เป็น mockup ให้ดูรูปแบบการใช้งานก่อน:
-            วาง screenshot กราฟ "Top Error Codes" ที่นี่ แล้วกด "สร้างตาราง" จะเห็นตัวอย่าง
-            (ไม่ใช่ค่าจริงจากรูป — ตอนนี้ยังไม่ได้ต่อระบบอ่านรูปอัตโนมัติ ยังคง flow เดิมคือวางรูปในแชท
-            Claude Code แล้วให้ Claude อ่านค่าให้ก่อน)
-          </div>
-
-          <div id="paste-area" class="paste-area" tabindex="0">
-            📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง
-          </div>
-
-          <button id="generate-table-btn" onclick="generateMockTable()" disabled style="margin-top:14px;padding:7px 18px;border:none;border-radius:6px;background:#159ab0;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">
-            🪄 สร้างตาราง (mockup)
-          </button>
-
-          <div id="mock-table-output"></div>
-        </div>
-      </div>
+  <section class="block" id="section-crashlytics">
+    <div class="block-head"><h2 class="h">Firebase Crashlytics — Crash-free Users</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="hint">กรอกค่า Crash-free Users % และ Filter (version) ของแต่ละแถวตามที่อ่านได้จาก Firebase Console แล้วกด บันทึก ทีละแถว</div>
+      <div id="crashlytics-body"><div id="crashlytics-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
     </div>
-  </div>
+  </section>
+
+  <section class="block" id="section-errorcodes">
+    <div class="block-head"><h2 class="h">BitMovin Top Error Codes <span class="tag-pill">Mockup</span></h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="hint">
+        ยังไม่ได้ตัดสินใจโครงสร้างข้อมูลสุดท้าย — หน้านี้เป็น mockup ให้ดูรูปแบบการใช้งานก่อน:
+        วาง screenshot กราฟ "Top Error Codes" ที่นี่ แล้วกด "สร้างตาราง" จะเห็นตัวอย่าง
+        (ไม่ใช่ค่าจริงจากรูป — ตอนนี้ยังไม่ได้ต่อระบบอ่านรูปอัตโนมัติ ยังคง flow เดิมคือวางรูปในแชท
+        Claude Code แล้วให้ Claude อ่านค่าให้ก่อน)
+      </div>
+
+      <div id="paste-area" class="paste-area" tabindex="0">
+        📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง
+      </div>
+
+      <button class="btn-primary" id="generate-table-btn" onclick="generateMockTable()" disabled style="margin-top:14px;">
+        🪄 สร้างตาราง (mockup)
+      </button>
+
+      <div id="mock-table-output"></div>
+    </div>
+  </section>
+
 </div>
 
 <script>
@@ -230,7 +269,7 @@ function heatLegendHtml() {
   const labels = ['≤2.00', '2.00-2.50', '2.50-3.00', '3.00-3.50', '3.50-4.00', '4.00-4.50', '4.50-5.00', '5.00-5.50', '5.50-6.00', '≥6.00'];
   return `<div class="heat-legend">` + labels.map((label, i) => `
     <div class="heat-swatch">
-      <div class="chip" style="background:${heatColorForLevel(i)}"></div>
+      <div class="heat-box" style="background:${heatColorForLevel(i)}"></div>
       ${label}
     </div>
   `).join('') + `</div>`;
@@ -275,7 +314,7 @@ function renderTable(platforms, series) {
     </tr>
   `).join('');
 
-  return `<table id="data-table">
+  return `<table class="data" id="data-table">
     <thead><tr><th>วันที่</th>${platforms.map(p => `<th>${escapeHtml(p)}</th>`).join('')}</tr></thead>
     <tbody id="data-table-body">${rowsHtml}</tbody>
   </table>`;
@@ -286,30 +325,27 @@ let DATA = null;
 function render() {
   if (!DATA) return;
   document.getElementById('body').innerHTML = `
-    <div class="panel">
-      <div id="export-panel" style="background:#fff">
-        <h2>BITMOVIN Error Sessions</h2>
-        ${heatLegendHtml()}
-        ${renderTable(DATA.platforms, DATA.series)}
-      </div>
-      <div class="table-actions">
-        <button id="add-row-btn" onclick="addNewRow()">+ เพิ่มวันที่</button>
-        <button id="sync-btn" onclick="syncTable()">🔄 Sync เข้าชีต</button>
-        <button id="copy-image-btn" onclick="copyTableAsImage()">📋 Copy เป็นรูปภาพ</button>
-      </div>
-      <div id="sync-result"></div>
+    <div id="export-panel" style="background:var(--surface)">
+      ${heatLegendHtml()}
+      ${renderTable(DATA.platforms, DATA.series)}
     </div>
+    <div class="table-actions">
+      <button class="btn-ghost" id="add-row-btn" onclick="addNewRow()">+ เพิ่มวันที่</button>
+      <button class="btn-primary" id="sync-btn" onclick="syncTable()">🔄 Sync เข้าชีต</button>
+      <button class="btn-ghost" id="copy-image-btn" onclick="copyTableAsImage()">📋 Copy เป็นรูปภาพ</button>
+    </div>
+    <div id="sync-result"></div>
   `;
   document.querySelectorAll('#data-table-body .cell-input').forEach(applyCellColor);
 }
 
-// Renders #export-panel (heading + legend + table, not the buttons below
-// it) to a canvas and copies it to the clipboard as an image. Uses PNG, not
-// JPG, for the clipboard write - the Clipboard API's ClipboardItem only
-// reliably supports "image/png" across browsers, so that's what actually
-// ends up pasteable (into Discord, chat, docs, etc.) even though the visual
-// result looks the same either way. Requires a Chromium/Edge-class browser
-// and a secure (HTTPS) context - both true for this portal in production.
+// Renders #export-panel (legend + table, not the buttons below it) to a
+// canvas and copies it to the clipboard as an image. Uses PNG, not JPG, for
+// the clipboard write - the Clipboard API's ClipboardItem only reliably
+// supports "image/png" across browsers, so that's what actually ends up
+// pasteable (into Discord, chat, docs, etc.) even though the visual result
+// looks the same either way. Requires a Chromium/Edge-class browser and a
+// secure (HTTPS) context - both true for this portal in production.
 async function copyTableAsImage() {
   const btn = document.getElementById('copy-image-btn');
   const resultEl = document.getElementById('sync-result');
@@ -507,10 +543,8 @@ function redoLastSubmit() {
   document.getElementById('record-result').textContent = '';
 }
 
-// ---- Firebase Crashlytics tab: one row per platform, each with a manual
+// ---- Firebase Crashlytics: one row per platform, each with a manual
 // value/filter edit + a per-row save (writes only that row) ----
-
-let crashlyticsLoaded = false;
 
 async function loadCrashlytics() {
   const body = document.getElementById('crashlytics-body');
@@ -536,7 +570,7 @@ function renderCrashlytics(platforms) {
         <td>${escapeHtml(p.dateCheck)}</td>
         <td><input class="cl-value" id="cl-value-${s}" type="number" step="0.01" value="${escapeHtml(p.value)}"></td>
         <td>
-          <button onclick="saveCrashlyticsRow('${escapeHtml(p.platform)}')">💾 บันทึก</button>
+          <button class="btn-primary" onclick="saveCrashlyticsRow('${escapeHtml(p.platform)}')">💾 บันทึก</button>
         </td>
       </tr>
       <tr class="cl-status-row"><td colspan="6" id="cl-status-${s}"></td></tr>
@@ -576,18 +610,6 @@ async function saveCrashlyticsRow(platform) {
   }
 }
 
-// ---- Tab switching (Error Sessions <-> Crashlytics <-> Top Error Codes mockup) ----
-
-function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
-  document.querySelectorAll('.tab-panel').forEach(panel => { panel.style.display = 'none'; });
-  document.getElementById('tab-' + tab).style.display = 'block';
-  if (tab === 'crashlytics' && !crashlyticsLoaded) {
-    crashlyticsLoaded = true;
-    loadCrashlytics();
-  }
-}
-
 // ---- Top Error Codes mockup: paste-image capture + fake "generate" ----
 // No real image-reading is wired up yet (that needs a vision-capable API
 // call, deliberately not built until the sheet schema below is settled) -
@@ -615,11 +637,10 @@ function setupPasteArea() {
     }
   });
 
-  area.addEventListener('dragover', e => { e.preventDefault(); area.style.background = '#f0fbfc'; });
-  area.addEventListener('dragleave', () => { area.style.background = ''; });
+  area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('has-image'); });
+  area.addEventListener('dragleave', () => { if (!pastedImageDataUrl) area.classList.remove('has-image'); });
   area.addEventListener('drop', e => {
     e.preventDefault();
-    area.style.background = '';
     const file = e.dataTransfer.files && e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) showPastedImage(file);
   });
@@ -658,22 +679,23 @@ function generateMockTable() {
   const rowsHtml = MOCK_ERROR_CODES.map(r => `
     <tr>
       <td>${r.rank}</td>
-      <td style="text-align:left">${escapeHtml(r.code)}</td>
+      <td style="text-align:left;font-family:var(--font-sans);font-variant-numeric:normal;">${escapeHtml(r.code)}</td>
       <td>${r.sessions.toLocaleString()}</td>
     </tr>
   `).join('');
 
   output.innerHTML = `
-    <table>
+    <table class="data">
       <thead><tr><th>อันดับ</th><th style="text-align:left">Error Code</th><th>จำนวน Sessions</th></tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table>
-    <div class="mockup-note">⚠️ ตัวอย่างเท่านั้น (mockup) — ไม่ใช่ค่าจริงจากรูปที่วาง ตัวเลข/คอลัมน์เหล่านี้ไว้ให้ดูรูปแบบก่อนตัดสินใจ schema จริง</div>
+    <div class="callout warn"><span class="icon">!</span><p>ตัวอย่างเท่านั้น (mockup) — ไม่ใช่ค่าจริงจากรูปที่วาง ตัวเลข/คอลัมน์เหล่านี้ไว้ให้ดูรูปแบบก่อนตัดสินใจ schema จริง</p></div>
   `;
 }
 
 setupPasteArea();
 load(false);
+loadCrashlytics();
 </script>
 </body>
 </html>
