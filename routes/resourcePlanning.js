@@ -26,6 +26,7 @@ const COLUMN_KEYS = ['startTime', 'endTime', 'status', 'project', 'pic', 'topic'
 function rowToItem(row, rowNumber, colors) {
   return {
     rowNumber,
+    date: row[0] || '',
     startTime: row[1] || '',
     endTime: row[2] || '',
     status: row[3] || '',
@@ -113,15 +114,13 @@ router.put('/api/resource-planning/row/:rowNumber', async (req, res) => {
   if (!Number.isInteger(rowNumber) || rowNumber < 2) {
     return res.status(400).json({ error: 'invalid row number' });
   }
-  const { startTime, endTime, status, project, pic, topic, doing, link } = req.body || {};
+  const { startTime, endTime, status, project, pic, topic, doing } = req.body || {};
   try {
+    // Only B:H - Date (A), Done (I) and Link (J) aren't editable from this
+    // form and must stay untouched rather than get blanked out on save.
     await updateSheetRow(SHEET_ID, `${TAB}!B${rowNumber}:H${rowNumber}`, [
       startTime || '', endTime || '', status || '', project || '', pic || '', topic || '', doing || '',
     ]);
-    // Column I (Done) sits between Doing and Link and isn't managed by this
-    // form, so Link is written back separately instead of as one B:J range
-    // that would otherwise clobber it.
-    await updateSheetRow(SHEET_ID, `${TAB}!J${rowNumber}:J${rowNumber}`, [link || '']);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
