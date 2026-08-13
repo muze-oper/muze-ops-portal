@@ -32,19 +32,17 @@
       background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
     }
-    /* Mode switcher — narrow left-column card, so the two options stack
-       vertically instead of side by side (their subtitles need the width). */
-    #mode-bar-label { display: block; font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px; }
-    #mode-switch { display: flex; flex-direction: column; background: #f1f3f4; border-radius: 10px; padding: 4px; gap: 3px; }
+    /* Mode switcher — compact segmented toggle sitting directly above the
+       Accounts table, not a boxed card of its own (was taking up a whole
+       card with a label + two-line buttons — this is what it governs
+       either way, so it reads better sitting right on top of it). */
+    #mode-switch { display: flex; background: #f1f3f4; border-radius: 8px; padding: 3px; gap: 3px; margin-bottom: 8px; }
     .mode-btn {
-      display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; box-sizing: border-box;
-      padding: 7px 16px; border: none; border-radius: 8px; cursor: pointer;
-      background: transparent; color: #5f6368; text-align: left;
-      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+      flex: 1; padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer;
+      background: transparent; color: #5f6368; font-size: 11px; font-weight: 700;
+      transition: background 0.15s, color 0.15s;
     }
-    .mode-btn-title { font-size: 13px; font-weight: 700; }
-    .mode-btn-sub { font-size: 10px; font-weight: 400; opacity: 0.8; }
-    .mode-btn.active { background: #1a73e8; color: white; box-shadow: 0 1px 4px rgba(26,115,232,0.45); }
+    .mode-btn.active { background: #1a73e8; color: white; }
     .mode-btn:not(.active):hover { background: rgba(0,0,0,0.05); }
     @keyframes notifSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
   </style>
@@ -83,20 +81,12 @@
 <div id="content">
   <!-- left column: mode switcher + account summary table -->
   <div id="left-col">
-    <!-- Mode switcher — moved here, right above Accounts, since Account's
-         🔴 LIVE/🔍 FILTER split immediately below is the thing it governs. -->
-    <div id="mode-switch-card" style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);padding:10px;margin-bottom:12px">
-      <span id="mode-bar-label">โหมดการแสดงผล</span>
-      <div id="mode-switch">
-        <button id="mode-live" class="mode-btn active" onclick="setMode('live')">
-          <span class="mode-btn-title">🔴 LIVE</span>
-          <span class="mode-btn-sub">ตามตารางเวลา · default: Action + ควรรับรู้</span>
-        </button>
-        <button id="mode-filter" class="mode-btn" onclick="setMode('filter')">
-          <span class="mode-btn-title">🔍 FILTER</span>
-          <span class="mode-btn-sub">ตามช่วงเวลาที่เลือก · ทุก category</span>
-        </button>
-      </div>
+    <!-- Mode switcher — compact toggle sitting directly above Accounts (no
+         boxed card of its own), since Account's own 🔴 LIVE/🔍 FILTER split
+         immediately below is the thing it governs. -->
+    <div id="mode-switch">
+      <button id="mode-live" class="mode-btn active" onclick="setMode('live')">🔴 LIVE</button>
+      <button id="mode-filter" class="mode-btn" onclick="setMode('filter')">🔍 FILTER</button>
     </div>
     <!-- Account summary table -->
     <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
