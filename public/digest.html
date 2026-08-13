@@ -449,6 +449,16 @@ function extractMnTag(subject) {
   const m = /\[MN-\d+\]/i.exec(subject || '');
   return m ? m[0].toUpperCase() : null;
 }
+// The customer-facing case reference (e.g. "C26080087") is the one identifier
+// present on EVERY email about a ticket from the very first notification —
+// the [MN-xx] tag only shows up later, once ops opens an internal Jira
+// ticket and it starts getting appended to reply subjects. So this is the
+// real grouping key; [MN-xx] is just a fallback for the rare case a subject
+// has a ticket tag but no case reference.
+function extractCaseRef(subject) {
+  const m = /\bC\d{8}\b/.exec(subject || '');
+  return m ? m[0].toUpperCase() : null;
+}
 function defaultActionDone(account, subject) {
   if (account !== NISSAN_ACCOUNT) return '';
   const tag = extractMnTag(subject);
@@ -722,14 +732,15 @@ function renderDashboard() {
   // Group repeat notifications about the same thing into one row. Position =
   // the group's first (earliest-due) occurrence, so the table's overall
   // ordering doesn't change; the group just collapses in place. Grouping key
-  // is the [MN-xx] ticket tag when the subject has one (so every email about
-  // the same Nissan ticket groups together even when the rest of the subject
-  // text differs) — otherwise the exact subject (a ticketing system pinging
-  // the same thing over and over, verbatim).
+  // priority: the case reference (e.g. "C26080087" — present from the very
+  // first email, so it's what actually ties "[MN-134] C26080087/..." to a
+  // later "C26080087/..." reply that never got the ticket tag), then the
+  // [MN-xx] tag alone as a fallback, then the exact subject (a ticketing
+  // system pinging the same thing over and over, verbatim).
   const groups = [];
   const bySubject = new Map();
   rows.forEach(function(row) {
-    const key = extractMnTag(row.e.subject) || (row.e.subject || '').trim();
+    const key = extractCaseRef(row.e.subject) || extractMnTag(row.e.subject) || (row.e.subject || '').trim();
     let group = bySubject.get(key);
     if (!group) { group = { members: [] }; bySubject.set(key, group); groups.push(group); }
     group.members.push(row);
