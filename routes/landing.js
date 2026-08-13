@@ -42,6 +42,17 @@ function cleanPreview(text, limit = 160) {
   return cleaned.length > limit ? `${cleaned.slice(0, limit)}…` : cleaned;
 }
 
+// Same assignment record digest.js's "Action Done" column reads/writes
+// (routes/digest.js's POST /api/digest/assign) - a free-text reference
+// (e.g. a Jira ticket number) someone fills in once they've actually acted
+// on the email. Blank/missing means nothing's been done about it yet.
+async function fetchActionDone(account, msgId) {
+  if (!account || !msgId) return '';
+  const key = `assignment_${account.replace(/@|\./g, '_')}_${msgId}`;
+  const data = await drive.readFile(key).catch(() => null);
+  return (data?.actionDone || '').trim();
+}
+
 // Groups a digest email's inbox account under the client project it belongs
 // to. support@/support-mea@ don't belong to any single client project - they
 // go under the landing page's "All Project" card instead.
@@ -78,6 +89,7 @@ router.get('/api/hot-issues', async (req, res) => {
 
   try {
     const data = await drive.readFile(DIGEST_LIVE_FILENAME);
+    const digestItems = [];
     for (const [account, entry] of Object.entries(data?.counts || {})) {
       for (const e of entry?.emails || []) {
         // Every email the Live dashboard shows by default (🔴 Action + 🟡
@@ -85,7 +97,7 @@ router.get('/api/hot-issues', async (req, res) => {
         // still pending/carried-forward on the dashboard shows here too.
         const badge = DIGEST_STATUS_BADGE[e.category];
         if (!badge) continue;
-        items.push({
+        digestItems.push({
           source: 'digest', key: null, title: e.subject || '(no subject)',
           dateLabel: formatDigestDateLabel(e.date), status: badge,
           meta: account, preview: cleanPreview(e.snippet), replyCount: null,
@@ -94,6 +106,15 @@ router.get('/api/hot-issues', async (req, res) => {
         });
       }
     }
+    // Dot color reflects whether this email's own "Action Done" reference
+    // (digest.js's assignment record) has actually been filled in - not the
+    // triage category, which stays 🔴/🟡 regardless of progress since made.
+    await Promise.all(digestItems.map(async item => {
+      const actionDone = await fetchActionDone(item.account, item.msgId);
+      item.actionDone = actionDone;
+      item.dotColor = actionDone ? 'green' : 'red';
+    }));
+    items.push(...digestItems);
   } catch (err) {
     console.error('hot-issues digest fetch failed:', err.message);
   }
@@ -110,6 +131,7 @@ router.get('/api/hot-issues', async (req, res) => {
         meta: f.assignee?.displayName || 'ยังไม่มอบหมาย',
         preview: last ? cleanPreview(last.body) : '', replyCount: comments.length,
         project: 'KTC', sortKey: f.created || '',
+        dotColor: 'gray', // no "Action Done" concept for Jira tickets
       });
     }
   } catch (err) {

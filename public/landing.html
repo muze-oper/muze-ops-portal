@@ -49,7 +49,10 @@
     .hot-bullet { display: flex; align-items: center; gap: 6px; }
     .hot-bullet--clickable { cursor: pointer; border-radius: 6px; margin: -2px -4px; padding: 2px 4px; transition: background .12s; }
     .hot-bullet--clickable:hover { background: rgba(28,35,64,.06); }
-    .hot-bullet-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: #ff5c7a; }
+    .hot-bullet-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: #b0b7cf; }
+    .hot-bullet-dot--red { background: #ff5c7a; }
+    .hot-bullet-dot--green { background: #1ec496; }
+    .hot-bullet-dot--gray { background: #b0b7cf; }
     .hot-bullet-text { flex: 1; min-width: 0; font-size: 11px; font-weight: 600; color: #1c2340; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .hot-bullet-date { flex: none; font-size: 9.5px; color: #b0b7cf; white-space: nowrap; }
     .hot-group-more { margin-top: 5px; padding-left: 11px; font-size: 10px; color: #8891b0; }
@@ -494,9 +497,10 @@
         ? `/digest?account=${encodeURIComponent(item.account)}&msgId=${encodeURIComponent(item.msgId)}`
         : '/digest';
       const clickAttrs = isEmail ? ` class="hot-bullet hot-bullet--clickable" onclick="window.location.href='${digestUrl}'"` : ` class="hot-bullet"`;
+      const dotClass = `hot-bullet-dot hot-bullet-dot--${item.dotColor || 'gray'}`;
       return `
         <li${clickAttrs}>
-          <span class="hot-bullet-dot"></span>
+          <span class="${dotClass}" title="${item.dotColor === 'green' ? 'มี Action Done แล้ว' : item.dotColor === 'red' ? 'ยังไม่มี Action Done' : ''}"></span>
           <span class="hot-bullet-text">${escapeHtml(item.title || '')}</span>
           <span class="${badgeClass}">${escapeHtml(item.status?.label || '-')}</span>
           <span class="hot-bullet-date">${escapeHtml(item.dateLabel || '')}${escapeHtml(countText)}</span>
