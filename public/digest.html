@@ -456,6 +456,20 @@ function defaultActionDone(account, subject, snippet) {
   return '';
 }
 
+// Grouping merges emails by whichever member matched a Zendesk ID/case-ref/
+// MN-tag (see groupKeyFor) - but the group's representative (earliest due)
+// isn't necessarily THAT member, so checking only the representative's own
+// subject/snippet regressed to blank Action Done for groups whose earliest
+// email happens to be a plain reply with none of Zendesk's boilerplate text.
+// Scan every member instead and use the first one that actually matches.
+function defaultActionDoneForGroup(account, members) {
+  for (const m of members) {
+    const val = defaultActionDone(account, m.e.subject, m.e.snippet);
+    if (val) return val;
+  }
+  return '';
+}
+
 async function applyBulkAssignee() {
   const value = document.getElementById('bulk-assignee').value;
   if (!value) return;
@@ -751,7 +765,7 @@ function renderDashboard() {
     // field - until then, default to the [MN-xx] tag / Zendesk ticket ref
     // scanned off the subject/snippet, so the group starts pre-filled
     // instead of blank.
-    const actionDoneVal = (asg && asg.actionDone != null) ? asg.actionDone : defaultActionDone(account, e.subject, e.snippet);
+    const actionDoneVal = (asg && asg.actionDone != null) ? asg.actionDone : defaultActionDoneForGroup(account, members);
 
     let st = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
     // Business rule: a non-blank Action Done means work has already started
