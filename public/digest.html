@@ -18,14 +18,8 @@
     header h1 { font-size: 18px; }
     header div { display: flex; gap: 16px; align-items: center; }
     header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
-    #content { max-width: 1900px; margin: 12px auto 16px; padding: 0 12px; display:flex; gap:14px; align-items:flex-start; }
-    #left-col { width: 280px; flex-shrink: 0; position: sticky; top: 16px; transition: width 0.15s, opacity 0.15s; }
-    #left-col.collapsed { width: 0; opacity: 0; overflow: hidden; pointer-events: none; margin-right: -14px; }
-    #right-col { flex: 1; min-width: 0; }
-    #left-col-toggle {
-      background: rgba(255,255,255,0.2); border: none; color: white; width: 24px; height: 24px;
-      border-radius: 5px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center;
-    }
+    #content { max-width: 1900px; margin: 12px auto 16px; padding: 0 12px; }
+    #right-col { min-width: 0; }
     /* Top-level Email Volume bar */
     #mode-bar { max-width: 1900px; margin: 16px auto 0; padding: 0 12px; }
     #mode-bar-card {
@@ -79,48 +73,18 @@
 </div>
 
 <div id="content">
-  <!-- left column: mode switcher + account summary table -->
-  <div id="left-col">
-    <!-- Mode switcher — compact toggle sitting directly above Accounts (no
-         boxed card of its own), since Account's own 🔴 LIVE/🔍 FILTER split
-         immediately below is the thing it governs. -->
-    <div id="mode-switch">
-      <button id="mode-live" class="mode-btn active" onclick="setMode('live')">🔴 LIVE</button>
-      <button id="mode-filter" class="mode-btn" onclick="setMode('filter')">🔍 FILTER</button>
-    </div>
-    <!-- Account summary table -->
-    <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
-      <div style="background:#1a73e8;color:white;padding:10px 14px;text-align:left">
-        <div style="font-weight:700;font-size:13px">📬 Accounts</div>
-        <!-- Same 🔴 LIVE / 🔍 FILTER split as the Dashboard header — these
-             counts come from the live fetch (updated on schedule) but the
-             Dashboard table below them is scoped to the date-range filter,
-             so both facts need to be visible here too. -->
-        <div style="font-size:10px;margin-top:4px;display:flex;flex-direction:column;gap:2px">
-          <div id="acct-live-line"><span style="background:#e53935;font-weight:700;padding:1px 6px;border-radius:7px;letter-spacing:0.03em;margin-right:5px">🔴 LIVE</span><span id="acct-live-meta" style="opacity:0.9"></span></div>
-          <div id="acct-filter-line" style="display:none"><span style="background:rgba(255,255,255,0.25);font-weight:700;padding:1px 6px;border-radius:7px;letter-spacing:0.03em;margin-right:5px">🔍 FILTER</span><span id="acct-filter-meta" style="opacity:0.9"></span></div>
-        </div>
-      </div>
-      <table id="acct-table" style="width:100%;border-collapse:collapse;font-size:11px">
-        <thead>
-          <tr style="background:#f8f9fa">
-            <th style="padding:7px 10px;text-align:left;color:#555;border-bottom:1px solid #e0e0e0">Account</th>
-            <th style="padding:7px 8px;text-align:center;color:#e53935;border-bottom:1px solid #e0e0e0;font-size:10px;white-space:nowrap">🔴 Action</th>
-            <th style="padding:7px 8px;text-align:center;color:#f9ab00;border-bottom:1px solid #e0e0e0;font-size:10px;white-space:nowrap">🟡 ควรรู้</th>
-            <th style="padding:7px 8px;text-align:center;color:#9aa0a6;border-bottom:1px solid #e0e0e0;font-size:10px;white-space:nowrap">⚪ Auto</th>
-          </tr>
-        </thead>
-        <tbody id="acct-tbody">
-          <tr><td colspan="4" style="padding:16px;text-align:center;color:#aaa">กำลังโหลด…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- right column: only email dashboard -->
+  <!-- right column: only email dashboard (left column with the Accounts
+       table was removed entirely per request — this is a single-column
+       layout now) -->
   <div id="right-col">
+  <!-- Mode switcher — compact toggle sitting directly above the Email
+       Dashboard table, the thing it governs. -->
+  <div id="mode-switch">
+    <button id="mode-live" class="mode-btn active" onclick="setMode('live')">🔴 LIVE</button>
+    <button id="mode-filter" class="mode-btn" onclick="setMode('filter')">🔍 FILTER</button>
+  </div>
   <!-- email dashboard — always visible, auto-loads below cards -->
-  <div id="email-dashboard" style="margin-top:20px">
+  <div id="email-dashboard" style="margin-top:8px">
     <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
       <!-- header — two clearly separated zones:
              🔴 LIVE   = driven by the fetch schedule (data freshness)
@@ -131,7 +95,6 @@
              anything once the data on screen came from a one-off Gmail
              query instead of the fetch schedule. -->
         <div style="padding:10px 20px;background:rgba(0,0,0,0.15);display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,0.15)">
-          <button id="left-col-toggle" onclick="toggleLeftCol()" title="ซ่อน/แสดง panel ด้านซ้าย">◀</button>
           <span style="font-weight:700;font-size:14px">📋 Email Dashboard</span>
           <div id="dash-live-info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1">
             <span style="background:#e53935;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔴 LIVE</span>
@@ -624,9 +587,7 @@ function filterDashboard(account) {
   renderDashboard();
 }
 
-// Shared by renderDashboard() (rows) and renderAccountTable() (per-account
-// tallies) so both panels apply date scoping identically — only meaningful
-// in Filter mode; Live mode has no date axis at all.
+// Only meaningful in Filter mode; Live mode has no date axis at all.
 function withinDateFilter(e) {
   if (_mode !== 'filter') return true;
   if (!_filterDateFrom && !_filterDateTo) return true;
@@ -644,18 +605,14 @@ function setMode(mode) {
   document.getElementById('mode-filter').classList.toggle('active', mode === 'filter');
   document.getElementById('filter-daterange').style.display = mode === 'filter' ? 'flex' : 'none';
 
-  // Each header shows ONLY the badge/info for the mode currently selected —
-  // no more "🔴 LIVE" sitting next to a picked date range that has nothing
-  // to do with the fetch schedule, or "🔍 FILTER" showing during Live mode
-  // when nothing is actually date-filtered.
-  const dashLiveInfo   = document.getElementById('dash-live-info');
-  const dashFilterTag  = document.getElementById('dash-filter-badge');
-  const acctLiveLine   = document.getElementById('acct-live-line');
-  const acctFilterLine = document.getElementById('acct-filter-line');
-  if (dashLiveInfo)   dashLiveInfo.style.display   = mode === 'live'   ? 'flex' : 'none';
-  if (dashFilterTag)  dashFilterTag.style.display  = mode === 'filter' ? 'inline-block' : 'none';
-  if (acctLiveLine)   acctLiveLine.style.display   = mode === 'live'   ? 'block' : 'none';
-  if (acctFilterLine) acctFilterLine.style.display = mode === 'filter' ? 'block' : 'none';
+  // Header shows ONLY the badge/info for the mode currently selected — no
+  // more "🔴 LIVE" sitting next to a picked date range that has nothing to
+  // do with the fetch schedule, or "🔍 FILTER" showing during Live mode when
+  // nothing is actually date-filtered.
+  const dashLiveInfo  = document.getElementById('dash-live-info');
+  const dashFilterTag = document.getElementById('dash-filter-badge');
+  if (dashLiveInfo)  dashLiveInfo.style.display  = mode === 'live'   ? 'flex' : 'none';
+  if (dashFilterTag) dashFilterTag.style.display = mode === 'filter' ? 'inline-block' : 'none';
 
   if (mode === 'live') {
     _filterCat = '__important__';
@@ -680,8 +637,6 @@ function setMode(mode) {
     loadFilterData(); // live Gmail query for the (just-defaulted) range
   } else {
     renderDashboard();
-    renderAccountTable(_detailData);
-    renderAcctMeta();
   }
 }
 
@@ -709,8 +664,6 @@ async function loadFilterData() {
   } finally {
     _filterLoading = false;
     renderDashboard();
-    renderAccountTable(_filterData);
-    renderAcctMeta();
   }
 }
 
@@ -956,59 +909,8 @@ async function saveTblField(account, msgId, rowIdx, dueValue) {
 
 function renderSummary(title, accountList) {
   _lastTitle = title || _lastTitle;
-  renderAccountTable(accountList);
   populateFilter();
   renderDashboard();
-}
-
-// Mirrors the dashboard's date-range filter + last-live-update time into the
-// Accounts panel header, so the numbers there are read alongside the same
-// context the detailed table below already shows.
-function renderAcctMeta() {
-  const liveEl = document.getElementById('acct-live-meta');
-  const filterEl = document.getElementById('acct-filter-meta');
-  if (!liveEl || !filterEl) return;
-
-  const ts = _lastUpdatedAt ? new Date(_lastUpdatedAt).toLocaleString('th-TH', { timeStyle: 'short' }) : '';
-  liveEl.textContent = ts ? `อัปเดต: ${ts}` : 'กำลังโหลด…';
-
-  const fmt = ymd => {
-    if (!ymd) return '';
-    const [y, m, d] = ymd.split('-');
-    return `${d}/${m}/${y}`;
-  };
-  filterEl.textContent = (_filterDateFrom || _filterDateTo)
-    ? `${fmt(_filterDateFrom)} – ${fmt(_filterDateTo)}`
-    : 'ทุกช่วงเวลา';
-}
-
-function renderAccountTable(accountList) {
-  const tbody = document.getElementById('acct-tbody');
-  if (!tbody) return;
-  if (!accountList || !accountList.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="padding:14px;text-align:center;color:#aaa">ไม่มีข้อมูล</td></tr>';
-    return;
-  }
-  tbody.innerHTML = accountList.map(function(d) {
-    // Always count from the actual email list, never _liveCounts — that's
-    // the server's tally for THIS round's fetch only, computed before the
-    // carry-forward merge, so any carried-over item (still pending, not
-    // Done) was invisible here even though it's plainly shown in the
-    // Dashboard table below, which reads from this same d.emails array.
-    // withinDateFilter() is a no-op in Live mode (mode has no date axis) and
-    // scopes to the picked range in Filter mode, matching the Dashboard.
-    const emails   = (d.emails || []).filter(withinDateFilter);
-    const action   = emails.filter(e => e.category === '🔴 ต้อง Action').length;
-    const mustRead = emails.filter(e => e.category === '🟡 ควรรับรู้').length;
-    const auto     = emails.filter(e => e.category === '⚪ แจ้งเตือนอัตโนมัติ').length;
-    const shortAcc = d.account.split('@')[0];
-    return '<tr style="border-bottom:1px solid #f0f0f0">' +
-      '<td style="padding:7px 10px;font-size:11px;font-weight:600;color:#333">' + shortAcc + '</td>' +
-      '<td style="padding:7px 6px;text-align:center;font-weight:700;font-size:12px;color:' + (action > 0 ? '#e53935' : '#bbb') + '">' + action + '</td>' +
-      '<td style="padding:7px 6px;text-align:center;font-weight:700;font-size:12px;color:' + (mustRead > 0 ? '#f9ab00' : '#bbb') + '">' + mustRead + '</td>' +
-      '<td style="padding:7px 6px;text-align:center;font-weight:700;font-size:12px;color:#9aa0a6">' + auto + '</td>' +
-      '</tr>';
-  }).join('');
 }
 
 function showEmailDetail(account, emailIdx) {
@@ -1279,7 +1181,6 @@ async function loadLive() {
       _lastUpdatedAt = data.updatedAt || null;
       const ts = data.updatedAt ? new Date(data.updatedAt).toLocaleString('th-TH', { timeStyle: 'short' }) : '';
       document.getElementById('last-updated').textContent = `อัปเดต: ${ts} · live`;
-      renderAcctMeta();
       loadAllEmailStatuses();
     }
   } catch { /* silent */ }
@@ -1304,14 +1205,6 @@ function openFromQueryParams() {
 function toggleScheduleInfo() {
   const el = document.getElementById('schedule-info');
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
-
-function toggleLeftCol() {
-  const col = document.getElementById('left-col');
-  const btn = document.getElementById('left-col-toggle');
-  const collapsed = col.classList.toggle('collapsed');
-  btn.textContent = collapsed ? '▶' : '◀';
-  localStorage.setItem('digestLeftColCollapsed', collapsed ? '1' : '0');
 }
 
 async function pullNow() {
@@ -1529,15 +1422,10 @@ function renderVolumeSparkline() {
 }
 window.addEventListener('resize', renderVolumeSparkline);
 // Sync the mode UI (date-range visibility, dropdown values) to the default
-// 'live' state — renderDashboard()/renderAccountTable() themselves run once
-// real data loads via loadLive() below, so this is just the static setup.
+// 'live' state — renderDashboard() itself runs once real data loads via
+// loadLive() below, so this is just the static setup.
 document.getElementById('filter-daterange').style.display = 'none';
 document.getElementById('db-cat-filter').value = _filterCat;
-
-if (localStorage.getItem('digestLeftColCollapsed') === '1') {
-  document.getElementById('left-col').classList.add('collapsed');
-  document.getElementById('left-col-toggle').textContent = '▶';
-}
 
 document.getElementById('bulk-assignee').innerHTML =
   '<option value="">Assignee...</option>' + ASSIGNEES.map(a => '<option value="'+a.email+'">'+a.name+'</option>').join('');
