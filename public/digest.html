@@ -422,6 +422,11 @@ function normalizeSubjectKey(subject) {
   return (subject || '').normalize('NFC').replace(/\s+/g, ' ').trim();
 }
 const TVN_ACCOUNT = 'support-tvn@muze.co.th';
+// support@ is CC'd on the same True Digital Group/Zendesk tickets as
+// support-tvn (confirmed earlier via the "True Digital Group" training rule
+// fix — both mailboxes get the identical ticket thread), so it needs the
+// same Zendesk-ID default, not just support-tvn.
+const SUPPORT_ACCOUNT = 'support@muze.co.th';
 
 // True Digital Group's Zendesk auto-replies include a boilerplate line like
 // "Or go to support.truedigital.com/hc/requests/300116" - almost always
@@ -449,7 +454,7 @@ function defaultActionDone(account, subject, snippet) {
     const tag = extractMnTag(subject);
     return tag ? `Jira ${tag.replace(/[[\]]/g, '')}` : '';
   }
-  if (account === TVN_ACCOUNT) {
+  if (account === TVN_ACCOUNT || account === SUPPORT_ACCOUNT) {
     const zid = extractZendeskId(snippet) || extractZendeskId(subject);
     return zid ? `Zendesk ${zid}` : '';
   }
@@ -462,9 +467,9 @@ function defaultActionDone(account, subject, snippet) {
 // subject/snippet regressed to blank Action Done for groups whose earliest
 // email happens to be a plain reply with none of Zendesk's boilerplate text.
 // Scan every member instead and use the first one that actually matches.
-function defaultActionDoneForGroup(account, members) {
+function defaultActionDoneForGroup(members) {
   for (const m of members) {
-    const val = defaultActionDone(account, m.e.subject, m.e.snippet);
+    const val = defaultActionDone(m.account, m.e.subject, m.e.snippet);
     if (val) return val;
   }
   return '';
@@ -765,7 +770,7 @@ function renderDashboard() {
     // field - until then, default to the [MN-xx] tag / Zendesk ticket ref
     // scanned off the subject/snippet, so the group starts pre-filled
     // instead of blank.
-    const actionDoneVal = (asg && asg.actionDone != null) ? asg.actionDone : defaultActionDoneForGroup(account, members);
+    const actionDoneVal = (asg && asg.actionDone != null) ? asg.actionDone : defaultActionDoneForGroup(members);
 
     let st = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
     // Business rule: a non-blank Action Done means work has already started
