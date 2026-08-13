@@ -3,143 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TVN Error Sessions — Muze Tech Ops Portal</title>
+  <title>BitMovin Error Sessions — Muze Tech Ops Portal</title>
+  <link rel="stylesheet" href="/tvn-shared.css">
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <style>
-    :root {
-      --bg: #F3F5F3;
-      --surface: #FFFFFF;
-      --surface-2: #EAEDEA;
-      --ink: #16211D;
-      --ink-dim: #57635C;
-      --ink-faint: #7C8981;
-      --border: #D6DBD3;
-      --accent: #0E6F63;
-      --accent-ink: #0A5049;
-      --accent-soft: #DCEFEA;
-      --good: #2E7D46;
-      --good-soft: #E3F3E6;
-      --warn: #A66A00;
-      --warn-soft: #F7EBD6;
-      --critical: #B3261E;
-      --critical-soft: #FBE4E2;
-      --font-sans: -apple-system, "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif;
-      --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, "Liberation Mono", monospace;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #0F1513;
-        --surface: #16201D;
-        --surface-2: #1C2723;
-        --ink: #E7ECE8;
-        --ink-dim: #A8B5AE;
-        --ink-faint: #74827A;
-        --border: #2A362F;
-        --accent: #4FD9C6;
-        --accent-ink: #8CEBDD;
-        --accent-soft: #16302C;
-        --good: #63C77E;
-        --good-soft: #163420;
-        --warn: #E3AC4E;
-        --warn-soft: #3A2C10;
-        --critical: #F0716A;
-        --critical-soft: #3A1613;
-      }
-    }
-
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-    a { color: var(--accent-ink); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-
-    /* ---------- Console header ---------- */
-    .console { background: #0A0F0D; color: var(--bg); padding: 26px 24px 22px; }
-    .console-inner { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
-    .console-main { min-width: 0; }
-    .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
-    .eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(79, 217, 198, 0.25); flex: none; }
-    h1.title { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 6px; color: #F3F5F3; }
-    .subtitle { margin: 0; color: #AEBDB6; font-size: 13.5px; max-width: 60ch; }
-    .header-actions { display: flex; gap: 8px; flex-wrap: wrap; flex: none; }
-    .ghost-link { font-family: var(--font-sans); font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.16); color: #D3DED9; background: rgba(255,255,255,0.04); }
-    .ghost-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; background: rgba(255,255,255,0.08); }
-    .stat-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
-    .stat-chip { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px 12px; min-width: 100px; }
-    .stat-chip .label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #8FA098; display: block; margin-bottom: 3px; }
-    .stat-chip .value { font-family: var(--font-mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: #F3F5F3; }
-
-    /* ---------- Body layout ---------- */
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 24px 72px; }
-    section.block { margin: 0 0 40px; }
-    .block-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
-    h2.h { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); margin: 0; white-space: nowrap; }
-    .rule { flex: 1; height: 1px; background: var(--border); }
-    .tag-pill { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); text-transform: uppercase; font-weight: 700; margin-left: 8px; vertical-align: middle; }
-
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
-    .card .hint { font-size: 12.5px; color: var(--ink-faint); margin-bottom: 12px; max-width: 76ch; }
-
-    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-    .last-updated { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
-    #empty-state { text-align: center; padding: 48px 24px; color: var(--ink-faint); }
-    #empty-state .icon { font-size: 36px; margin-bottom: 12px; }
-
-    /* ---------- Buttons ---------- */
-    .btn-primary, .btn-ghost {
-      font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; border-radius: 8px;
-      padding: 8px 14px; cursor: pointer; border: 1px solid transparent;
-    }
-    .btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
-    .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
-    .btn-ghost { background: var(--surface); color: var(--ink-dim); border-color: var(--border); }
-    .btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-ink); }
-    button:disabled { opacity: 0.55; cursor: default; }
-    button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-
-    /* ---------- Tables ---------- */
-    table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-    table.data th { text-align: right; background: var(--surface-2); color: var(--ink-faint); font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; font-family: var(--font-mono); border-bottom: 1px solid var(--border); }
-    table.data th:first-child, table.data td:first-child { text-align: left; }
-    table.data td { padding: 6px 8px; border-top: 1px solid var(--border); color: var(--ink); text-align: right; white-space: nowrap; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-    table.data td:first-child { font-family: var(--font-sans); font-variant-numeric: normal; }
-
-    .cell-input, .date-cell-input, .cl-filter, .cl-value {
-      font-family: var(--font-mono); font-size: 12.5px; padding: 5px 7px; border: 1px solid var(--border);
-      border-radius: 6px; background: var(--surface); color: var(--ink); box-sizing: border-box;
-    }
-    .cell-input { width: 84px; text-align: right; font-weight: 600; }
-    .cell-input:focus, .date-cell-input:focus, .cl-filter:focus, .cl-value:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-    .date-cell-input { width: 110px; font-family: var(--font-sans); }
-    .new-row td { background: var(--accent-soft); }
-
-    .heat-legend { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-    .heat-swatch { display: flex; flex-direction: column; align-items: center; font-size: 9px; color: var(--ink-faint); font-family: var(--font-mono); }
-    .heat-box { width: 26px; height: 14px; border-radius: 3px; margin-bottom: 2px; }
-
-    .table-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
-    #sync-result, #record-result { white-space: pre-wrap; margin-top: 12px; font-size: 12px; color: var(--ink-dim); font-family: var(--font-mono); }
-
-    .record-panel label { display: block; margin-top: 10px; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--ink-dim); }
-    .record-panel textarea {
-      width: 100%; box-sizing: border-box; font-family: var(--font-mono); font-size: 12.5px; padding: 7px 10px;
-      border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--ink);
-    }
-    .record-panel textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-    #redo-btn { margin-left: 8px; }
-
-    .platform-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 10px 0 14px; }
-    .platform-input label { margin-top: 0; }
-    .platform-input textarea { height: 84px; resize: vertical; }
-
-    /* ---------- Crashlytics table ---------- */
-    .cl-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-    .cl-table th { text-align: left; background: var(--surface-2); color: var(--ink-faint); font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; font-family: var(--font-mono); border-bottom: 1px solid var(--border); }
-    .cl-table td { padding: 8px 10px; border-top: 1px solid var(--border); vertical-align: middle; }
-    .cl-table input.cl-value { width: 80px; font-weight: 700; }
-    .cl-table input.cl-filter { width: 100%; min-width: 160px; }
-    .cl-status-row td { padding: 2px 10px 10px; border-top: none; font-size: 11px; color: var(--ink-dim); white-space: pre-wrap; font-family: var(--font-mono); }
-
-  </style>
+  <script src="/tvn-shared.js"></script>
 </head>
 <body>
 
@@ -147,8 +14,13 @@
   <div class="console-inner">
     <div class="console-main">
       <p class="eyebrow">Muze Tech Ops Portal · TVN</p>
-      <h1 class="title">TVN Error Sessions</h1>
-      <p class="subtitle">ติดตาม Error Session % (Bitmovin) และ Crash-free Users % (Firebase Crashlytics) ของแอป TrueVisions NOW แล้ว sync เข้าชีต TVN-Operation Monitoring</p>
+      <h1 class="title">BitMovin Error Sessions</h1>
+      <p class="subtitle">ติดตาม Error Session % ของแอป TrueVisions NOW ต่อ platform แล้ว sync เข้าชีต TVN-Operation Monitoring</p>
+      <nav class="page-nav">
+        <a class="page-nav-link active" href="/tvn">BitMovin Error Sessions</a>
+        <a class="page-nav-link" href="/tvn/top-error-codes">BitMovin Top Error Codes</a>
+        <a class="page-nav-link" href="/tvn/crashlytics">Firebase Crashlytics</a>
+      </nav>
     </div>
     <div class="header-actions">
       <a class="ghost-link" href="/">← กลับหน้าหลัก</a>
@@ -159,14 +31,17 @@
 
 <div class="wrap">
 
-  <section class="block" id="section-bitmovin">
-    <div class="block-head"><h2 class="h">BITMOVIN</h2><div class="rule"></div></div>
+  <section class="block">
+    <div class="block-head"><h2 class="h">Error Sessions</h2><div class="rule"></div></div>
     <div class="card">
       <div class="toolbar">
         <button class="btn-ghost" id="refresh-btn" onclick="load(true)">🔄 รีเฟรชข้อมูล</button>
         <div id="last-updated" class="last-updated">กำลังโหลด...</div>
       </div>
-      <div id="body"><div id="empty-state"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
+      <div class="sheet-link-row">
+        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit#gid=1205219259" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง (แท็บ BitMovin Error)</a>
+      </div>
+      <div id="body" style="margin-top:14px;"><div id="empty-state"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
     </div>
 
     <div class="card record-panel">
@@ -177,110 +52,48 @@
 
       <button class="btn-primary" id="record-btn" onclick="submitRecord()">🔄 Sync ข้อมูลทั้งหมด</button>
       <button class="btn-ghost" id="redo-btn" onclick="redoLastSubmit()" disabled>↩️ Redo (เอาค่าที่เพิ่ง sync กลับมา)</button>
-      <div id="record-result"></div>
-    </div>
-
-    <div class="card">
-      <div style="display:flex;align-items:center;margin-bottom:10px;">
-        <h3 style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-dim);">Top Error Codes</h3>
-      </div>
-      <div class="hint">
-        ยังไม่มีแท็บในชีตสำหรับข้อมูลนี้ ตารางด้านล่างไว้กรอกเก็บดู/แชร์เป็นรูปเท่านั้น (ยังไม่ sync เข้าชีต):
-        แคป screenshot กราฟ "Top Error Codes" จาก Bitmovin → วางในแชท Claude Code ที่เปิดใน repo นี้
-        (มี skill <code style="font-family:var(--font-mono);background:var(--surface-2);padding:1px 5px;border-radius:4px;">tvn-dashboard-reading</code>
-        ช่วยอ่าน Error Code + จำนวน Session ให้) → พิมพ์ผลที่ได้ลงตารางด้านล่างนี้
-      </div>
-
-      <div id="error-codes-export-panel" style="background:var(--surface)">
-        <table class="data" id="error-codes-table">
-          <thead><tr><th>อันดับ</th><th style="text-align:left">Error Code</th><th>จำนวน Sessions</th></tr></thead>
-          <tbody id="error-codes-table-body"></tbody>
-        </table>
-      </div>
-      <div class="table-actions">
-        <button class="btn-ghost" id="add-error-code-btn" onclick="addErrorCodeRow()">+ เพิ่มแถว</button>
-        <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyErrorCodesAsImage()">📋 Copy เป็นรูปภาพ</button>
-      </div>
-      <div id="error-codes-result"></div>
+      <div id="record-result" class="result-text"></div>
     </div>
   </section>
 
-  <section class="block" id="section-crashlytics">
-    <div class="block-head"><h2 class="h">Firebase Crashlytics — Crash-free Users</h2><div class="rule"></div></div>
+  <section class="block">
+    <div class="block-head"><h2 class="h">แนบ Screenshot</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">กรอกค่า Crash-free Users % และ Filter (version) ของแต่ละแถวตามที่อ่านได้จาก Firebase Console แล้วกด บันทึก ทีละแถว</div>
-      <div id="crashlytics-body"><div id="crashlytics-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
+      <div class="hint">แนบ/วาง screenshot ของกราฟ Error Session % ไว้ที่นี่เพื่อดูอ้างอิงตอนกรอกค่า (ไม่มีการวิเคราะห์อัตโนมัติ — ใช้ skill ด้านล่างในแชท Claude Code เพื่อให้ Claude อ่านค่าให้)</div>
+      <div id="paste-area-sessions" class="paste-area" tabindex="0">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง</div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2 class="h">วิธี Import Skill ให้ทีม</h2><div class="rule"></div></div>
+    <div class="card skill-steps">
+      <div class="hint">Skill <code>tvn-dashboard-reading</code> สอน Claude ให้อ่านค่า Error Session % / Crash-free Users % / Top Error Codes จาก screenshot อย่างถูกต้อง (เช็ค filter ก่อนอ่าน ไม่กะจากเส้นกราฟ) — เก็บไว้ในโค้ดของ repo <code>muze-ops-portal</code> แล้ว ทำตามนี้เพื่อให้ Claude Code ของคุณเห็น skill นี้:</div>
+      <ol>
+        <li>เปิด Terminal แล้ว clone repo นี้ (ถ้ายังไม่มีในเครื่อง):
+          <pre>git clone git@github.com:muze-oper/muze-ops-portal.git</pre>
+          ถ้ามีอยู่แล้ว ให้ดึงโค้ดล่าสุดแทน — ต้องทำทุกครั้งที่ skill มีการอัปเดต:
+          <pre>cd muze-ops-portal &amp;&amp; git pull</pre>
+        </li>
+        <li>เข้าไปในโฟลเดอร์ repo:
+          <pre>cd muze-ops-portal</pre>
+        </li>
+        <li>เปิด Claude Code <strong>จากในโฟลเดอร์นี้เท่านั้น</strong> — สำคัญมาก ถ้าเปิด Claude Code จากโฟลเดอร์อื่นจะไม่เห็น skill นี้เลย:
+          <pre>claude</pre>
+          หรือถ้าใช้ VS Code: เปิด "Open Folder" ไปที่โฟลเดอร์ <code>muze-ops-portal</code> ก่อนเปิด Claude Code extension
+        </li>
+        <li>ทดสอบว่า skill โหลดมาจริง — ถามใน Claude Code ว่า <code>มี skill tvn-dashboard-reading ให้ใช้ไหม</code> หรือวาง screenshot ตัวอย่างแล้วดูว่า Claude เช็ค filter ก่อนอ่านค่าให้ตามที่ skill กำหนดไว้หรือไม่</li>
+        <li>ใช้งานจริง: เปิด Claude Code จากในโฟลเดอร์ <code>muze-ops-portal</code> ทุกครั้ง วาง screenshot ที่จะอ่านค่าเข้าไปในแชท แล้วขอให้ Claude อ่านค่าให้ จากนั้นพิมพ์ผลลงในตารางของหน้านี้เอง</li>
+        <li><span class="optional-tag">ตัวเลือกเสริม</span> ถ้าอยากให้ Claude Code เห็น skill นี้จากโฟลเดอร์ไหนก็ได้ ไม่ต้องเปิด repo นี้ทุกครั้ง ให้ copy โฟลเดอร์ skill ไปไว้ระดับ user ของตัวเอง:
+          <pre>cp -r muze-ops-portal/.claude/skills/tvn-dashboard-reading ~/.claude/skills/</pre>
+          (ใช้วิธีนี้แล้วต้อง copy ทับใหม่เองทุกครั้งที่ skill อัปเดต เพราะจะไม่โดน <code>git pull</code> อัปเดตให้อัตโนมัติ)
+        </li>
+      </ol>
     </div>
   </section>
 
 </div>
 
 <script>
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function slug(platform) {
-  return platform.toLowerCase().replace(/\s+/g, '-');
-}
-
-// --- Heatmap: 10 shades from dark green (<=2.00%) to red (>=6.00%) -----
-// Level 0 = <=HEAT_MIN exactly (a flat "good" floor, not part of the even
-// split), level 9 = >=HEAT_MAX (flat "bad" ceiling), levels 1-8 split the
-// range between them into 8 equal 0.5-point bins.
-const HEAT_MIN = 2.00;
-const HEAT_MAX = 6.00;
-const HEAT_STEPS = 10;
-const HEAT_GREEN = [11, 110, 47];
-const HEAT_RED = [197, 42, 42];
-
-function heatLevel(value) {
-  if (value <= HEAT_MIN) return 0;
-  if (value >= HEAT_MAX) return HEAT_STEPS - 1;
-  const step = (HEAT_MAX - HEAT_MIN) / (HEAT_STEPS - 2); // 8 intermediate bins
-  return 1 + Math.floor((value - HEAT_MIN) / step);
-}
-
-function heatColorForLevel(level) {
-  const t = level / (HEAT_STEPS - 1);
-  const r = Math.round(HEAT_GREEN[0] + (HEAT_RED[0] - HEAT_GREEN[0]) * t);
-  const g = Math.round(HEAT_GREEN[1] + (HEAT_RED[1] - HEAT_GREEN[1]) * t);
-  const b = Math.round(HEAT_GREEN[2] + (HEAT_RED[2] - HEAT_GREEN[2]) * t);
-  return `rgb(${r},${g},${b})`;
-}
-
-function heatColorForValue(value) {
-  if (value === null || value === undefined || isNaN(value)) return null;
-  return heatColorForLevel(heatLevel(value));
-}
-
-function heatLegendHtml() {
-  const labels = ['≤2.00', '2.00-2.50', '2.50-3.00', '3.00-3.50', '3.50-4.00', '4.00-4.50', '4.50-5.00', '5.00-5.50', '5.50-6.00', '≥6.00'];
-  return `<div class="heat-legend">` + labels.map((label, i) => `
-    <div class="heat-swatch">
-      <div class="heat-box" style="background:${heatColorForLevel(i)}"></div>
-      ${label}
-    </div>
-  `).join('') + `</div>`;
-}
-
-// Reads whatever's typed in a cell (accepts "2.07" or "2.07%") and applies
-// the matching heatmap color live, so it updates as the user edits - not
-// just on initial render.
-function applyCellColor(input) {
-  const numeric = parseFloat(String(input.value).replace('%', '').trim());
-  const color = heatColorForValue(numeric);
-  if (color) {
-    input.style.backgroundColor = color;
-    input.style.color = '#fff';
-    input.style.borderColor = color;
-  } else {
-    input.style.backgroundColor = '';
-    input.style.color = '';
-    input.style.borderColor = '';
-  }
-}
-
 // Renders the date x platform grid as editable inputs: existing dates get a
 // read-only date cell (editing it would desync it from the sheet row it's
 // matched against) with a value input per platform, pre-filled where data
@@ -321,48 +134,11 @@ function render() {
     <div class="table-actions">
       <button class="btn-ghost" id="add-row-btn" onclick="addNewRow()">+ เพิ่มวันที่</button>
       <button class="btn-primary" id="sync-btn" onclick="syncTable()">🔄 Sync เข้าชีต</button>
-      <button class="btn-ghost" id="copy-image-btn" onclick="copyTableAsImage()">📋 Copy เป็นรูปภาพ</button>
+      <button class="btn-ghost" id="copy-image-btn" onclick="copyElementAsImage('export-panel','sync-result','copy-image-btn')">📋 Copy เป็นรูปภาพ</button>
     </div>
-    <div id="sync-result"></div>
+    <div id="sync-result" class="result-text"></div>
   `;
   document.querySelectorAll('#data-table-body .cell-input').forEach(applyCellColor);
-}
-
-// Renders #export-panel (legend + table, not the buttons below it) to a
-// canvas and copies it to the clipboard as an image. Uses PNG, not JPG, for
-// the clipboard write - the Clipboard API's ClipboardItem only reliably
-// supports "image/png" across browsers, so that's what actually ends up
-// pasteable (into Discord, chat, docs, etc.) even though the visual result
-// looks the same either way. Requires a Chromium/Edge-class browser and a
-// secure (HTTPS) context - both true for this portal in production.
-async function copyTableAsImage() {
-  const btn = document.getElementById('copy-image-btn');
-  const resultEl = document.getElementById('sync-result');
-  const target = document.getElementById('export-panel');
-
-  if (!window.html2canvas) {
-    resultEl.textContent = 'Error: โหลด html2canvas ไม่สำเร็จ (เช็คการเชื่อมต่ออินเทอร์เน็ต)';
-    return;
-  }
-  if (!navigator.clipboard || !window.ClipboardItem) {
-    resultEl.textContent = 'Error: เบราว์เซอร์นี้ไม่รองรับการ copy รูปภาพเข้า clipboard (ลองใช้ Chrome/Edge)';
-    return;
-  }
-
-  btn.disabled = true;
-  resultEl.textContent = 'กำลังสร้างรูปภาพ...';
-  try {
-    const canvas = await html2canvas(target, { backgroundColor: '#ffffff', scale: 2 });
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) throw new Error('สร้างรูปภาพไม่สำเร็จ');
-
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-    resultEl.textContent = 'Copy รูปภาพเข้า clipboard แล้ว - วาง (Ctrl/Cmd+V) ที่ไหนก็ได้';
-  } catch (err) {
-    resultEl.textContent = 'Error: ' + err.message;
-  } finally {
-    btn.disabled = false;
-  }
 }
 
 // Appends a blank row with an editable date label input (existing rows keep
@@ -532,129 +308,8 @@ function redoLastSubmit() {
   document.getElementById('record-result').textContent = '';
 }
 
-// ---- Firebase Crashlytics: one row per platform, each with a manual
-// value/filter edit + a per-row save (writes only that row) ----
-
-async function loadCrashlytics() {
-  const body = document.getElementById('crashlytics-body');
-  try {
-    const res = await fetch('/api/tvn/crashlytics');
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    renderCrashlytics(data.platforms);
-  } catch (err) {
-    body.innerHTML = `<div id="crashlytics-empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
-  }
-}
-
-function renderCrashlytics(platforms) {
-  const body = document.getElementById('crashlytics-body');
-  const rowsHtml = platforms.map(p => {
-    const s = slug(p.platform);
-    return `
-      <tr data-platform="${escapeHtml(p.platform)}">
-        <td>${escapeHtml(p.platform)}</td>
-        <td><input class="cl-filter" id="cl-filter-${s}" value="${escapeHtml(p.filter).replace(/\n/g, ', ')}"></td>
-        <td>${escapeHtml(p.actionDate)}</td>
-        <td>${escapeHtml(p.dateCheck)}</td>
-        <td><input class="cl-value" id="cl-value-${s}" type="number" step="0.01" value="${escapeHtml(p.value)}"></td>
-        <td>
-          <button class="btn-primary" onclick="saveCrashlyticsRow('${escapeHtml(p.platform)}')">💾 บันทึก</button>
-        </td>
-      </tr>
-      <tr class="cl-status-row"><td colspan="6" id="cl-status-${s}"></td></tr>
-    `;
-  }).join('');
-
-  body.innerHTML = `
-    <table class="cl-table">
-      <thead><tr><th>Platform</th><th>Filter (versions)</th><th>Action Date</th><th>Date Check</th><th>Crash Free User %</th><th>บันทึก</th></tr></thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>
-  `;
-}
-
-async function saveCrashlyticsRow(platform) {
-  const s = slug(platform);
-  const statusEl = document.getElementById('cl-status-' + s);
-  const value = document.getElementById('cl-value-' + s).value.trim();
-  const filter = document.getElementById('cl-filter-' + s).value.trim();
-  if (!value) {
-    statusEl.textContent = 'กรุณากรอกค่า % ก่อนบันทึก';
-    return;
-  }
-  statusEl.textContent = 'กำลังบันทึก...';
-  try {
-    const res = await fetch('/api/tvn/crashlytics/record', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform, value, filter }),
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    statusEl.textContent = '✓ ' + data.result;
-    loadCrashlytics();
-  } catch (err) {
-    statusEl.textContent = 'Error: ' + err.message;
-  }
-}
-
-// ---- Top Error Codes: real editable scratch table, no auto-reading here -
-// the actual reading happens in a Claude Code chat using the
-// tvn-dashboard-reading skill; this table is just for typing in what Claude
-// reported and sharing/copying it, since there's no sheet tab for it yet. ----
-
-function addErrorCodeRow(rank, code, sessions) {
-  const tbody = document.getElementById('error-codes-table-body');
-  const nextRank = rank !== undefined ? rank : tbody.children.length + 1;
-  const row = document.createElement('tr');
-  row.innerHTML = `
-    <td><input class="cell-input" style="width:44px;" value="${escapeHtml(nextRank)}"></td>
-    <td><input class="cell-input" style="width:100%;min-width:200px;text-align:left;font-weight:400;" value="${escapeHtml(code || '')}" placeholder="เช่น media3-exoplayer-1.10.1: 1002"></td>
-    <td><input class="cell-input" style="width:90px;" value="${escapeHtml(sessions || '')}" placeholder="เช่น 3823"></td>
-  `;
-  tbody.appendChild(row);
-  return row;
-}
-
-// Renders #error-codes-export-panel (the table only, not the buttons below
-// it) to a canvas and copies it to the clipboard as an image - same
-// approach as copyTableAsImage() for the Error Sessions table above.
-async function copyErrorCodesAsImage() {
-  const btn = document.getElementById('copy-error-codes-btn');
-  const resultEl = document.getElementById('error-codes-result');
-  const target = document.getElementById('error-codes-export-panel');
-
-  if (!window.html2canvas) {
-    resultEl.textContent = 'Error: โหลด html2canvas ไม่สำเร็จ (เช็คการเชื่อมต่ออินเทอร์เน็ต)';
-    return;
-  }
-  if (!navigator.clipboard || !window.ClipboardItem) {
-    resultEl.textContent = 'Error: เบราว์เซอร์นี้ไม่รองรับการ copy รูปภาพเข้า clipboard (ลองใช้ Chrome/Edge)';
-    return;
-  }
-
-  btn.disabled = true;
-  resultEl.textContent = 'กำลังสร้างรูปภาพ...';
-  try {
-    const canvas = await html2canvas(target, { backgroundColor: '#ffffff', scale: 2 });
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) throw new Error('สร้างรูปภาพไม่สำเร็จ');
-
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-    resultEl.textContent = 'Copy รูปภาพเข้า clipboard แล้ว - วาง (Ctrl/Cmd+V) ที่ไหนก็ได้';
-  } catch (err) {
-    resultEl.textContent = 'Error: ' + err.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-// Seed a few blank rows so the table isn't empty on first load.
-for (let i = 1; i <= 5; i++) addErrorCodeRow(i);
-
+setupPasteArea('paste-area-sessions');
 load(false);
-loadCrashlytics();
 </script>
 </body>
 </html>

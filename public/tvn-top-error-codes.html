@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BitMovin Top Error Codes — Muze Tech Ops Portal</title>
+  <link rel="stylesheet" href="/tvn-shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="/tvn-shared.js"></script>
+</head>
+<body>
+
+<div class="console">
+  <div class="console-inner">
+    <div class="console-main">
+      <p class="eyebrow">Muze Tech Ops Portal · TVN</p>
+      <h1 class="title">BitMovin Top Error Codes</h1>
+      <p class="subtitle">เก็บ error code ที่ขึ้นบ่อยที่สุดจากกราฟ "Top Error Codes" ของ Bitmovin ไว้ดู/แชร์เป็นรูป</p>
+      <nav class="page-nav">
+        <a class="page-nav-link" href="/tvn">BitMovin Error Sessions</a>
+        <a class="page-nav-link active" href="/tvn/top-error-codes">BitMovin Top Error Codes</a>
+        <a class="page-nav-link" href="/tvn/crashlytics">Firebase Crashlytics</a>
+      </nav>
+    </div>
+    <div class="header-actions">
+      <a class="ghost-link" href="/">← กลับหน้าหลัก</a>
+      <a class="ghost-link" href="/logout">Logout</a>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <section class="block">
+    <div class="block-head"><h2 class="h">Top Error Codes</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="hint">
+        ยังไม่มีแท็บในชีตสำหรับข้อมูลนี้ — ตารางด้านล่างไว้กรอกเก็บดู/แชร์เป็นรูปเท่านั้น (ยังไม่ sync เข้าชีต):
+        แคป screenshot กราฟ "Top Error Codes" จาก Bitmovin → วางในแชท Claude Code (ใช้ skill ด้านล่างของหน้านี้ให้ Claude อ่าน Error Code + จำนวน Session ให้) → พิมพ์ผลที่ได้ลงตารางด้านล่างนี้
+      </div>
+      <div class="sheet-link-row">
+        <span class="sheet-link disabled">📄 ยังไม่มีชีตต้นทางสำหรับข้อมูลนี้</span>
+      </div>
+
+      <div id="error-codes-export-panel" style="background:var(--surface);margin-top:14px;">
+        <table class="data" id="error-codes-table">
+          <thead><tr><th>อันดับ</th><th style="text-align:left">Error Code</th><th>จำนวน Sessions</th></tr></thead>
+          <tbody id="error-codes-table-body"></tbody>
+        </table>
+      </div>
+      <div class="table-actions">
+        <button class="btn-ghost" id="add-error-code-btn" onclick="addErrorCodeRow()">+ เพิ่มแถว</button>
+        <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
+      </div>
+      <div id="error-codes-result" class="result-text"></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2 class="h">แนบ Screenshot</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="hint">แนบ/วาง screenshot ของกราฟ Top Error Codes ไว้ที่นี่เพื่อดูอ้างอิงตอนกรอกค่า (ไม่มีการวิเคราะห์อัตโนมัติ — ใช้ skill ด้านล่างในแชท Claude Code เพื่อให้ Claude อ่านค่าให้)</div>
+      <div id="paste-area-errorcodes" class="paste-area" tabindex="0">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง</div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2 class="h">วิธี Import Skill ให้ทีม</h2><div class="rule"></div></div>
+    <div class="card skill-steps">
+      <div class="hint">Skill <code>tvn-dashboard-reading</code> สอน Claude ให้อ่านค่า Error Session % / Crash-free Users % / Top Error Codes จาก screenshot อย่างถูกต้อง (เช็ค filter ก่อนอ่าน ไม่กะจากเส้นกราฟ) — เก็บไว้ในโค้ดของ repo <code>muze-ops-portal</code> แล้ว ทำตามนี้เพื่อให้ Claude Code ของคุณเห็น skill นี้:</div>
+      <ol>
+        <li>เปิด Terminal แล้ว clone repo นี้ (ถ้ายังไม่มีในเครื่อง):
+          <pre>git clone git@github.com:muze-oper/muze-ops-portal.git</pre>
+          ถ้ามีอยู่แล้ว ให้ดึงโค้ดล่าสุดแทน — ต้องทำทุกครั้งที่ skill มีการอัปเดต:
+          <pre>cd muze-ops-portal &amp;&amp; git pull</pre>
+        </li>
+        <li>เข้าไปในโฟลเดอร์ repo:
+          <pre>cd muze-ops-portal</pre>
+        </li>
+        <li>เปิด Claude Code <strong>จากในโฟลเดอร์นี้เท่านั้น</strong> — สำคัญมาก ถ้าเปิด Claude Code จากโฟลเดอร์อื่นจะไม่เห็น skill นี้เลย:
+          <pre>claude</pre>
+          หรือถ้าใช้ VS Code: เปิด "Open Folder" ไปที่โฟลเดอร์ <code>muze-ops-portal</code> ก่อนเปิด Claude Code extension
+        </li>
+        <li>ทดสอบว่า skill โหลดมาจริง — ถามใน Claude Code ว่า <code>มี skill tvn-dashboard-reading ให้ใช้ไหม</code> หรือวาง screenshot ตัวอย่างแล้วดูว่า Claude เช็ค filter ก่อนอ่านค่าให้ตามที่ skill กำหนดไว้หรือไม่</li>
+        <li>ใช้งานจริง: เปิด Claude Code จากในโฟลเดอร์ <code>muze-ops-portal</code> ทุกครั้ง วาง screenshot ที่จะอ่านค่าเข้าไปในแชท แล้วขอให้ Claude อ่านค่าให้ จากนั้นพิมพ์ผลลงในตารางของหน้านี้เอง</li>
+        <li><span class="optional-tag">ตัวเลือกเสริม</span> ถ้าอยากให้ Claude Code เห็น skill นี้จากโฟลเดอร์ไหนก็ได้ ไม่ต้องเปิด repo นี้ทุกครั้ง ให้ copy โฟลเดอร์ skill ไปไว้ระดับ user ของตัวเอง:
+          <pre>cp -r muze-ops-portal/.claude/skills/tvn-dashboard-reading ~/.claude/skills/</pre>
+          (ใช้วิธีนี้แล้วต้อง copy ทับใหม่เองทุกครั้งที่ skill อัปเดต เพราะจะไม่โดน <code>git pull</code> อัปเดตให้อัตโนมัติ)
+        </li>
+      </ol>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// Real editable scratch table, no auto-reading here - the actual reading
+// happens in a Claude Code chat using the tvn-dashboard-reading skill; this
+// table is just for typing in what Claude reported and sharing/copying it,
+// since there's no sheet tab for it yet.
+
+function addErrorCodeRow(rank, code, sessions) {
+  const tbody = document.getElementById('error-codes-table-body');
+  const nextRank = rank !== undefined ? rank : tbody.children.length + 1;
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td><input class="cell-input" style="width:44px;" value="${escapeHtml(nextRank)}"></td>
+    <td><input class="cell-input" style="width:100%;min-width:200px;text-align:left;font-weight:400;" value="${escapeHtml(code || '')}" placeholder="เช่น media3-exoplayer-1.10.1: 1002"></td>
+    <td><input class="cell-input" style="width:90px;" value="${escapeHtml(sessions || '')}" placeholder="เช่น 3823"></td>
+  `;
+  tbody.appendChild(row);
+  return row;
+}
+
+// Seed a few blank rows so the table isn't empty on first load.
+for (let i = 1; i <= 5; i++) addErrorCodeRow(i);
+
+setupPasteArea('paste-area-errorcodes');
+</script>
+</body>
+</html>

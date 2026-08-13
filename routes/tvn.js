@@ -155,8 +155,31 @@ router.get('/api/tvn', async (req, res) => {
   }
 });
 
+// /tvn is now 3 separate pages (BitMovin Error Sessions / BitMovin Top
+// Error Codes / Firebase Crashlytics), sharing tvn-shared.css/js - not tabs
+// switched by JS. /tvn itself stays the Error Sessions page since that's
+// what the landing-page card already links to.
 router.get('/tvn', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'tvn.html'));
+});
+
+router.get('/tvn/top-error-codes', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'tvn-top-error-codes.html'));
+});
+
+router.get('/tvn/crashlytics', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'tvn-crashlytics.html'));
+});
+
+// This app has no express.static mount - every public/ asset needs its own
+// route (see the *.html routes above). These two are shared by all 3 /tvn
+// pages, so they get routes of their own instead of being inlined 3x.
+router.get('/tvn-shared.css', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'tvn-shared.css'));
+});
+
+router.get('/tvn-shared.js', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'tvn-shared.js'));
 });
 
 // Same paste-in-lines format as tvn-dashboard/Code.gs's Quick Record tool
