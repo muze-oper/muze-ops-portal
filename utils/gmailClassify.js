@@ -78,7 +78,57 @@ function gmailQueryYMD(date) {
   return `${p.year}/${String(p.month).padStart(2,'0')}/${String(p.day).padStart(2,'0')}`;
 }
 
+// Gmail's body/attachment data is base64url (RFC 4648 URL-safe alphabet, no
+// padding) - swap in the standard alphabet before handing it to Buffer.
+function decodeBase64Url(data) {
+  return Buffer.from(data.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+}
+
+function stripHtml(html) {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// Walks a message's MIME parts for the body text - prefers text/plain,
+// falls back to text/html (tags stripped), falls back to a non-multipart
+// message's own top-level body. Only ever reads body.data (already inlined
+// in the 'full' format response) - never calls attachments.get, so this
+// can't accidentally pull a large attachment's bytes.
+function extractBody(payload) {
+  let plain = null, html = null;
+  (function walk(part) {
+    if (!part) return;
+    if (part.mimeType === 'text/plain' && part.body?.data && !plain) plain = decodeBase64Url(part.body.data);
+    else if (part.mimeType === 'text/html' && part.body?.data && !html) html = decodeBase64Url(part.body.data);
+    (part.parts || []).forEach(walk);
+  })(payload);
+  if (plain) return plain;
+  if (html) return stripHtml(html);
+  if (payload?.body?.data) return decodeBase64Url(payload.body.data);
+  return '';
+}
+
+// Attachment METADATA only (filename/mimeType/size) - a part with a
+// non-empty filename is an attachment in Gmail's MIME representation,
+// regardless of whether format:'full' bothered to inline its body.data.
+function extractAttachments(payload) {
+  const attachments = [];
+  (function walk(part) {
+    if (!part) return;
+    if (part.filename) attachments.push({ filename: part.filename, mimeType: part.mimeType || '', size: part.body?.size || 0 });
+    (part.parts || []).forEach(walk);
+  })(payload);
+  return attachments;
+}
+
 module.exports = {
   CAT_LABEL, loadTrainingRules, classify, formatDate,
   bangkokDateParts, bangkokMidnightUTC, gmailQueryYMD,
+  extractBody, extractAttachments,
 };

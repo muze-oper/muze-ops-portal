@@ -960,11 +960,48 @@ function showEmailDetail(account, emailIdx) {
         '<tr><td style="padding:2px 10px 2px 0;color:#888">จาก</td><td style="font-weight:600;color:#222">'+e.from+'</td></tr>'+
         '<tr><td style="padding:2px 10px 2px 0;color:#888">วันเวลา</td><td style="color:'+(status!=='To Do'?'#34a853':'inherit')+';font-weight:'+(status!=='To Do'?'700':'400')+'">'+fmtReceived(e.date)+'</td></tr>'+
       '</table>'+
-      '<div style="background:#f8f9fa;border-radius:8px;padding:16px;font-size:13px;line-height:1.7;color:#333;white-space:pre-wrap">'+e.snippet+'</div>'+
+      '<div id="dm-body-box" style="background:#f8f9fa;border-radius:8px;padding:16px;font-size:13px;line-height:1.7;color:#333;white-space:pre-wrap">'+e.snippet+'</div>'+
+      '<div id="dm-attachments" style="margin-top:10px"></div>'+
     reclassifySection(account, e)+
     assignSection+
     '</div>';
   document.getElementById('digest-overlay').style.display = 'block';
+
+  _openMsgId = e.msgId || null;
+  if (_openMsgId) loadEmailBody(account, _openMsgId);
+}
+
+// Full body + attachment filenames aren't in the list-view payload (only
+// snippet is, to keep that fetch cheap for every row) — loaded on demand
+// here instead, only for the one email actually being viewed.
+let _openMsgId = null;
+function escapeHtmlSmall(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtBytes(n) {
+  if (!n) return '';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+  return (n / 1024 / 1024).toFixed(1) + ' MB';
+}
+async function loadEmailBody(account, msgId) {
+  const bodyBox = document.getElementById('dm-body-box');
+  const attBox = document.getElementById('dm-attachments');
+  try {
+    const res = await fetch('/api/digest/email-body?account=' + encodeURIComponent(account) + '&msgId=' + encodeURIComponent(msgId));
+    const data = await res.json();
+    if (_openMsgId !== msgId) return; // modal moved on to a different email while this was in flight
+    if (data.error) return; // snippet stays showing as the fallback
+    if (bodyBox && data.body) bodyBox.textContent = data.body;
+    if (attBox && data.attachments && data.attachments.length) {
+      attBox.innerHTML =
+        '<div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:5px">📎 ไฟล์แนบ (' + data.attachments.length + ')</div>' +
+        data.attachments.map(a =>
+          '<div style="font-size:12px;color:#555;padding:3px 0">📄 ' + escapeHtmlSmall(a.filename) +
+          (a.size ? ' <span style="color:#aaa">(' + fmtBytes(a.size) + ')</span>' : '') + '</div>'
+        ).join('');
+    }
+  } catch (e) { /* silent — snippet stays visible as fallback */ }
 }
 
 function reclassifySection(account, e) {

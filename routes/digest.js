@@ -4,7 +4,7 @@ const drive = require('../storage/googleDrive');
 const { sendMail } = require('../utils/mailer');
 const { encryptToken } = require('../auth/tokenCrypto');
 const { getGmailClient, getOAuthClient } = require('../utils/gmailAccounts');
-const { classify, loadTrainingRules, CAT_LABEL, formatDate, bangkokMidnightUTC, gmailQueryYMD } = require('../utils/gmailClassify');
+const { classify, loadTrainingRules, CAT_LABEL, formatDate, bangkokMidnightUTC, gmailQueryYMD, extractBody, extractAttachments } = require('../utils/gmailClassify');
 
 const ASSIGNEES = [
   { name: 'Aum',   email: 'thiranattada.n@muze.co.th' },
@@ -620,6 +620,29 @@ router.get('/api/digest/range', async (req, res) => {
       status: err.response?.status,
       detail: err.response?.data,
     });
+  }
+});
+
+// GET /api/digest/email-body — full body text + attachment filenames for one
+// email, fetched on demand when the detail modal opens (not upfront for
+// every row in the list — the list view only ever needed the snippet).
+// format:'full' inlines every part's body.data including attachments, but
+// extractAttachments() only reads filename/mimeType/size off each part — the
+// attachment bytes it also contains are simply never touched, so this never
+// downloads the actual file.
+router.get('/api/digest/email-body', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
+  try {
+    const { account, msgId } = req.query;
+    if (!account || !msgId) return res.status(400).json({ error: 'account and msgId required' });
+    const gmail = await getGmailClient(account);
+    if (!gmail) return res.status(404).json({ error: 'no Gmail token for this account' });
+    const detail = await gmail.users.messages.get({ userId: 'me', id: msgId, format: 'full' });
+    const body = extractBody(detail.data.payload);
+    const attachments = extractAttachments(detail.data.payload);
+    res.json({ body, attachments });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
