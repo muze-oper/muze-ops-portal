@@ -468,8 +468,15 @@ const TVN_ACCOUNT = 'support-tvn@muze.co.th';
 // body fetch. loadEmailBody() re-checks against the full body too, for the
 // rarer case the link falls after where the snippet got truncated.
 function extractZendeskId(text) {
-  const m = /support\.truedigital\.com\/hc\/requests\/(\d+)/i.exec(text || '');
-  return m ? m[1] : null;
+  const urlMatch = /support\.truedigital\.com\/hc\/requests\/(\d+)/i.exec(text || '');
+  if (urlMatch) return urlMatch[1];
+  // Verified against real support-tvn traffic: the hc/requests URL usually
+  // falls past Gmail's ~200-char snippet cutoff, but Zendesk's own "You are
+  // registered as a CC on this request (300335)" line sits right at the top
+  // of the same email and carries the identical ticket number - checking
+  // for it too is what actually makes the cheap snippet-time default work.
+  const ccMatch = /this request \((\d+)\)/i.exec(text || '');
+  return ccMatch ? ccMatch[1] : null;
 }
 
 function defaultActionDone(account, subject, snippet) {
