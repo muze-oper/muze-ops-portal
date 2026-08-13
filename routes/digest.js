@@ -267,7 +267,7 @@ router.get('/api/digest/emailstatus', async (req, res) => {
 // POST /api/digest/assign — save assignment + send email notification
 router.post('/api/digest/assign', async (req, res) => {
   try {
-    const { msgId, account, assigneeEmail, expectedAction, dueDate, status, emailSubject, emailFrom } = req.body;
+    const { msgId, account, assigneeEmail, expectedAction, dueDate, status, emailSubject, emailFrom, actionDone } = req.body;
     if (!msgId || !account) return res.status(400).json({ error: 'msgId and account required' });
 
     const assignee = ASSIGNEES.find(a => a.email === assigneeEmail);
@@ -277,7 +277,7 @@ router.post('/api/digest/assign', async (req, res) => {
       msgId, account, assigneeEmail,
       assigneeName: assignee?.name || assigneeEmail,
       expectedAction, dueDate, status: status || 'To Do',
-      emailSubject, emailFrom,
+      emailSubject, emailFrom, actionDone,
       updatedAt: new Date().toISOString(),
       updatedBy: req.user?.email,
     };

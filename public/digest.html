@@ -211,11 +211,12 @@
             <col style="width:28px"><!-- select -->
             <col style="width:10%"><!-- Due -->
             <col style="width:7%"><!-- Work Time Counting -->
-            <col style="width:7%"><!-- Assignee -->
+            <col style="width:4%"><!-- Assignee -->
             <col style="width:7%"><!-- Account -->
             <col style="width:10%"><!-- Sender -->
             <col style="width:3%"><!-- Cat -->
             <col style="width:8%"><!-- Status -->
+            <col style="width:9%"><!-- Action Done -->
             <col><!-- Summary — gets whatever's left -->
           </colgroup>
           <thead>
@@ -228,11 +229,12 @@
               <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Sender</th>
               <th style="padding:6px 2px;text-align:center;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0">Cat</th>
               <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Status</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Action Done</th>
               <th style="padding:6px 8px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0">Summary</th>
             </tr>
           </thead>
           <tbody id="dm-tbody">
-            <tr><td colspan="9" style="padding:32px;text-align:center;color:#aaa;font-size:13px">กำลังโหลด…</td></tr>
+            <tr><td colspan="10" style="padding:32px;text-align:center;color:#aaa;font-size:13px">กำลังโหลด…</td></tr>
           </tbody>
         </table>
       </div>
@@ -415,6 +417,44 @@ async function applyStatusToMsgIds(msgIds, status) {
   }));
 }
 
+// Free-text "Action Done" reference (e.g. a Jira ticket number) - same
+// persisted-per-msgId pattern as Assignee/Status, applied to every msgId in
+// a group at once so the whole [MN-xx] thread shares one reference.
+async function applyActionDoneToMsgIds(msgIds, actionDone) {
+  await Promise.all(msgIds.filter(Boolean).map(async msgId => {
+    const info = findEmailByMsgId(msgId);
+    if (!info) return;
+    const existing = _assignments[msgId] || {};
+    const updates = { ...existing,
+      msgId, account: info.account,
+      actionDone,
+      dueDate: existing.dueDate || emailInboxDue(info.e.date),
+      status: existing.status || 'To Do',
+      emailSubject: info.e.subject || existing.emailSubject || '',
+      emailFrom: info.e.from || existing.emailFrom || '',
+    };
+    _assignments[msgId] = updates;
+    await fetch('/api/digest/assign', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...updates, sendEmail: false }),
+    }).catch(console.error);
+  }));
+}
+
+// nissan-ma tickets carry a "[MN-134]"-style tag somewhere in the subject -
+// used both as the default Action Done value and as the grouping key (any
+// email sharing the same tag groups together, even if the rest of the
+// subject text differs).
+function extractMnTag(subject) {
+  const m = /\[MN-\d+\]/i.exec(subject || '');
+  return m ? m[0].toUpperCase() : null;
+}
+function defaultActionDone(account, subject) {
+  if (account !== NISSAN_ACCOUNT) return '';
+  const tag = extractMnTag(subject);
+  return tag ? tag.replace(/[[\]]/g, '') : '';
+}
+
 async function applyBulkAssignee() {
   const value = document.getElementById('bulk-assignee').value;
   if (!value) return;
@@ -435,12 +475,13 @@ let _emailStatuses = {}; // { msgId: status string }
 let _emailTimings = {}; // { msgId: { inProgressSince, resolvedAt } }
 let _dashAccount = ''; // currently selected dashboard account tab
 
-const EMAIL_STATUSES = ['To Do', 'Scoping', 'Processing', 'Ignore', 'Done'];
+const EMAIL_STATUSES = ['To Do', 'Scoping', 'Processing', 'Ignore', 'Skip', 'Done'];
 const STATUS_BADGE = {
   'To Do':      { bg: '#e8f0fe', text: '#1a73e8' },
   'Scoping':    { bg: '#e8f5e9', text: '#34a853' },
   'Processing': { bg: '#fff3e0', text: '#e65100' },
   'Ignore':     { bg: '#f1f3f4', text: '#bdbdbd' },
+  'Skip':       { bg: '#f1f3f4', text: '#9aa0a6' },
   'Done':       { bg: '#f1f3f4', text: '#80868b' },
 };
 // Category dot color (red/yellow/grey) for the new Category column.
@@ -639,10 +680,10 @@ function renderDashboard() {
   const tbody = document.getElementById('dm-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  const counts = { 'To Do': 0, 'Scoping': 0, 'Processing': 0, 'Ignore': 0, 'Done': 0 };
+  const counts = { 'To Do': 0, 'Scoping': 0, 'Processing': 0, 'Ignore': 0, 'Skip': 0, 'Done': 0 };
 
   if (_filterLoading) {
-    tbody.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;color:#888;font-size:13px">⏳ กำลังดึงอีเมลจาก Gmail...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="padding:32px;text-align:center;color:#888;font-size:13px">⏳ กำลังดึงอีเมลจาก Gmail...</td></tr>';
     return;
   }
 
@@ -663,7 +704,7 @@ function renderDashboard() {
   });
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
     document.getElementById('db-unread').textContent    = '📥 Unread 0';
     document.getElementById('db-processing').textContent= '⚙ Processing 0';
     document.getElementById('db-scoping').textContent   = '🔍 Scoping 0';
@@ -678,14 +719,17 @@ function renderDashboard() {
     return dueA < dueB ? -1 : dueA > dueB ? 1 : 0;
   });
 
-  // Group repeat notifications about the same thing (identical subject —
-  // typically a ticketing system pinging the same ticket over and over) into
-  // one row. Position = the group's first (earliest-due) occurrence, so the
-  // table's overall ordering doesn't change; the group just collapses in place.
+  // Group repeat notifications about the same thing into one row. Position =
+  // the group's first (earliest-due) occurrence, so the table's overall
+  // ordering doesn't change; the group just collapses in place. Grouping key
+  // is the [MN-xx] ticket tag when the subject has one (so every email about
+  // the same Nissan ticket groups together even when the rest of the subject
+  // text differs) — otherwise the exact subject (a ticketing system pinging
+  // the same thing over and over, verbatim).
   const groups = [];
   const bySubject = new Map();
   rows.forEach(function(row) {
-    const key = (row.e.subject || '').trim();
+    const key = extractMnTag(row.e.subject) || (row.e.subject || '').trim();
     let group = bySubject.get(key);
     if (!group) { group = { members: [] }; bySubject.set(key, group); groups.push(group); }
     group.members.push(row);
@@ -707,6 +751,10 @@ function renderDashboard() {
     tr.onmouseout  = function() { this.style.background=''; };
     tr.onclick     = function(ev) { if (ev.target.tagName==='SELECT'||ev.target.tagName==='INPUT') return; showEmailDetail(account, i); };
     const assigneeVal = asg?.assigneeEmail || '';
+    // asg.actionDone is only ever set once someone actually edits/saves the
+    // field - until then, default to the [MN-xx] tag scanned off the
+    // subject (nissan-ma only), so the group starts pre-filled instead of blank.
+    const actionDoneVal = (asg && asg.actionDone != null) ? asg.actionDone : defaultActionDone(account, e.subject);
     const dueVal = asg?.dueDate || emailInboxDue(e.date);
     const dueId  = 'tbl-due-'+account.replace(/[@.]/g,'_')+'-'+i;
     const shortAcc = account.split('@')[0];
@@ -766,6 +814,12 @@ function renderDashboard() {
           EMAIL_STATUSES.map(s=>'<option value="'+s+'"'+(s===st?' selected':'')+'>'+s+'</option>').join('')+
         '</select>'+
       '</td>'+
+      // Action Done — free text, applied to every msgId in the group (see
+      // idsAttr above) so a whole [MN-xx] thread shares one reference.
+      // Defaults (until edited) to the [MN-xx] tag scanned off the subject.
+      '<td style="padding:6px 4px;overflow:hidden" onclick="event.stopPropagation()">'+
+        '<input value="'+escapeHtmlSmall(actionDoneVal)+'" onchange="applyActionDoneToMsgIds([\''+msgIds.join("','")+'\'],this.value)" style="font-size:10px;padding:2px 4px;border:1px solid #ddd;border-radius:5px;width:100%;box-sizing:border-box">'+
+      '</td>'+
       // Summary — the one column with no fixed <col> width, so table-layout:fixed gives it all the leftover space
       '<td style="padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#222">'+e.subject+groupBadge+'</td>';
     tbody.appendChild(tr);
@@ -782,7 +836,7 @@ function renderDashboard() {
         sub.innerHTML =
           '<td></td>'+
           '<td style="padding:4px 6px 4px 22px;font-size:10px;color:#999">'+fmtReceived(emailInboxDue(m.e.date))+'</td>'+
-          '<td colspan="6"></td>'+
+          '<td colspan="7"></td>'+
           '<td style="padding:4px 8px;font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.e.from+'</td>';
         tbody.appendChild(sub);
       });
