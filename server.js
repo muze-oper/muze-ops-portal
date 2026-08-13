@@ -39,6 +39,7 @@ app.post('/api/digest/daily-totals', digestRoutes);
 app.post('/api/digest/gmail-tokens', digestRoutes);
 app.get('/api/digest/gmail-tokens', digestRoutes);
 app.get('/api/digest/range', digestRoutes);
+app.get('/api/digest/history', digestRoutes);
 app.get('/api/digest/email-body', digestRoutes);
 app.post('/api/planner', plannerRoutes);
 

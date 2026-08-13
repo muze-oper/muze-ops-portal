@@ -4,7 +4,7 @@ const drive = require('../storage/googleDrive');
 const { sendMail } = require('../utils/mailer');
 const { encryptToken } = require('../auth/tokenCrypto');
 const { getGmailClient, getOAuthClient } = require('../utils/gmailAccounts');
-const { classify, loadTrainingRules, CAT_LABEL, formatDate, bangkokMidnightUTC, gmailQueryYMD, extractBody, extractAttachments } = require('../utils/gmailClassify');
+const { classify, loadTrainingRules, CAT_LABEL, formatDate, bangkokMidnightUTC, bangkokDateParts, gmailQueryYMD, extractBody, extractAttachments } = require('../utils/gmailClassify');
 
 const ASSIGNEES = [
   { name: 'Aum',   email: 'thiranattada.n@muze.co.th' },
@@ -32,6 +32,40 @@ function statusKey(account, msgId) {
 // stay small regardless of how much history accumulates.
 function logFilename(date) {
   return `activitylog_${date}.json`;
+}
+
+// Email History archive — one file per account per Bangkok calendar day
+// (bucketed by the EMAIL's own arrival date, not the fetch time), so a
+// History query for a date range just reads exactly those day-files,
+// same "wide net over small files" shape as the snapshot/activity-log
+// convention already used elsewhere. Only static email facts are stored
+// (msgId/subject/from/date/snippet/category) — status/assignee/actionDone
+// are looked up fresh from their own per-msgId records at read time, same
+// as Live/Filter mode already do, so there's nothing here to go stale.
+function historyFilename(account, ymd) {
+  return `digesthistory_${account.replace(/@|\./g, '_')}_${ymd}.json`;
+}
+function ymdOf(dateStr) {
+  const p = bangkokDateParts(new Date(dateStr));
+  return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+}
+async function archiveEmailHistory(account, emails) {
+  const byDay = {};
+  emails.forEach(e => {
+    if (!e.msgId || !e.date) return;
+    const ymd = ymdOf(e.date);
+    (byDay[ymd] = byDay[ymd] || []).push(e);
+  });
+  await Promise.all(Object.entries(byDay).map(async ([ymd, dayEmails]) => {
+    const file = historyFilename(account, ymd);
+    const existing = await drive.readFile(file).catch(() => null);
+    const byMsgId = {};
+    (existing?.emails || []).forEach(e => { byMsgId[e.msgId] = e; });
+    dayEmails.forEach(e => {
+      byMsgId[e.msgId] = { msgId: e.msgId, subject: e.subject, from: e.from, date: e.date, snippet: e.snippet, category: e.category };
+    });
+    await drive.writeFile(file, { emails: Object.values(byMsgId) });
+  }));
 }
 
 async function appendLog(entry) {
@@ -117,6 +151,7 @@ router.post('/api/digest/live', async (req, res) => {
     const existing = await drive.readFile(LIVE_FILENAME).catch(() => null);
 
     const merged = {};
+    const historyWrites = [];
     for (const [acc, entry] of Object.entries(counts || {})) {
       if (!entry) { merged[acc] = entry; continue; }
       const newEmails = entry.emails || [];
@@ -149,8 +184,19 @@ router.post('/api/digest/live', async (req, res) => {
       const freshFiltered = newEmails.filter(e => statusByMsgId[e.msgId] !== 'Skip');
 
       merged[acc] = { counts: entry.counts, emails: [...freshFiltered, ...carried] };
+
+      // History archive gets the UNFILTERED fresh fetch (Auto/Skip included -
+      // "history of all email" means all of them, not just what the Live
+      // dashboard currently shows) plus whatever's still being carried
+      // forward. A carried item was already archived on the day it first
+      // appeared in newEmails, so this is just re-affirming it, not a gap.
+      // Collected and awaited below (not fire-and-forget) - a serverless
+      // function's event loop can get torn down right after the response
+      // is sent, which would silently kill an un-awaited write mid-flight.
+      historyWrites.push(archiveEmailHistory(acc, [...newEmails, ...carried]).catch(err => console.error('history archive failed:', acc, err.message)));
     }
 
+    await Promise.all(historyWrites);
     await drive.writeFile(LIVE_FILENAME, { counts: merged, updatedAt });
     res.json({ ok: true });
   } catch (err) {
@@ -639,6 +685,46 @@ router.get('/api/digest/range', async (req, res) => {
       status: err.response?.status,
       detail: err.response?.data,
     });
+  }
+});
+
+// GET /api/digest/history — reads the persistent per-day email archive
+// (written by archiveEmailHistory() inside POST /api/digest/live) instead of
+// re-querying Gmail live — a fast, already-stored record of every email ever
+// seen (Auto/Skip/Done all included), not bounded by what the Live dashboard
+// currently carries forward or by another live Gmail API round-trip.
+router.get('/api/digest/history', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
+  try {
+    const { account, from, to } = req.query;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(to || '')) {
+      return res.status(400).json({ error: 'from and to must be YYYY-MM-DD' });
+    }
+    const targetAccounts = account && account !== 'all' ? [account] : SHARED_ACCOUNTS;
+
+    const days = [];
+    for (let d = new Date(`${from}T00:00:00Z`); d <= new Date(`${to}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) {
+      days.push(d.toISOString().slice(0, 10));
+    }
+
+    const counts = {};
+    await Promise.all(targetAccounts.map(async acc => {
+      const files = await Promise.all(days.map(ymd => drive.readFile(historyFilename(acc, ymd)).catch(() => null)));
+      const byMsgId = {};
+      files.filter(Boolean).forEach(f => (f.emails || []).forEach(e => { byMsgId[e.msgId] = e; }));
+      const emails = Object.values(byMsgId).sort((a, b) => new Date(b.date) - new Date(a.date));
+      const tally = { action: 0, mustRead: 0, auto: 0, total: emails.length };
+      emails.forEach(e => {
+        if (e.category === CAT_LABEL.action) tally.action++;
+        else if (e.category === CAT_LABEL.mustRead) tally.mustRead++;
+        else tally.auto++;
+      });
+      counts[acc] = { counts: tally, emails };
+    }));
+
+    res.json({ counts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

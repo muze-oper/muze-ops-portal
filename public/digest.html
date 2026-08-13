@@ -26,18 +26,18 @@
       background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
     }
-    /* Mode switcher — compact segmented toggle sitting directly above the
-       Accounts table, not a boxed card of its own (was taking up a whole
-       card with a label + two-line buttons — this is what it governs
-       either way, so it reads better sitting right on top of it). */
-    #mode-switch { display: flex; background: #f1f3f4; border-radius: 8px; padding: 3px; gap: 3px; margin-bottom: 8px; }
+    /* Mode switcher — small rounded pill sitting directly above the Email
+       Dashboard table, not a boxed card of its own and not full-width, so
+       it reads as a light little control rather than a heavy UI element. */
+    #mode-switch { display: inline-flex; background: #f1f3f4; border-radius: 999px; padding: 3px; gap: 2px; margin-bottom: 10px; }
     .mode-btn {
-      flex: 1; padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer;
+      padding: 6px 14px; border: none; border-radius: 999px; cursor: pointer;
       background: transparent; color: #5f6368; font-size: 11px; font-weight: 700;
-      transition: background 0.15s, color 0.15s;
+      transition: background 0.15s, color 0.15s, transform 0.1s;
     }
-    .mode-btn.active { background: #1a73e8; color: white; }
-    .mode-btn:not(.active):hover { background: rgba(0,0,0,0.05); }
+    .mode-btn:active { transform: scale(0.94); }
+    .mode-btn.active { background: #1a73e8; color: white; box-shadow: 0 1px 3px rgba(26,115,232,0.4); }
+    .mode-btn:not(.active):hover { background: rgba(0,0,0,0.06); }
     @keyframes notifSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
   </style>
 </head>
@@ -82,6 +82,7 @@
   <div id="mode-switch">
     <button id="mode-live" class="mode-btn active" onclick="setMode('live')">🔴 LIVE</button>
     <button id="mode-filter" class="mode-btn" onclick="setMode('filter')">🔍 FILTER</button>
+    <button id="mode-history" class="mode-btn" onclick="setMode('history')">📜 HISTORY</button>
   </div>
   <!-- email dashboard — always visible, auto-loads below cards -->
   <div id="email-dashboard" style="margin-top:8px">
@@ -109,7 +110,7 @@
         <div style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <span id="dash-filter-badge" style="background:rgba(255,255,255,0.25);font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em;display:none">🔍 FILTER</span>
-            <select id="db-filter" onchange="_filterAccount=this.value; _mode==='filter' ? loadFilterData() : renderDashboard()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
+            <select id="db-filter" onchange="_filterAccount=this.value;reloadForCurrentMode()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
               <option value="">ทุก account</option>
             </select>
             <select id="db-cat-filter" onchange="_filterCat=this.value;renderDashboard()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
@@ -121,9 +122,9 @@
             </select>
             <div id="filter-daterange" style="display:none;align-items:center;gap:10px">
               <span style="font-size:11px;opacity:0.8">ตั้งแต่</span>
-              <input id="db-date-from" type="date" onchange="_filterDateFrom=this.value;loadFilterData()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
+              <input id="db-date-from" type="date" onchange="_filterDateFrom=this.value;reloadForCurrentMode()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
               <span style="font-size:11px;opacity:0.8">ถึง</span>
-              <input id="db-date-to" type="date" onchange="_filterDateTo=this.value;loadFilterData()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
+              <input id="db-date-to" type="date" onchange="_filterDateTo=this.value;reloadForCurrentMode()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -284,7 +285,17 @@ function notifyNewItems(items) {
 // and vice versa.
 let _filterData = [];
 let _filterLoading = false;
-function currentData() { return _mode === 'filter' ? _filterData : _detailData; }
+// History mode's own dataset — populated by /api/digest/history, the
+// persisted per-day archive (fast, no live Gmail round-trip) instead of a
+// fresh query, so it can show Auto/Skip/Done emails too without re-hitting
+// Gmail for a date range that's mostly already resolved/settled.
+let _historyData = [];
+let _historyLoading = false;
+function currentData() {
+  if (_mode === 'filter') return _filterData;
+  if (_mode === 'history') return _historyData;
+  return _detailData;
+}
 
 // ── Row selection + bulk Assignee/Status update ──
 // Keyed by msgId (not row index — indices shift every re-render, msgId doesn't).
@@ -652,16 +663,23 @@ function setMode(mode) {
   _mode = mode;
   document.getElementById('mode-live').classList.toggle('active', mode === 'live');
   document.getElementById('mode-filter').classList.toggle('active', mode === 'filter');
-  document.getElementById('filter-daterange').style.display = mode === 'filter' ? 'flex' : 'none';
+  document.getElementById('mode-history').classList.toggle('active', mode === 'history');
+  // Filter and History both work off the same date-range inputs — one picks
+  // a live Gmail query, the other reads the stored archive, but "what range
+  // am I looking at" is the same control either way.
+  document.getElementById('filter-daterange').style.display = (mode === 'filter' || mode === 'history') ? 'flex' : 'none';
 
   // Header shows ONLY the badge/info for the mode currently selected — no
   // more "🔴 LIVE" sitting next to a picked date range that has nothing to
-  // do with the fetch schedule, or "🔍 FILTER" showing during Live mode when
-  // nothing is actually date-filtered.
+  // do with the fetch schedule, or "🔍 FILTER"/"📜 HISTORY" showing during
+  // Live mode when nothing is actually date-filtered.
   const dashLiveInfo  = document.getElementById('dash-live-info');
   const dashFilterTag = document.getElementById('dash-filter-badge');
-  if (dashLiveInfo)  dashLiveInfo.style.display  = mode === 'live'   ? 'flex' : 'none';
-  if (dashFilterTag) dashFilterTag.style.display = mode === 'filter' ? 'inline-block' : 'none';
+  if (dashLiveInfo)  dashLiveInfo.style.display  = mode === 'live' ? 'flex' : 'none';
+  if (dashFilterTag) {
+    dashFilterTag.style.display = (mode === 'filter' || mode === 'history') ? 'inline-block' : 'none';
+    dashFilterTag.textContent = mode === 'history' ? '📜 HISTORY' : '🔍 FILTER';
+  }
 
   if (mode === 'live') {
     _filterCat = '__important__';
@@ -684,6 +702,8 @@ function setMode(mode) {
 
   if (mode === 'filter') {
     loadFilterData(); // live Gmail query for the (just-defaulted) range
+  } else if (mode === 'history') {
+    loadHistoryData(); // read the stored per-day archive for the (just-defaulted) range
   } else {
     renderDashboard();
   }
@@ -716,6 +736,37 @@ async function loadFilterData() {
   }
 }
 
+// History mode's query — reads the persisted per-day archive via
+// /api/digest/history instead of a live Gmail round-trip, so it's fast even
+// for a wide range and shows Auto/Skip/Done emails Live mode already dropped.
+async function loadHistoryData() {
+  if (_mode !== 'history' || !_filterDateFrom || !_filterDateTo) return;
+  _historyLoading = true;
+  renderDashboard();
+  try {
+    const acc = _filterAccount || 'all';
+    const url = '/api/digest/history?account=' + encodeURIComponent(acc) +
+      '&from=' + encodeURIComponent(_filterDateFrom) + '&to=' + encodeURIComponent(_filterDateTo);
+    const res = await fetch(url);
+    const data = await res.json();
+    _historyData = Object.entries(data.counts || {}).map(([account, entry]) => ({ account, emails: entry.emails || [] }));
+  } catch (e) {
+    console.error('loadHistoryData failed', e);
+  } finally {
+    _historyLoading = false;
+    renderDashboard();
+  }
+}
+
+// Account/category/date-range controls are shared across all three modes -
+// this dispatches to whichever reload each one actually needs (Live has
+// nothing to re-fetch, it's just a render).
+function reloadForCurrentMode() {
+  if (_mode === 'filter') loadFilterData();
+  else if (_mode === 'history') loadHistoryData();
+  else renderDashboard();
+}
+
 function renderDashboard() {
   const tbody = document.getElementById('dm-tbody');
   if (!tbody) return;
@@ -724,6 +775,10 @@ function renderDashboard() {
 
   if (_filterLoading) {
     tbody.innerHTML = '<tr><td colspan="11" style="padding:32px;text-align:center;color:#888;font-size:13px">⏳ กำลังดึงอีเมลจาก Gmail...</td></tr>';
+    return;
+  }
+  if (_historyLoading) {
+    tbody.innerHTML = '<tr><td colspan="11" style="padding:32px;text-align:center;color:#888;font-size:13px">📜 กำลังโหลดประวัติ...</td></tr>';
     return;
   }
 
