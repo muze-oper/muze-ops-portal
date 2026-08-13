@@ -42,15 +42,47 @@ function cleanPreview(text, limit = 160) {
   return cleaned.length > limit ? `${cleaned.slice(0, limit)}…` : cleaned;
 }
 
+// Ported from public/digest.html's own defaultActionDone()/extractMnTag()/
+// extractZendeskId() - the Action Done column there shows this computed
+// value whenever no explicit override has been saved, so treating it as
+// still-blank here would disagree with what the Digest page itself shows.
+const NISSAN_ACCOUNT = 'nissan-ma@muze.co.th';
+const TVN_ACCOUNT = 'support-tvn@muze.co.th';
+const SUPPORT_ACCOUNT = 'support@muze.co.th';
+
+function extractMnTag(subject) {
+  const m = /\[MN-\d+\]/i.exec(subject || '');
+  return m ? m[0].toUpperCase() : null;
+}
+
+function extractZendeskId(text) {
+  const urlMatch = /support\.truedigital\.com\/hc\/requests\/(\d+)/i.exec(text || '');
+  if (urlMatch) return urlMatch[1];
+  const reqMatch = /request \((\d+)\)/i.exec(text || '');
+  return reqMatch ? reqMatch[1] : null;
+}
+
+function defaultActionDone(account, subject, snippet) {
+  if (account === NISSAN_ACCOUNT) {
+    const tag = extractMnTag(subject);
+    return tag ? `Jira ${tag.replace(/[[\]]/g, '')}` : '';
+  }
+  if (account === TVN_ACCOUNT || account === SUPPORT_ACCOUNT) {
+    const zid = extractZendeskId(snippet) || extractZendeskId(subject);
+    return zid ? `Zendesk ${zid}` : '';
+  }
+  return '';
+}
+
 // Same assignment record digest.js's "Action Done" column reads/writes
-// (routes/digest.js's POST /api/digest/assign) - a free-text reference
-// (e.g. a Jira ticket number) someone fills in once they've actually acted
-// on the email. Blank/missing means nothing's been done about it yet.
-async function fetchActionDone(account, msgId) {
-  if (!account || !msgId) return '';
+// (routes/digest.js's POST /api/digest/assign) - an explicit override, if
+// someone's saved one, wins over the computed default above.
+async function fetchActionDone(account, msgId, subject, snippet) {
+  if (!account || !msgId) return defaultActionDone(account, subject, snippet);
   const key = `assignment_${account.replace(/@|\./g, '_')}_${msgId}`;
   const data = await drive.readFile(key).catch(() => null);
-  return (data?.actionDone || '').trim();
+  const saved = (data?.actionDone || '').trim();
+  return saved || defaultActionDone(account, subject, snippet);
 }
 
 // Groups a digest email's inbox account under the client project it belongs
@@ -103,16 +135,20 @@ router.get('/api/hot-issues', async (req, res) => {
           meta: account, preview: cleanPreview(e.snippet), replyCount: null,
           project: projectForAccount(account), sortKey: digestSortKey(e.date),
           msgId: e.msgId || null, account, // so the landing page can deep-link straight to this one email
+          rawSnippet: e.snippet || '', // full, untruncated - extractZendeskId needs this, not the shortened `preview`
         });
       }
     }
     // Dot color reflects whether this email's own "Action Done" reference
-    // (digest.js's assignment record) has actually been filled in - not the
-    // triage category, which stays 🔴/🟡 regardless of progress since made.
+    // has actually been filled in - either an explicit save, or the same
+    // computed default (Zendesk/Jira ref extracted from the email itself)
+    // digest.js's Action Done column already shows for it. Not the triage
+    // category, which stays 🔴/🟡 regardless of progress made since.
     await Promise.all(digestItems.map(async item => {
-      const actionDone = await fetchActionDone(item.account, item.msgId);
+      const actionDone = await fetchActionDone(item.account, item.msgId, item.title, item.rawSnippet);
       item.actionDone = actionDone;
       item.dotColor = actionDone ? 'green' : 'red';
+      delete item.rawSnippet;
     }));
     items.push(...digestItems);
   } catch (err) {
