@@ -876,7 +876,11 @@ function renderDashboard() {
           '<td></td>'+
           '<td style="padding:4px 6px 4px 22px;font-size:10px;color:#999">'+fmtReceived(emailInboxDue(m.e.date))+'</td>'+
           '<td style="padding:4px 8px;font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.e.from+'</td>'+
-          '<td colspan="5"></td>';
+          // This instance's OWN subject — grouping merges by ticket
+          // reference, not exact subject text, so each occurrence can read
+          // differently from the group row's representative subject above it.
+          '<td style="padding:4px 8px;font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.e.subject+'</td>'+
+          '<td colspan="4"></td>';
         tbody.appendChild(sub);
       });
     }
