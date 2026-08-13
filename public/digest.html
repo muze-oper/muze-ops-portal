@@ -459,10 +459,29 @@ function extractCaseRef(subject) {
   const m = /\bC\d{8}\b/.exec(subject || '');
   return m ? m[0].toUpperCase() : null;
 }
-function defaultActionDone(account, subject) {
-  if (account !== NISSAN_ACCOUNT) return '';
-  const tag = extractMnTag(subject);
-  return tag ? tag.replace(/[[\]]/g, '') : '';
+const TVN_ACCOUNT = 'support-tvn@muze.co.th';
+
+// True Digital Group's Zendesk auto-replies include a boilerplate line like
+// "Or go to support.truedigital.com/hc/requests/300116" - almost always
+// early enough in the body to already be inside Gmail's own snippet (~200
+// chars), so this is cheap to check for every listed row without a full
+// body fetch. loadEmailBody() re-checks against the full body too, for the
+// rarer case the link falls after where the snippet got truncated.
+function extractZendeskId(text) {
+  const m = /support\.truedigital\.com\/hc\/requests\/(\d+)/i.exec(text || '');
+  return m ? m[1] : null;
+}
+
+function defaultActionDone(account, subject, snippet) {
+  if (account === NISSAN_ACCOUNT) {
+    const tag = extractMnTag(subject);
+    return tag ? tag.replace(/[[\]]/g, '') : '';
+  }
+  if (account === TVN_ACCOUNT) {
+    const zid = extractZendeskId(snippet) || extractZendeskId(subject);
+    return zid ? `Zendesk ${zid}` : '';
+  }
+  return '';
 }
 
 async function applyBulkAssignee() {
@@ -765,7 +784,7 @@ function renderDashboard() {
     // asg.actionDone is only ever set once someone actually edits/saves the
     // field - until then, default to the [MN-xx] tag scanned off the
     // subject (nissan-ma only), so the group starts pre-filled instead of blank.
-    const actionDoneVal = (asg && asg.actionDone != null) ? asg.actionDone : defaultActionDone(account, e.subject);
+    const actionDoneVal = (asg && asg.actionDone != null) ? asg.actionDone : defaultActionDone(account, e.subject, e.snippet);
     const dueVal = asg?.dueDate || emailInboxDue(e.date);
     const dueId  = 'tbl-due-'+account.replace(/[@.]/g,'_')+'-'+i;
     const shortAcc = account.split('@')[0];
@@ -1059,6 +1078,15 @@ async function loadEmailBody(account, msgId) {
     if (_openMsgId !== msgId) return; // modal moved on to a different email while this was in flight
     if (data.error) return; // snippet stays showing as the fallback
     if (bodyBox && data.body) bodyBox.textContent = data.body;
+    // Fallback for support-tvn: the snippet-based default (used at list-
+    // render time, cheap) can miss a Zendesk link that falls after Gmail's
+    // ~200-char snippet cutoff — re-check against the now-loaded full body
+    // and persist it if found, so it doesn't just sit un-set until someone
+    // manually notices and fills it in.
+    if (account === TVN_ACCOUNT && !(_assignments[msgId]?.actionDone) && data.body) {
+      const zid = extractZendeskId(data.body);
+      if (zid) applyActionDoneToMsgIds([msgId], `Zendesk ${zid}`).then(renderDashboard);
+    }
     if (attBox && data.attachments && data.attachments.length) {
       attBox.innerHTML =
         '<div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:5px">📎 ไฟล์แนบ (' + data.attachments.length + ')</div>' +
