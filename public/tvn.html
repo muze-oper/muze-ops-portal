@@ -172,8 +172,8 @@
 
 <div class="wrap">
 
-  <section class="block" id="section-sessions">
-    <div class="block-head"><h2 class="h">BitMovin Error Sessions</h2><div class="rule"></div></div>
+  <section class="block" id="section-bitmovin">
+    <div class="block-head"><h2 class="h">BITMOVIN</h2><div class="rule"></div></div>
     <div class="card">
       <div class="toolbar">
         <button class="btn-ghost" id="refresh-btn" onclick="load(true)">🔄 รีเฟรชข้อมูล</button>
@@ -192,19 +192,12 @@
       <button class="btn-ghost" id="redo-btn" onclick="redoLastSubmit()" disabled>↩️ Redo (เอาค่าที่เพิ่ง sync กลับมา)</button>
       <div id="record-result"></div>
     </div>
-  </section>
 
-  <section class="block" id="section-crashlytics">
-    <div class="block-head"><h2 class="h">Firebase Crashlytics — Crash-free Users</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">กรอกค่า Crash-free Users % และ Filter (version) ของแต่ละแถวตามที่อ่านได้จาก Firebase Console แล้วกด บันทึก ทีละแถว</div>
-      <div id="crashlytics-body"><div id="crashlytics-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
-    </div>
-  </section>
-
-  <section class="block" id="section-errorcodes">
-    <div class="block-head"><h2 class="h">BitMovin Top Error Codes <span class="tag-pill">Mockup</span></h2><div class="rule"></div></div>
-    <div class="card">
+      <div style="display:flex;align-items:center;margin-bottom:10px;">
+        <h3 style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-dim);">Top Error Codes</h3>
+        <span class="tag-pill">Mockup</span>
+      </div>
       <div class="hint">
         ยังไม่ได้ตัดสินใจโครงสร้างข้อมูลสุดท้าย — หน้านี้เป็น mockup ให้ดูรูปแบบการใช้งานก่อน:
         วาง screenshot กราฟ "Top Error Codes" ที่นี่ แล้วกด "สร้างตาราง" จะเห็นตัวอย่าง
@@ -221,6 +214,14 @@
       </button>
 
       <div id="mock-table-output"></div>
+    </div>
+  </section>
+
+  <section class="block" id="section-crashlytics">
+    <div class="block-head"><h2 class="h">Firebase Crashlytics — Crash-free Users</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="hint">กรอกค่า Crash-free Users % และ Filter (version) ของแต่ละแถวตามที่อ่านได้จาก Firebase Console แล้วกด บันทึก ทีละแถว</div>
+      <div id="crashlytics-body"><div id="crashlytics-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
     </div>
   </section>
 
