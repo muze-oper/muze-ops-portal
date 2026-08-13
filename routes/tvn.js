@@ -283,23 +283,36 @@ router.post('/api/tvn/record', async (req, res) => {
 // --- BitMovin Error Sessions, hourly grid tab: a second, separate tab (same
 // title "BitMovin Error" as the weekly-rollup one above, but a different
 // gid - always resolve/write by gid, never by title, since the titles
-// collide). One row per platform, 24 hour-of-day columns (Bangkok time,
-// "10.00".."24.00","1.00".."9.00" - a full day starting at 10:00, with
-// midnight written as "24.00" not "0.00"), no date column - this tab is a
-// live intraday snapshot that gets overwritten, not a dated history.
+// collide). One row per platform: Filters, Platform name, Date label, 24
+// hour-of-day columns (Bangkok time, "10.00".."24.00","1.00".."9.00" - a
+// full day starting at 10:00, midnight written as "24.00" not "0.00"),
+// then a trailing "Average" column that's a sheet formula - never write to
+// it. The Date label gets overwritten with today's date on every sync,
+// since this tab is a live intraday snapshot, not a dated history.
 const HOURLY_SHEET_GID = 1338052572;
 const HOUR_COLUMNS = [
   '10.00', '11.00', '12.00', '13.00', '14.00', '15.00', '16.00', '17.00', '18.00', '19.00', '20.00',
   '21.00', '22.00', '23.00', '24.00', '1.00', '2.00', '3.00', '4.00', '5.00', '6.00', '7.00', '8.00', '9.00',
 ];
-const HOURLY_PLATFORM_COL_IDX = 0; // column A
-const HOURLY_FILTERS_COL_IDX = 1; // column B
-const HOURLY_FIRST_HOUR_COL_IDX = 2; // column C - HOUR_COLUMNS[0] ("10.00")
+const HOURLY_FILTERS_COL_IDX = 0; // column A
+const HOURLY_PLATFORM_COL_IDX = 1; // column B
+const HOURLY_DATE_COL_IDX = 2; // column C
+const HOURLY_FIRST_HOUR_COL_IDX = 3; // column D - HOUR_COLUMNS[0] ("10.00")
+// column D+23 = AA is the last hour column; column AB (index 27) is "Average" - a formula, read-only from here.
 
 async function fetchHourlyTitleAndRows() {
   const title = await resolveSheetTitleByGid(SHEET_ID, HOURLY_SHEET_GID);
-  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:Z20`);
+  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:AB20`);
   return { title, rows };
+}
+
+// "Thu-13-Aug" - same weekday-day-month label style used elsewhere in this
+// sheet, computed from the Bangkok calendar date (not the server's own TZ).
+function formatBangkokWeekdayLabel() {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short' })
+    .formatToParts(new Date())
+    .reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+  return `${parts.weekday}-${parts.day}-${parts.month}`;
 }
 
 router.get('/api/tvn/error-sessions-hourly', async (req, res) => {
@@ -311,7 +324,13 @@ router.get('/api/tvn/error-sessions-hourly', async (req, res) => {
       .map(row => {
         const values = {};
         HOUR_COLUMNS.forEach((label, i) => { values[label] = row[HOURLY_FIRST_HOUR_COL_IDX + i] || ''; });
-        return { platform: row[HOURLY_PLATFORM_COL_IDX] || '', filters: row[HOURLY_FILTERS_COL_IDX] || '', values };
+        return {
+          platform: row[HOURLY_PLATFORM_COL_IDX] || '',
+          filters: row[HOURLY_FILTERS_COL_IDX] || '',
+          date: row[HOURLY_DATE_COL_IDX] || '',
+          average: row[HOURLY_FIRST_HOUR_COL_IDX + HOUR_COLUMNS.length] || '',
+          values,
+        };
       })
       .filter(p => p.platform);
     res.json({ platforms, hourColumns: HOUR_COLUMNS });
@@ -322,7 +341,8 @@ router.get('/api/tvn/error-sessions-hourly', async (req, res) => {
 
 // Overwrites only the hours present in `values` for one platform's row,
 // merging with (not replacing) whatever's already in the other hour cells -
-// a partial-day CSV export shouldn't blank out hours it doesn't cover.
+// a partial-day CSV export shouldn't blank out hours it doesn't cover. Also
+// stamps today's date label; never touches the "Average" formula column.
 router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
   if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
   const { platform, values } = req.body || {};
@@ -348,8 +368,10 @@ router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
     });
 
     const rowNum = rowIdx + 1;
+    const dateColLetter = colLetter(HOURLY_DATE_COL_IDX);
     const firstColLetter = colLetter(HOURLY_FIRST_HOUR_COL_IDX);
     const lastColLetter = colLetter(HOURLY_FIRST_HOUR_COL_IDX + HOUR_COLUMNS.length - 1);
+    await updateSheetRow(SHEET_ID, `'${title}'!${dateColLetter}${rowNum}:${dateColLetter}${rowNum}`, [formatBangkokWeekdayLabel()]);
     await updateSheetRow(SHEET_ID, `'${title}'!${firstColLetter}${rowNum}:${lastColLetter}${rowNum}`, merged);
 
     res.json({ result: `${platform}: อัปเดต ${updatedCount} ช่วงเวลา` });

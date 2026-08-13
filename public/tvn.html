@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BitMovin Error Sessions — Muze Tech Ops Portal</title>
   <link rel="stylesheet" href="/tvn-shared.css">
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="/tvn-shared.js"></script>
 </head>
 <body>
@@ -32,27 +31,15 @@
 <div class="wrap">
 
   <section class="block">
-    <div class="block-head"><h2 class="h">Error Sessions</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">Error Sessions (รายชั่วโมง)</h2><div class="rule"></div></div>
     <div class="card">
       <div class="toolbar">
-        <button class="btn-ghost" id="refresh-btn" onclick="load(true)">🔄 รีเฟรชข้อมูล</button>
-        <div id="last-updated" class="last-updated">กำลังโหลด...</div>
+        <button class="btn-ghost" id="hourly-refresh-btn" onclick="loadHourlyTable()">🔄 รีเฟรชข้อมูล</button>
       </div>
       <div class="sheet-link-row">
-        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit#gid=1205219259" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง (แท็บ BitMovin Error)</a>
+        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1338052572#gid=1338052572" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง (แท็บ BitMovin Error, รายชั่วโมง)</a>
       </div>
-      <div id="body" style="margin-top:14px;"><div id="empty-state"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
-    </div>
-
-    <div class="card record-panel">
-      <div class="block-head" style="margin-bottom:10px;"><h2 class="h" style="font-size:12px;">Quick Record — Sync หลาย Platform พร้อมกัน</h2></div>
-      <div class="hint">วางข้อมูลของ platform ไหนก็ได้ที่มีพร้อม เว้นว่างช่องที่ยังไม่มีข้อมูล บรรทัดละ 1 วัน เช่น "Mon-3-Aug, 2.07%" (คั่นด้วย , หรือ : หรือ tab ก็ได้ — วันที่ต้องสะกดตรงกับคอลัมน์วันที่ในชีตเป๊ะ ๆ) แล้วกด Sync ครั้งเดียวจะบันทึกทุก platform ที่กรอกไว้พร้อมกัน</div>
-
-      <div id="platform-inputs" class="platform-grid"></div>
-
-      <button class="btn-primary" id="record-btn" onclick="submitRecord()">🔄 Sync ข้อมูลทั้งหมด</button>
-      <button class="btn-ghost" id="redo-btn" onclick="redoLastSubmit()" disabled>↩️ Redo (เอาค่าที่เพิ่ง sync กลับมา)</button>
-      <div id="record-result" class="result-text"></div>
+      <div id="hourly-table-body" style="margin-top:14px;"><div id="hourly-table-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
     </div>
   </section>
 
@@ -62,7 +49,7 @@
       <div class="hint">
         Export CSV จาก Bitmovin (metric "Error Sessions", ตั้ง filter OS/Platform ให้ตรงกับ platform เดียวเท่านั้นก่อน export) แล้วเลือกไฟล์ที่นี่ —
         ระบบจะตรวจ platform จาก filter ในไฟล์อัตโนมัติ แปลงเวลาเป็นเวลาไทย (Bangkok) ให้ตรวจสอบก่อน แล้วค่อยกด sync เข้าชีต
-        (แท็บ "hourly" นี้เก็บแค่ภาพรวมของวันล่าสุด ไม่มีคอลัมน์วันที่ — ค่าจะถูกเขียนทับทุกครั้งที่ sync)
+        (sync จะเขียนทับเฉพาะชั่วโมงที่มีข้อมูลในไฟล์ พร้อมประทับวันที่ของวันนี้ให้อัตโนมัติ — คอลัมน์ Average เป็นสูตรในชีต ไม่ถูกเขียนทับ)
       </div>
       <input type="file" id="hourly-csv-file" accept=".csv,text/csv" onchange="handleHourlyCsvFile(this)">
       <div id="hourly-csv-preview"></div>
@@ -107,220 +94,6 @@
 </div>
 
 <script>
-// Renders the date x platform grid as editable inputs: existing dates get a
-// read-only date cell (editing it would desync it from the sheet row it's
-// matched against) with a value input per platform, pre-filled where data
-// exists and blank where it doesn't - so filling in a blank cell for an
-// existing date works the same as correcting a filled one. New rows (for
-// dates not yet in the sheet) are added separately via addNewRow().
-function renderTable(platforms, series) {
-  const dates = [];
-  platforms.forEach(p => (series[p] || []).forEach(pt => { if (!dates.includes(pt.date)) dates.push(pt.date); }));
-
-  const valueFor = (platform, date) => {
-    const pt = (series[platform] || []).find(p => p.date === date);
-    return pt ? pt.percent.toFixed(2) : '';
-  };
-
-  const rowsHtml = dates.map(date => `
-    <tr data-date="${escapeHtml(date)}">
-      <td>${escapeHtml(date)}</td>
-      ${platforms.map(p => `<td><input class="cell-input" data-platform="${escapeHtml(p)}" value="${valueFor(p, date)}" placeholder="—" oninput="applyCellColor(this)"></td>`).join('')}
-    </tr>
-  `).join('');
-
-  return `<table class="data" id="data-table">
-    <thead><tr><th>วันที่</th>${platforms.map(p => `<th>${escapeHtml(p)}</th>`).join('')}</tr></thead>
-    <tbody id="data-table-body">${rowsHtml}</tbody>
-  </table>`;
-}
-
-let DATA = null;
-
-function render() {
-  if (!DATA) return;
-  document.getElementById('body').innerHTML = `
-    <div id="export-panel" style="background:var(--surface)">
-      ${heatLegendHtml()}
-      ${renderTable(DATA.platforms, DATA.series)}
-    </div>
-    <div class="table-actions">
-      <button class="btn-ghost" id="add-row-btn" onclick="addNewRow()">+ เพิ่มวันที่</button>
-      <button class="btn-primary" id="sync-btn" onclick="syncTable()">🔄 Sync เข้าชีต</button>
-      <button class="btn-ghost" id="copy-image-btn" onclick="copyElementAsImage('export-panel','sync-result','copy-image-btn')">📋 Copy เป็นรูปภาพ</button>
-    </div>
-    <div id="sync-result" class="result-text"></div>
-  `;
-  document.querySelectorAll('#data-table-body .cell-input').forEach(applyCellColor);
-}
-
-// Appends a blank row with an editable date label input (existing rows keep
-// a read-only date cell - see renderTable) so a brand-new week's dates can
-// be typed in and synced without them existing in the sheet yet.
-function addNewRow() {
-  if (!DATA) return;
-  const tbody = document.getElementById('data-table-body');
-  const row = document.createElement('tr');
-  row.className = 'new-row';
-  row.innerHTML = `
-    <td><input class="date-cell-input" placeholder="เช่น Tue-11-Aug"></td>
-    ${DATA.platforms.map(p => `<td><input class="cell-input" data-platform="${escapeHtml(p)}" placeholder="—" oninput="applyCellColor(this)"></td>`).join('')}
-  `;
-  tbody.appendChild(row);
-  row.querySelector('.date-cell-input').focus();
-}
-
-async function load(forceRefresh) {
-  document.getElementById('refresh-btn').disabled = true;
-  try {
-    const res = await fetch('/api/tvn' + (forceRefresh ? '?refresh=1' : ''));
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-
-    DATA = data;
-    const inputsContainer = document.getElementById('platform-inputs');
-    if (!inputsContainer.children.length) {
-      inputsContainer.innerHTML = data.platforms.map(p => `
-        <div class="platform-input">
-          <label for="entries-${slug(p)}">${escapeHtml(p)}</label>
-          <textarea id="entries-${slug(p)}" data-platform="${escapeHtml(p)}" placeholder="Mon-3-Aug, 2.07%&#10;Tue-4-Aug, 2.57%"></textarea>
-        </div>
-      `).join('');
-    }
-    document.getElementById('last-updated').textContent = 'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH');
-    render();
-  } catch (err) {
-    document.getElementById('body').innerHTML = `<div id="empty-state"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
-  } finally {
-    document.getElementById('refresh-btn').disabled = false;
-  }
-}
-
-// Reads every filled-in cell straight out of the DOM, groups by platform
-// (the /api/tvn/record endpoint takes one platform's lines at a time), and
-// submits each platform sequentially - same endpoint the Quick Record panel
-// below uses, just fed from table inputs instead of pasted text. Only
-// platforms that fail keep their row's Sync state re-triable; on full
-// success the table reloads fresh from the sheet.
-async function syncTable() {
-  const btn = document.getElementById('sync-btn');
-  const resultEl = document.getElementById('sync-result');
-  const byPlatform = {};
-
-  document.querySelectorAll('#data-table-body tr').forEach(row => {
-    const dateInput = row.querySelector('.date-cell-input');
-    const date = dateInput ? dateInput.value.trim() : row.dataset.date;
-    if (!date) return;
-
-    row.querySelectorAll('.cell-input').forEach(input => {
-      const value = input.value.trim();
-      if (!value) return;
-      const platform = input.dataset.platform;
-      (byPlatform[platform] = byPlatform[platform] || []).push(`${date}, ${value}`);
-    });
-  });
-
-  const platforms = Object.keys(byPlatform);
-  if (platforms.length === 0) {
-    resultEl.textContent = 'ไม่มีข้อมูลให้ sync (ทุกช่องว่างอยู่)';
-    return;
-  }
-
-  btn.disabled = true;
-  resultEl.textContent = 'กำลัง sync...';
-  const summary = [];
-  let allOk = true;
-  try {
-    for (const platform of platforms) {
-      const res = await fetch('/api/tvn/record', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform, entries: byPlatform[platform].join('\n') }),
-      });
-      const data = await res.json();
-      if (data.error) {
-        allOk = false;
-        summary.push(`--- ${platform}: Error - ${data.error} ---`);
-        continue;
-      }
-      summary.push(`--- ${platform} ---\n${data.results.join('\n')}`);
-    }
-    resultEl.textContent = summary.join('\n\n');
-    if (allOk) await load(true); // reload fresh from the sheet now that everything's saved
-  } catch (err) {
-    allOk = false;
-    resultEl.textContent = 'Error: ' + err.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-let lastSubmitted = null; // { [platform]: entries } from the most recent successful sync, for the Redo button
-
-// Submits every platform textarea that has text in it, one platform at a
-// time (sequential, not parallel - each /api/tvn/record call does its own
-// read-then-write against the sheet, so overlapping calls could race). A
-// platform that fails keeps its textarea content (so it can be fixed and
-// re-synced) instead of being silently dropped along with the successes.
-async function submitRecord() {
-  const btn = document.getElementById('record-btn');
-  const resultEl = document.getElementById('record-result');
-  const toSync = [];
-  document.querySelectorAll('#platform-inputs textarea').forEach(ta => {
-    const entries = ta.value.trim();
-    if (entries) toSync.push({ platform: ta.dataset.platform, entries, el: ta });
-  });
-
-  if (toSync.length === 0) {
-    resultEl.textContent = 'ไม่มีข้อมูลให้ sync (ทุกช่องว่างอยู่)';
-    return;
-  }
-
-  btn.disabled = true;
-  resultEl.textContent = 'กำลัง sync...';
-  const synced = {};
-  const summary = [];
-  try {
-    for (const item of toSync) {
-      const res = await fetch('/api/tvn/record', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: item.platform, entries: item.entries }),
-      });
-      const data = await res.json();
-      if (data.error) {
-        summary.push(`--- ${item.platform}: Error - ${data.error} ---`);
-        continue;
-      }
-      summary.push(`--- ${item.platform} ---\n${data.results.join('\n')}`);
-      synced[item.platform] = item.entries;
-      item.el.value = '';
-    }
-    resultEl.textContent = summary.join('\n\n');
-    if (Object.keys(synced).length > 0) {
-      lastSubmitted = synced;
-      document.getElementById('redo-btn').disabled = false;
-    }
-    await load(true); // refresh the table with what was just written
-  } catch (err) {
-    resultEl.textContent = 'Error: ' + err.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-// Brings back the platform + entries text from the last successful sync, in
-// case one needs a correction and re-syncing - submitRecord() clears each
-// textarea on success, so without this the whole batch would need retyping.
-function redoLastSubmit() {
-  if (!lastSubmitted) return;
-  Object.entries(lastSubmitted).forEach(([platform, entries]) => {
-    const ta = document.getElementById('entries-' + slug(platform));
-    if (ta) ta.value = entries;
-  });
-  document.getElementById('record-result').textContent = '';
-}
-
 // ---- Hourly CSV import: parse a Bitmovin "Error Sessions" CSV export
 // (Global Filter table + a Date/Error Sessions/Sessions Considered/
 // Percentage table), auto-detect which platform it's for from the OS +
@@ -499,6 +272,7 @@ async function syncHourlyCsv() {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     resultEl.textContent = '✓ ' + data.result;
+    await loadHourlyTable(); // reflect the just-written row immediately
   } catch (err) {
     resultEl.textContent = 'Error: ' + err.message;
   } finally {
@@ -506,8 +280,45 @@ async function syncHourlyCsv() {
   }
 }
 
+// ---- Error Sessions (รายชั่วโมง): read-only view of the current hourly
+// sheet tab, one row per platform - Filters, Platform, Date, 24 hours,
+// Average (a sheet formula, displayed as-is, never written from here).
+
+async function loadHourlyTable() {
+  const body = document.getElementById('hourly-table-body');
+  try {
+    const res = await fetch('/api/tvn/error-sessions-hourly');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderHourlyTable(data.platforms, data.hourColumns);
+  } catch (err) {
+    body.innerHTML = `<div id="hourly-table-empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderHourlyTable(platforms, hourColumns) {
+  const body = document.getElementById('hourly-table-body');
+  const rowsHtml = platforms.map(p => `
+    <tr>
+      <td>${escapeHtml(p.platform)}</td>
+      <td>${escapeHtml(p.date)}</td>
+      ${hourColumns.map(h => `<td>${p.values[h] ? escapeHtml(p.values[h]) : '<span style="color:var(--ink-faint)">—</span>'}</td>`).join('')}
+      <td>${p.average ? escapeHtml(p.average) : '<span style="color:var(--ink-faint)">—</span>'}</td>
+    </tr>
+  `).join('');
+
+  body.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table class="data">
+        <thead><tr><th>Platform</th><th>Date</th>${hourColumns.map(h => `<th>${h}</th>`).join('')}<th>Average</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+  `;
+}
+
 setupPasteArea('paste-area-sessions');
-load(false);
+loadHourlyTable();
 </script>
 </body>
 </html>
