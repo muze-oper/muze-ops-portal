@@ -11,62 +11,56 @@ function slug(platform) {
   return platform.toLowerCase().replace(/\s+/g, '-');
 }
 
-// --- Heatmap: 10 shades from dark green (<=2.00%) to red (>=6.00%) -----
-// Level 0 = <=HEAT_MIN exactly (a flat "good" floor, not part of the even
-// split), level 9 = >=HEAT_MAX (flat "bad" ceiling), levels 1-8 split the
-// range between them into 8 equal 0.5-point bins. Only the Error Sessions
-// page uses this, but it's harmless to load everywhere.
-const HEAT_MIN = 2.00;
+// --- Heatmap: two-part scale, split at 2.00% -----------------------------
+// <=2.00%: green (0%) -> yellow (2.00%). >2.00%: light red (just over
+// 2.00%) -> dark red (>=6.00%, the same ceiling the old single-gradient
+// scale used). Used by the BitMovin Error Sessions hourly table.
+const HEAT_SPLIT = 2.00;
 const HEAT_MAX = 6.00;
-const HEAT_STEPS = 10;
-const HEAT_GREEN = [11, 110, 47];
-const HEAT_RED = [197, 42, 42];
+const HEAT_GREEN = [46, 125, 50];
+const HEAT_YELLOW = [230, 184, 0];
+const HEAT_LIGHT_RED = [239, 154, 154];
+const HEAT_DARK_RED = [136, 14, 14];
 
-function heatLevel(value) {
-  if (value <= HEAT_MIN) return 0;
-  if (value >= HEAT_MAX) return HEAT_STEPS - 1;
-  const step = (HEAT_MAX - HEAT_MIN) / (HEAT_STEPS - 2); // 8 intermediate bins
-  return 1 + Math.floor((value - HEAT_MIN) / step);
-}
-
-function heatColorForLevel(level) {
-  const t = level / (HEAT_STEPS - 1);
-  const r = Math.round(HEAT_GREEN[0] + (HEAT_RED[0] - HEAT_GREEN[0]) * t);
-  const g = Math.round(HEAT_GREEN[1] + (HEAT_RED[1] - HEAT_GREEN[1]) * t);
-  const b = Math.round(HEAT_GREEN[2] + (HEAT_RED[2] - HEAT_GREEN[2]) * t);
-  return `rgb(${r},${g},${b})`;
+function heatLerpColor(c1, c2, t) {
+  const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
+  const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
+  const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
+  return [r, g, b];
 }
 
 function heatColorForValue(value) {
   if (value === null || value === undefined || isNaN(value)) return null;
-  return heatColorForLevel(heatLevel(value));
+  const v = Math.max(0, value);
+  const rgb = v <= HEAT_SPLIT
+    ? heatLerpColor(HEAT_GREEN, HEAT_YELLOW, v / HEAT_SPLIT)
+    : heatLerpColor(HEAT_LIGHT_RED, HEAT_DARK_RED, Math.min(1, (v - HEAT_SPLIT) / (HEAT_MAX - HEAT_SPLIT)));
+  return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+}
+
+// Picks readable text color (near-black or white) against a heatmap
+// background by perceived luminance - the yellow/light-red mid-tones read
+// better with dark text than the white used everywhere else in this scale.
+function heatTextColorFor(rgbCss) {
+  const m = /rgb\((\d+),\s*(\d+),\s*(\d+)\)/.exec(rgbCss || '');
+  if (!m) return '#fff';
+  const [r, g, b] = [m[1], m[2], m[3]].map(Number);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? '#16211D' : '#fff';
 }
 
 function heatLegendHtml() {
-  const labels = ['≤2.00', '2.00-2.50', '2.50-3.00', '3.00-3.50', '3.50-4.00', '4.00-4.50', '4.50-5.00', '5.00-5.50', '5.50-6.00', '≥6.00'];
-  return `<div class="heat-legend">` + labels.map((label, i) => `
+  const labels = ['0.00', '1.00', '2.00', '3.00', '4.00', '5.00', '≥6.00'];
+  const values = [0, 1, 2, 3, 4, 5, 6];
+  return `<div class="heat-legend">` + labels.map((label, i) => {
+    const color = heatColorForValue(values[i]);
+    return `
     <div class="heat-swatch">
-      <div class="heat-box" style="background:${heatColorForLevel(i)}"></div>
+      <div class="heat-box" style="background:${color}"></div>
       ${label}
     </div>
-  `).join('') + `</div>`;
-}
-
-// Reads whatever's typed in a cell (accepts "2.07" or "2.07%") and applies
-// the matching heatmap color live, so it updates as the user edits - not
-// just on initial render. Only used on the Error Sessions page.
-function applyCellColor(input) {
-  const numeric = parseFloat(String(input.value).replace('%', '').trim());
-  const color = heatColorForValue(numeric);
-  if (color) {
-    input.style.backgroundColor = color;
-    input.style.color = '#fff';
-    input.style.borderColor = color;
-  } else {
-    input.style.backgroundColor = '';
-    input.style.color = '';
-    input.style.borderColor = '';
-  }
+  `;
+  }).join('') + `</div>`;
 }
 
 // ---- Screenshot-insert box: purely a visual reference while filling in

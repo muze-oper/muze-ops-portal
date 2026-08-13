@@ -103,6 +103,16 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
 table.data td { padding: 6px 8px; border-top: 1px solid var(--border); color: var(--ink); text-align: right; white-space: nowrap; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 table.data td:first-child { font-family: var(--font-sans); font-variant-numeric: normal; }
 
+/* Compact 24-hour heatmap (BitMovin Error Sessions, hourly) - narrow fixed
+   columns so Platform+Date+24 hours+Average fits the page width without a
+   horizontal scrollbar on a normal desktop viewport. */
+.hourly-heatmap { table-layout: fixed; font-size: 10.5px; }
+.hourly-heatmap th, .hourly-heatmap td { padding: 4px 3px; text-align: center; }
+.hourly-heatmap th:first-child, .hourly-heatmap td:first-child { text-align: left; width: 74px; }
+.hourly-heatmap th:nth-child(2), .hourly-heatmap td:nth-child(2) { width: 58px; }
+.hourly-heatmap th:last-child, .hourly-heatmap td:last-child { width: 44px; }
+.hourly-heatmap td { font-variant-numeric: tabular-nums; border-top: 1px solid var(--border); }
+
 .cell-input, .date-cell-input, .cl-filter, .cl-value {
   font-family: var(--font-mono); font-size: 12.5px; padding: 5px 7px; border: 1px solid var(--border);
   border-radius: 6px; background: var(--surface); color: var(--ink); box-sizing: border-box;

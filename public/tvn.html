@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BitMovin Error Sessions — Muze Tech Ops Portal</title>
   <link rel="stylesheet" href="/tvn-shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="/tvn-shared.js"></script>
 </head>
 <body>
@@ -31,28 +32,30 @@
 <div class="wrap">
 
   <section class="block">
-    <div class="block-head"><h2 class="h">Error Sessions (รายชั่วโมง)</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">Error Sessions รายชั่วโมง (Bitmovin)</h2><div class="rule"></div></div>
     <div class="card">
       <div class="toolbar">
         <button class="btn-ghost" id="hourly-refresh-btn" onclick="loadHourlyTable()">🔄 รีเฟรชข้อมูล</button>
+        <label style="font-size:12px;font-weight:600;color:var(--ink-dim);">กรองวันที่:</label>
+        <select id="hourly-date-filter" onchange="renderHourlyTable()"><option value="">ทุกวันที่</option></select>
+        <button class="btn-ghost" id="hourly-export-btn" onclick="copyElementAsImage('hourly-export-panel','hourly-table-result','hourly-export-btn')">📋 Export เป็นรูปภาพ</button>
       </div>
       <div class="sheet-link-row">
         <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1338052572#gid=1338052572" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง (แท็บ BitMovin Error, รายชั่วโมง)</a>
       </div>
       <div id="hourly-table-body" style="margin-top:14px;"><div id="hourly-table-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
-    </div>
-  </section>
+      <div id="hourly-table-result" class="result-text"></div>
 
-  <section class="block">
-    <div class="block-head"><h2 class="h">Import CSV รายชั่วโมง (Bitmovin)</h2><div class="rule"></div></div>
-    <div class="card">
-      <div class="hint">
-        Export CSV จาก Bitmovin (metric "Error Sessions", ตั้ง filter OS/Platform ให้ตรงกับ platform เดียวเท่านั้นก่อน export) แล้วเลือกไฟล์ที่นี่ —
-        ระบบจะตรวจ platform จาก filter ในไฟล์อัตโนมัติ แปลงเวลาเป็นเวลาไทย (Bangkok) ให้ตรวจสอบก่อน แล้วค่อยกด sync เข้าชีต
-        (sync จะเขียนทับเฉพาะชั่วโมงที่มีข้อมูลในไฟล์ พร้อมประทับวันที่ของวันนี้ให้อัตโนมัติ — คอลัมน์ Average เป็นสูตรในชีต ไม่ถูกเขียนทับ)
+      <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+        <h3 style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-dim);">Import CSV จาก Bitmovin</h3>
+        <div class="hint">
+          Export CSV จาก Bitmovin (metric "Error Sessions", ตั้ง filter OS/Platform ให้ตรงกับ platform เดียวเท่านั้นก่อน export) แล้วเลือกไฟล์ที่นี่ —
+          ระบบจะตรวจ platform จาก filter ในไฟล์อัตโนมัติ แปลงเวลาเป็นเวลาไทย (Bangkok) ให้ตรวจสอบก่อน แล้วค่อยกด sync เข้าชีต
+          (sync จะเขียนทับเฉพาะชั่วโมงที่มีข้อมูลในไฟล์ พร้อมประทับ "วันที่" เป็นวันแรก(UTC+7)ที่พบในไฟล์ ไม่ใช่วันที่กด sync — คอลัมน์ Average เป็นสูตรในชีต ไม่ถูกเขียนทับ)
+        </div>
+        <input type="file" id="hourly-csv-file" accept=".csv,text/csv" onchange="handleHourlyCsvFile(this)">
+        <div id="hourly-csv-preview"></div>
       </div>
-      <input type="file" id="hourly-csv-file" accept=".csv,text/csv" onchange="handleHourlyCsvFile(this)">
-      <div id="hourly-csv-preview"></div>
     </div>
   </section>
 
@@ -164,11 +167,28 @@ function utcHourToBangkokLabel(isoTimestamp) {
   return (bangkokHour === 0 ? 24 : bangkokHour) + '.00';
 }
 
+// Sortable "YYYY-MM-DD" Bangkok calendar date, for finding the earliest one
+// across a file's rows (string comparison works since it's zero-padded ISO
+// order). Separate from the display label below, which isn't sortable.
+function bangkokDateKey(isoTimestamp) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(isoTimestamp));
+}
+
+// "Thu-13-Aug" - same weekday-day-month style the sheet itself uses.
+function bangkokDateLabel(isoTimestamp) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short' })
+    .formatToParts(new Date(isoTimestamp))
+    .reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+  return `${parts.weekday}-${parts.day}-${parts.month}`;
+}
+
 function parseHourlyCsv(text) {
   const lines = text.split(/\r?\n/).map(parseCsvLine);
   let osList = [];
   let platformValue = null;
   const hourValues = {}; // label -> percentage string, newest CSV row wins on duplicate labels
+  let earliestDateKey = null;
+  let earliestDateLabel = null;
 
   let dataStarted = false;
   for (const fields of lines) {
@@ -190,9 +210,18 @@ function parseHourlyCsv(text) {
     if (!percentage || isNaN(new Date(isoTimestamp).getTime())) continue;
     const label = utcHourToBangkokLabel(isoTimestamp);
     if (!(label in hourValues)) hourValues[label] = percentage; // file lists newest-first
+
+    // Data spans a UTC day boundary (Bangkok is UTC+7), so "the file's
+    // date" is the earliest Bangkok calendar date among its rows, not
+    // whichever row happens to be listed first/last.
+    const dateKey = bangkokDateKey(isoTimestamp);
+    if (earliestDateKey === null || dateKey < earliestDateKey) {
+      earliestDateKey = dateKey;
+      earliestDateLabel = bangkokDateLabel(isoTimestamp);
+    }
   }
 
-  return { osList, platformValue, hourValues, detectedPlatform: detectHourlyPlatform(osList, platformValue) };
+  return { osList, platformValue, hourValues, earliestDateLabel, detectedPlatform: detectHourlyPlatform(osList, platformValue) };
 }
 
 let hourlyParsed = null;
@@ -215,7 +244,7 @@ function handleHourlyCsvFile(input) {
 function renderHourlyCsvPreview() {
   const el = document.getElementById('hourly-csv-preview');
   if (!hourlyParsed) { el.innerHTML = ''; return; }
-  const { osList, platformValue, hourValues, detectedPlatform } = hourlyParsed;
+  const { osList, platformValue, hourValues, detectedPlatform, earliestDateLabel } = hourlyParsed;
   const filledCount = Object.keys(hourValues).length;
 
   const platformPicker = detectedPlatform
@@ -233,7 +262,7 @@ function renderHourlyCsvPreview() {
     <div class="hint" style="margin-top:12px;">
       ตรวจพบ filter ในไฟล์: OS = ${escapeHtml(osList.join(', ') || '-')}, Platform = ${escapeHtml(platformValue || '-')}
       ${detectedPlatform ? '→ ตรงกับ' : '→ ไม่พบ platform ที่ตรงกัน เลือกเองด้านล่าง:'} ${platformPicker}
-      — พบข้อมูล ${filledCount}/24 ชั่วโมง (เวลาไทย)
+      — พบข้อมูล ${filledCount}/24 ชั่วโมง (เวลาไทย) — วันที่จะประทับ: <strong>${escapeHtml(earliestDateLabel || '-')}</strong>
     </div>
     <table class="data" style="max-width:280px;">
       <thead><tr><th>ชั่วโมง (ไทย)</th><th>Error Session %</th></tr></thead>
@@ -267,7 +296,7 @@ async function syncHourlyCsv() {
     const res = await fetch('/api/tvn/error-sessions-hourly/record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform, values: hourlyParsed.hourValues }),
+      body: JSON.stringify({ platform, values: hourlyParsed.hourValues, dateLabel: hourlyParsed.earliestDateLabel }),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -280,9 +309,13 @@ async function syncHourlyCsv() {
   }
 }
 
-// ---- Error Sessions (รายชั่วโมง): read-only view of the current hourly
-// sheet tab, one row per platform - Filters, Platform, Date, 24 hours,
+// ---- Error Sessions รายชั่วโมง: heatmap view of the current hourly sheet
+// tab, one row per platform - Platform, Date, 24 hours (color-coded),
 // Average (a sheet formula, displayed as-is, never written from here).
+// Split at 2.00%: green->yellow at/below it, light-red->dark-red above.
+
+let hourlyTableData = []; // last-fetched platforms, so the date filter can re-render without a fetch
+let hourlyTableColumns = [];
 
 async function loadHourlyTable() {
   const body = document.getElementById('hourly-table-body');
@@ -290,27 +323,57 @@ async function loadHourlyTable() {
     const res = await fetch('/api/tvn/error-sessions-hourly');
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    renderHourlyTable(data.platforms, data.hourColumns);
+    hourlyTableData = data.platforms;
+    hourlyTableColumns = data.hourColumns;
+    populateHourlyDateFilter();
+    renderHourlyTable();
   } catch (err) {
     body.innerHTML = `<div id="hourly-table-empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
   }
 }
 
-function renderHourlyTable(platforms, hourColumns) {
+// Different platforms can carry different Date values (each is synced
+// independently, sometimes from files covering different days), so the
+// filter lists whichever dates are actually present rather than a fixed set.
+function populateHourlyDateFilter() {
+  const select = document.getElementById('hourly-date-filter');
+  const current = select.value;
+  const dates = [...new Set(hourlyTableData.map(p => p.date).filter(Boolean))];
+  select.innerHTML = '<option value="">ทุกวันที่</option>' + dates.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+  if (dates.includes(current)) select.value = current;
+}
+
+function renderHourlyTable() {
   const body = document.getElementById('hourly-table-body');
+  const filterVal = document.getElementById('hourly-date-filter').value;
+  const platforms = filterVal ? hourlyTableData.filter(p => p.date === filterVal) : hourlyTableData;
+
+  if (!platforms.length) {
+    body.innerHTML = `<div id="hourly-table-empty">ไม่มีข้อมูลตรงกับวันที่ที่เลือก</div>`;
+    return;
+  }
+
+  const heatCell = (raw) => {
+    const num = raw ? parseFloat(raw) : NaN;
+    const color = heatColorForValue(num);
+    if (!color) return `<td>${raw ? escapeHtml(raw) : '<span style="color:var(--ink-faint)">—</span>'}</td>`;
+    return `<td style="background:${color};color:${heatTextColorFor(color)};">${escapeHtml(raw)}</td>`;
+  };
+
   const rowsHtml = platforms.map(p => `
     <tr>
       <td>${escapeHtml(p.platform)}</td>
       <td>${escapeHtml(p.date)}</td>
-      ${hourColumns.map(h => `<td>${p.values[h] ? escapeHtml(p.values[h]) : '<span style="color:var(--ink-faint)">—</span>'}</td>`).join('')}
+      ${hourlyTableColumns.map(h => heatCell(p.values[h])).join('')}
       <td>${p.average ? escapeHtml(p.average) : '<span style="color:var(--ink-faint)">—</span>'}</td>
     </tr>
   `).join('');
 
   body.innerHTML = `
-    <div style="overflow-x:auto;">
-      <table class="data">
-        <thead><tr><th>Platform</th><th>Date</th>${hourColumns.map(h => `<th>${h}</th>`).join('')}<th>Average</th></tr></thead>
+    ${heatLegendHtml()}
+    <div id="hourly-export-panel" style="overflow-x:auto;background:var(--surface);">
+      <table class="data hourly-heatmap">
+        <thead><tr><th>Platform</th><th>Date</th>${hourlyTableColumns.map(h => `<th>${h.replace('.00', '')}</th>`).join('')}<th>Avg</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
     </div>

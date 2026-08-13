@@ -341,11 +341,16 @@ router.get('/api/tvn/error-sessions-hourly', async (req, res) => {
 
 // Overwrites only the hours present in `values` for one platform's row,
 // merging with (not replacing) whatever's already in the other hour cells -
-// a partial-day CSV export shouldn't blank out hours it doesn't cover. Also
-// stamps today's date label; never touches the "Average" formula column.
+// a partial-day CSV export shouldn't blank out hours it doesn't cover.
+// `dateLabel` should be the earliest Bangkok-time date actually present in
+// the imported file (computed client-side from the CSV's own timestamps),
+// not "today" - the file's data usually spans a UTC day boundary, so
+// "today" at sync time is often one day ahead of what the data represents.
+// Falls back to today only if the caller doesn't supply one. Never touches
+// the "Average" formula column.
 router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
   if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
-  const { platform, values } = req.body || {};
+  const { platform, values, dateLabel } = req.body || {};
   try {
     const { title, rows } = await fetchHourlyTitleAndRows();
     const rowIdx = rows.findIndex(
@@ -371,7 +376,7 @@ router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
     const dateColLetter = colLetter(HOURLY_DATE_COL_IDX);
     const firstColLetter = colLetter(HOURLY_FIRST_HOUR_COL_IDX);
     const lastColLetter = colLetter(HOURLY_FIRST_HOUR_COL_IDX + HOUR_COLUMNS.length - 1);
-    await updateSheetRow(SHEET_ID, `'${title}'!${dateColLetter}${rowNum}:${dateColLetter}${rowNum}`, [formatBangkokWeekdayLabel()]);
+    await updateSheetRow(SHEET_ID, `'${title}'!${dateColLetter}${rowNum}:${dateColLetter}${rowNum}`, [dateLabel || formatBangkokWeekdayLabel()]);
     await updateSheetRow(SHEET_ID, `'${title}'!${firstColLetter}${rowNum}:${lastColLetter}${rowNum}`, merged);
 
     res.json({ result: `${platform}: อัปเดต ${updatedCount} ช่วงเวลา` });
