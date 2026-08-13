@@ -856,6 +856,13 @@ function renderDashboard() {
     // scanned off the subject/snippet, so the group starts pre-filled
     // instead of blank.
     const actionDoneVal = (asg && asg.actionDone != null) ? asg.actionDone : defaultActionDoneForGroup(members);
+    // A ticket reference (Zendesk/Jira) attached means this is a confirmed
+    // real, actionable issue, not just "should-know" - the Cat dot reflects
+    // that even when the raw classifier landed on 🟡 ควรรับรู้. Display-only:
+    // there's no per-msgId category override storage the way Status/
+    // Assignee/Action Done have, so this doesn't touch the category filter
+    // (which already includes ควรรับรู้ under __important__ anyway).
+    const effectiveCategory = actionDoneVal ? '🔴 ต้อง Action' : e.category;
 
     let st = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
     // Business rule: a non-blank Action Done means work has already started
@@ -907,7 +914,7 @@ function renderDashboard() {
       // to every instance of this thread at once.
       '<td style="padding:6px 4px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" data-msgids="'+idsAttr+'" '+(allSelected?'checked':'')+' onchange="syncCheckbox(this)"></td>'+
       // Category — color only (red/yellow/grey), no text
-      '<td style="padding:6px 2px;text-align:center;overflow:hidden" title="'+(e.category||'')+'"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+(CATEGORY_DOT[e.category]||'#ccc')+'"></span></td>'+
+      '<td style="padding:6px 2px;text-align:center;overflow:hidden" title="'+(effectiveCategory||'')+'"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+(CATEGORY_DOT[effectiveCategory]||'#ccc')+'"></span></td>'+
       // Account
       '<td style="padding:6px 4px;overflow:hidden;white-space:nowrap"><span style="font-size:9px;padding:2px 5px;border-radius:10px;background:#e8f0fe;color:#1a73e8;font-weight:700">'+shortAcc+'</span></td>'+
       // Due — compact formatted text with a fully transparent native
