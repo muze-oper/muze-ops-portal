@@ -339,7 +339,7 @@ function populateHourlyDateFilter() {
   const select = document.getElementById('hourly-date-filter');
   const current = select.value;
   const dates = [...new Set(hourlyTableData.map(p => p.date).filter(Boolean))];
-  select.innerHTML = '<option value="">ทุกวันที่</option>' + dates.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+  select.innerHTML = '<option value="">ทุกวันที่</option>' + dates.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(prettyDate(d))}</option>`).join('');
   if (dates.includes(current)) select.value = current;
 }
 
@@ -382,11 +382,13 @@ function renderHourlyTable() {
 
   // Average shares the hour cells' scale (green->yellow up to 2.00, then
   // light->dark red), so a platform's overall day reads at a glance the same
-  // way its individual hours do.
+  // way its individual hours do. Because it looks identical to an hour cell,
+  // .col-avg carries a gap on its right to keep the two blocks apart.
   const avgCell = (raw) => {
     const color = heatColorForValue(raw ? parseFloat(raw) : NaN);
-    if (!color) return statCell(raw);
-    return `<td class="col-stat" style="background:${color};color:${heatTextColorFor(color)};">${escapeHtml(raw)}</td>`;
+    const inner = raw ? escapeHtml(raw) : '<span style="color:var(--ink-faint)">—</span>';
+    const style = color ? ` style="background:${color};color:${heatTextColorFor(color)};"` : '';
+    return `<td class="col-stat col-avg"${style}>${inner}</td>`;
   };
 
   const rowsHtml = platforms.map(p => {
@@ -394,7 +396,7 @@ function renderHourlyTable() {
     return `
     <tr>
       <td class="col-platform">${escapeHtml(p.platform)}</td>
-      <td class="col-date">${escapeHtml(p.date)}</td>
+      <td class="col-date">${escapeHtml(prettyDate(p.date))}</td>
       ${statCell(p.peak)}
       ${statCell(p.peakTime)}
       ${avgCell(p.average)}
@@ -412,7 +414,7 @@ function renderHourlyTable() {
     ${heatLegendHtml()}
     <div id="hourly-export-panel" style="overflow-x:auto;background:var(--surface);">
       <table class="data hourly-heatmap">
-        <thead><tr><th class="col-platform">Platform</th><th class="col-date">Date</th><th class="col-stat">Peak</th><th class="col-stat">Peak&nbsp;Time</th><th class="col-stat">Avg</th>${headHours}</tr></thead>
+        <thead><tr><th class="col-platform">Platform</th><th class="col-date">Date</th><th class="col-stat">Peak</th><th class="col-stat">Peak&nbsp;Time</th><th class="col-stat col-avg">Avg</th>${headHours}</tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
     </div>

@@ -7,6 +7,13 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// "Thu-13-Aug" -> "Thu 13 Aug" for display only. The hyphenated form is the
+// label the sheet stores and that rows are matched on, so never write this
+// back or compare against it.
+function prettyDate(label) {
+  return String(label || '').replace(/-/g, ' ');
+}
+
 function slug(platform) {
   return platform.toLowerCase().replace(/\s+/g, '-');
 }
