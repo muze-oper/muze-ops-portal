@@ -34,20 +34,25 @@
   <section class="block">
     <div class="block-head"><h2 class="h">Top Error Codes</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">
-        แคป screenshot กราฟ "Top Error Codes" จาก Bitmovin → วางทางซ้ายไว้อ้างอิง → ให้ Claude อ่านค่าในแชท Claude Code (ใช้ skill ด้านล่างของหน้านี้) แล้ววางผลลัพธ์ทางขวา บรรทัดละ 1 อันดับ รูปแบบ <code>avplayer-26.6: -12643, 600</code> → กด "แยกลงตาราง" (หรือพิมพ์ลงตารางเองก็ได้)
-      </div>
-      <div class="sheet-link-row">
-        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1613893186#gid=1613893186" target="_blank" rel="noopener">📄 เปิดชีต BitMovin Top Error Codes</a>
-      </div>
+      <ol class="how-to">
+        <li>เปิด Bitmovin → ตั้ง <strong>Filters</strong> ของ platform ที่ต้องการ → แคป screenshot กราฟ "Top Error Codes" ให้เห็นทั้งชื่อ error code, แท่งกราฟ และแกนตัวเลขด้านล่าง</li>
+        <li>วางรูป (Ctrl/Cmd+V) ในกล่องซ้าย → กด <strong>“ส่งรูปให้ Claude Code”</strong> เพื่อ copy รูปเข้า clipboard</li>
+        <li>สลับไปที่แชท Claude Code (เปิดจากโฟลเดอร์ <code>muze-ops-portal</code> ตามวิธีด้านล่างของหน้านี้) → กด Ctrl/Cmd+V วางรูป → พิมพ์คำสั่งที่หน้านี้บอกไว้ให้</li>
+        <li>copy คำตอบของ Claude มาวางในกล่องขวา → กด <strong>“แยกลงตาราง”</strong> → ตรวจค่าในตารางให้ครบ</li>
+        <li>เลือก <strong>Platform</strong> ให้ตรงกับ Filters ในรูป (ตัวนี้เป็นตัวกำหนดว่าจะเขียนลงแถวไหน) แล้วกด <strong>Sync to Google Sheet</strong></li>
+      </ol>
 
       <div class="tec-input-grid">
         <div class="tec-input-col">
-          <label class="field-label">Screenshot (อ้างอิงอย่างเดียว)</label>
+          <label class="field-label">1. Screenshot จาก Bitmovin</label>
           <div id="paste-area-errorcodes" class="paste-area paste-area-compact" tabindex="0">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูปมาวาง</div>
+          <div class="table-actions" style="margin-top:8px;">
+            <button class="btn-ghost" id="tec-send-claude-btn" onclick="sendPictureToClaudeCode()" disabled>🤖 ส่งรูปให้ Claude Code</button>
+          </div>
+          <div id="tec-claude-hint" class="result-text"></div>
         </div>
         <div class="tec-input-col">
-          <label class="field-label" for="tec-paste-input">วางค่าที่ Claude อ่านให้</label>
+          <label class="field-label" for="tec-paste-input">2. วางค่าที่ Claude อ่านให้</label>
           <textarea id="tec-paste-input" class="paste-input paste-input-compact" placeholder="avplayer-26.6: -12643, 600&#10;avplayer-26.5.2: -12643, 557&#10;avplayer-26.6: -16839, 224"></textarea>
           <div class="table-actions" style="margin-top:8px;">
             <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
@@ -325,7 +330,49 @@ async function syncTopErrorCodes() {
   }
 }
 
+// The page can't talk to Claude Code directly - it runs on the reader's own
+// machine with nothing listening for a browser to call. The closest thing is
+// to put the screenshot on the clipboard and hand over the exact prompt, so
+// the handoff is two keystrokes instead of a re-screenshot.
+const CLAUDE_PROMPT = 'อ่านกราฟ Top Error Codes นี้ให้หน่อย ตอบเป็นบรรทัดละ 1 อันดับ รูปแบบ "player-version: error-code, approx-session" เรียงจากมากไปน้อย ไม่ต้องมีข้อความอื่น';
+
+async function sendPictureToClaudeCode() {
+  const btn = document.getElementById('tec-send-claude-btn');
+  const hint = document.getElementById('tec-claude-hint');
+  btn.disabled = true;
+  hint.textContent = 'กำลัง copy รูป...';
+  try {
+    await copyPastedImageToClipboard('paste-area-errorcodes');
+    hint.innerHTML = `copy รูปแล้ว → ไปที่แชท Claude Code กด Ctrl/Cmd+V วางรูป แล้วพิมพ์:
+      <br><code id="tec-claude-prompt">${escapeHtml(CLAUDE_PROMPT)}</code>
+      <br><button type="button" class="btn-ghost" style="margin-top:6px;" onclick="copyClaudePrompt()">📋 copy คำสั่ง</button>`;
+  } catch (err) {
+    hint.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = !getPastedImageFile('paste-area-errorcodes');
+  }
+}
+
+async function copyClaudePrompt() {
+  try {
+    await navigator.clipboard.writeText(CLAUDE_PROMPT);
+    document.getElementById('tec-claude-hint').textContent = 'copy คำสั่งแล้ว - วางต่อจากรูปในแชท Claude Code ได้เลย (รูปยังอยู่ในกล่องซ้าย ถ้าต้อง copy รูปใหม่กดปุ่มเดิมอีกครั้ง)';
+  } catch (err) {
+    document.getElementById('tec-claude-hint').textContent = 'Error: ' + err.message;
+  }
+}
+
+// Only offer the handoff once there's actually an image to send.
+function syncSendButtonState() {
+  document.getElementById('tec-send-claude-btn').disabled = !getPastedImageFile('paste-area-errorcodes');
+}
+document.getElementById('paste-area-errorcodes').addEventListener('paste-area-change', () => {
+  syncSendButtonState();
+  document.getElementById('tec-claude-hint').textContent = '';
+});
+
 setupPasteArea('paste-area-errorcodes');
+syncSendButtonState();
 loadTopErrorCodes();
 </script>
 </body>

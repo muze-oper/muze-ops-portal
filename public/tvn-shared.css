@@ -167,10 +167,22 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .tec-input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; margin-top: 12px; }
 .tec-input-col { min-width: 0; }
 .tec-input-col .field-label { display: block; margin-bottom: 6px; }
-.paste-area-compact { padding: 14px; font-size: 12px; min-height: 150px; display: flex; align-items: center; justify-content: center; }
-.paste-area-compact img { max-height: 180px; }
+/* Column direction matters once an image is in here: the image and its
+   "remove" button are siblings, so a row layout puts them side by side and
+   pushes the button out of the box. */
+.paste-area-compact {
+  padding: 14px; font-size: 12px; min-height: 150px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+}
+.paste-area-compact img { max-width: 100%; max-height: 190px; width: auto; object-fit: contain; }
+.paste-area-compact .clear-btn { margin-top: 0; flex: none; }
 .paste-input-compact { height: 150px; margin-top: 0; }
 @media (max-width: 720px) { .tec-input-grid { grid-template-columns: 1fr; } }
+
+/* Numbered walkthrough above an input panel. */
+.how-to { margin: 0 0 4px; padding-left: 20px; font-size: 12.5px; line-height: 1.75; color: var(--ink-dim); }
+.how-to li { margin-bottom: 3px; }
+.how-to strong { color: var(--ink); }
 
 /* ---------- Confirm dialog (review-before-sync) ---------- */
 .confirm-dialog {
