@@ -499,6 +499,12 @@ function hasAutoCloseWarning(text) {
   return !!text && text.toLowerCase().includes(AUTO_CLOSE_PHRASE);
 }
 
+// A "[Closed]" tag on the subject is the ticketing system itself declaring
+// the case closed - not account-specific, so it applies to any group.
+function hasClosedTag(subject) {
+  return /\[closed\]/i.test(subject || '');
+}
+
 function defaultActionDone(account, subject, snippet) {
   if (account === NISSAN_ACCOUNT) {
     const tag = extractMnTag(subject);
@@ -925,6 +931,14 @@ function renderDashboard() {
     // group's representative) in case a group ever spans accounts, and
     // never overrides an already-Done status.
     if (latestMember.account === NISSAN_ACCOUNT && st !== 'Done' && hasAutoCloseWarning(latestMember.e.snippet)) {
+      st = 'Done';
+      msgIds.forEach(id => { _emailStatuses[id] = 'Done'; });
+      applyStatusToMsgIds(msgIds, 'Done');
+    }
+    // A "[Closed]" tag in the latest email's subject (e.g. Zendesk's own
+    // "[Ticket ID : xxx] ... [Closed]" notification) - any account, since
+    // it's the ticketing system's own closure signal, not a heuristic guess.
+    if (st !== 'Done' && hasClosedTag(latestMember.e.subject)) {
       st = 'Done';
       msgIds.forEach(id => { _emailStatuses[id] = 'Done'; });
       applyStatusToMsgIds(msgIds, 'Done');
