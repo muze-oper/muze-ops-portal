@@ -489,6 +489,16 @@ function extractZendeskId(text) {
   return reqMatch ? reqMatch[1] : null;
 }
 
+// nissan-ma: an auto-close warning in the LATEST email of a thread ("if we
+// don't hear from you by end of today, we'll assume it's resolved and close
+// the ticket") means the customer/requester has effectively already closed
+// it out — matched as a plain substring since it's fixed boilerplate text,
+// not a pattern with a variable part like the Zendesk/MN-tag checks.
+const AUTO_CLOSE_PHRASE = 'if we do not hear from you by the end of today, we will assume the issue is resolved and close the ticket';
+function hasAutoCloseWarning(text) {
+  return !!text && text.toLowerCase().includes(AUTO_CLOSE_PHRASE);
+}
+
 function defaultActionDone(account, subject, snippet) {
   if (account === NISSAN_ACCOUNT) {
     const tag = extractMnTag(subject);
@@ -892,6 +902,12 @@ function renderDashboard() {
     const effectiveCategory = actionDoneVal ? '🔴 ต้อง Action' : e.category;
 
     let st = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
+    // The most recent member by arrival time — used for Last Update below
+    // (blank when there's only one member, since Due already covers it) and
+    // for the auto-close phrase check (only the LATEST email in a thread is
+    // time-sensitive enough for "by the end of today" to mean anything).
+    const latestMember = members.reduce((best, m) => (!best || new Date(m.e.date) > new Date(best.e.date)) ? m : best, members[0]);
+
     // Business rule: a non-blank Action Done means work has already started
     // (a ticket ref got attached) — it can't still be "To Do", so escalate
     // to Processing the moment that becomes true rather than leaving the
@@ -903,6 +919,16 @@ function renderDashboard() {
       msgIds.forEach(id => { _emailStatuses[id] = 'Processing'; });
       applyStatusToMsgIds(msgIds, 'Processing');
     }
+    // nissan-ma: the LATEST email in the thread carries the auto-close
+    // warning — the requester's own side has effectively signed off, so
+    // treat it as resolved. Checks latestMember's own account (not the
+    // group's representative) in case a group ever spans accounts, and
+    // never overrides an already-Done status.
+    if (latestMember.account === NISSAN_ACCOUNT && st !== 'Done' && hasAutoCloseWarning(latestMember.e.snippet)) {
+      st = 'Done';
+      msgIds.forEach(id => { _emailStatuses[id] = 'Done'; });
+      applyStatusToMsgIds(msgIds, 'Done');
+    }
     if (counts[st] !== undefined) counts[st]++;
     else counts['To Do']++;
     const sb = STATUS_BADGE[st] || STATUS_BADGE['To Do'];
@@ -913,13 +939,7 @@ function renderDashboard() {
     tr.onclick     = function(ev) { if (ev.target.tagName==='SELECT'||ev.target.tagName==='INPUT') return; showEmailDetail(account, i); };
     const dueVal = asg?.dueDate || emailInboxDue(e.date);
     const dueId  = 'tbl-due-'+account.replace(/[@.]/g,'_')+'-'+i;
-    // Blank for a single (ungrouped) email — there's nothing to call an
-    // "update" beyond the one arrival Due already shows. For a group, the
-    // most recent member's own arrival time — distinct from Due, which
-    // always reflects the group's FIRST (earliest) occurrence.
-    const lastUpdateDate = members.length > 1
-      ? members.reduce((max, m) => { const d = new Date(m.e.date); return (!max || d > max) ? d : max; }, null)
-      : null;
+    const lastUpdateDate = members.length > 1 ? new Date(latestMember.e.date) : null;
     const lastUpdateVal = lastUpdateDate ? fmtReceived(lastUpdateDate) : '';
     // Group's grouping key doubles as a stable identity for "have I already
     // seen this update" tracking (msgIds within a group shift as new emails
@@ -1201,6 +1221,11 @@ async function loadEmailBody(account, msgId) {
     if (account === TVN_ACCOUNT && !(_assignments[msgId]?.actionDone) && data.body) {
       const zid = extractZendeskId(data.body);
       if (zid) applyActionDoneToMsgIds([msgId], `Zendesk ${zid}`).then(renderDashboard);
+    }
+    // Same idea for nissan-ma's auto-close phrase — the snippet-time check
+    // can miss it if it falls past Gmail's ~200-char cutoff.
+    if (account === NISSAN_ACCOUNT && _emailStatuses[msgId] !== 'Done' && hasAutoCloseWarning(data.body)) {
+      applyStatusToMsgIds([msgId], 'Done').then(renderDashboard);
     }
     if (attBox && data.attachments && data.attachments.length) {
       attBox.innerHTML =
