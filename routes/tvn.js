@@ -298,11 +298,15 @@ const HOURLY_FILTERS_COL_IDX = 0; // column A
 const HOURLY_PLATFORM_COL_IDX = 1; // column B
 const HOURLY_DATE_COL_IDX = 2; // column C
 const HOURLY_FIRST_HOUR_COL_IDX = 3; // column D - HOUR_COLUMNS[0] ("10.00")
-// column D+23 = AA is the last hour column; column AB (index 27) is "Average" - a formula, read-only from here.
+// column D+23 = AA is the last hour column, then three trailing formula
+// columns - all read-only from here, never written back:
+const HOURLY_AVERAGE_COL_IDX = 27; // column AB
+const HOURLY_PEAK_COL_IDX = 28; // column AC
+const HOURLY_PEAK_TIME_COL_IDX = 29; // column AD
 
 async function fetchHourlyTitleAndRows() {
   const title = await resolveSheetTitleByGid(SHEET_ID, HOURLY_SHEET_GID);
-  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:AB20`);
+  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:AD20`);
   return { title, rows };
 }
 
@@ -328,7 +332,9 @@ router.get('/api/tvn/error-sessions-hourly', async (req, res) => {
           platform: row[HOURLY_PLATFORM_COL_IDX] || '',
           filters: row[HOURLY_FILTERS_COL_IDX] || '',
           date: row[HOURLY_DATE_COL_IDX] || '',
-          average: row[HOURLY_FIRST_HOUR_COL_IDX + HOUR_COLUMNS.length] || '',
+          average: row[HOURLY_AVERAGE_COL_IDX] || '',
+          peak: row[HOURLY_PEAK_COL_IDX] || '',
+          peakTime: row[HOURLY_PEAK_TIME_COL_IDX] || '',
           values,
         };
       })

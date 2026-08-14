@@ -353,32 +353,63 @@ function renderHourlyTable() {
     return;
   }
 
-  const heatCell = (raw) => {
+  // Only the row's own peak hour prints its number - every other hour is
+  // colour-only, which is what keeps 24 columns readable at this width. The
+  // hidden values stay available on hover via the title attribute.
+  const heatCell = (raw, hour, isPeak) => {
     const num = raw ? parseFloat(raw) : NaN;
     const color = heatColorForValue(num);
-    if (!color) return `<td>${raw ? escapeHtml(raw) : '<span style="color:var(--ink-faint)">—</span>'}</td>`;
-    return `<td style="background:${color};color:${heatTextColorFor(color)};">${escapeHtml(raw)}</td>`;
+    const title = raw ? ` title="${escapeHtml(hour)} = ${escapeHtml(raw)}"` : '';
+    const text = isPeak && raw ? escapeHtml(raw) : '';
+    if (!color) return `<td class="col-hour"${title}>${text}</td>`;
+    return `<td class="col-hour" style="background:${color};color:${heatTextColorFor(color)};"${title}>${text}</td>`;
   };
 
-  const rowsHtml = platforms.map(p => `
+  // Prefer the sheet's own Peak Time so the highlighted cell always agrees
+  // with the Peak Time column shown beside it; fall back to computing the
+  // max locally if that formula column is empty.
+  const peakHourFor = (p) => {
+    if (p.peakTime && hourlyTableColumns.includes(p.peakTime)) return p.peakTime;
+    let best = -Infinity, bestHour = null;
+    hourlyTableColumns.forEach(h => {
+      const n = parseFloat(p.values[h]);
+      if (!isNaN(n) && n > best) { best = n; bestHour = h; }
+    });
+    return bestHour;
+  };
+
+  const statCell = (v) => `<td class="col-stat">${v ? escapeHtml(v) : '<span style="color:var(--ink-faint)">—</span>'}</td>`;
+
+  const rowsHtml = platforms.map(p => {
+    const peakHour = peakHourFor(p);
+    return `
     <tr>
-      <td>${escapeHtml(p.platform)}</td>
-      <td>${escapeHtml(p.date)}</td>
-      ${hourlyTableColumns.map(h => heatCell(p.values[h])).join('')}
-      <td>${p.average ? escapeHtml(p.average) : '<span style="color:var(--ink-faint)">—</span>'}</td>
-    </tr>
-  `).join('');
+      <td class="col-platform">${escapeHtml(p.platform)}</td>
+      <td class="col-date">${escapeHtml(p.date)}</td>
+      ${hourlyTableColumns.map(h => heatCell(p.values[h], h, h === peakHour)).join('')}
+      ${statCell(p.peak)}
+      ${statCell(p.peakTime ? p.peakTime.replace('.00', '') + ':00' : '')}
+      ${statCell(p.average)}
+    </tr>`;
+  }).join('');
+
+  // Label every 3rd hour only - 24 labels don't fit without colliding.
+  const headHours = hourlyTableColumns
+    .map((h, i) => `<th class="col-hour">${i % HOUR_LABEL_EVERY === 0 ? h.replace('.00', '') : ''}</th>`)
+    .join('');
 
   body.innerHTML = `
     ${heatLegendHtml()}
     <div id="hourly-export-panel" style="overflow-x:auto;background:var(--surface);">
       <table class="data hourly-heatmap">
-        <thead><tr><th>Platform</th><th>Date</th>${hourlyTableColumns.map(h => `<th>${h.replace('.00', '')}</th>`).join('')}<th>Avg</th></tr></thead>
+        <thead><tr><th class="col-platform">Platform</th><th class="col-date">Date</th>${headHours}<th class="col-stat">Peak</th><th class="col-stat">Peak&nbsp;Time</th><th class="col-stat">Avg</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
     </div>
   `;
 }
+
+const HOUR_LABEL_EVERY = 3; // show an hour label every N columns
 
 setupPasteArea('paste-area-sessions');
 loadHourlyTable();
