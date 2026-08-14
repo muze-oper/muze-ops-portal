@@ -17,7 +17,14 @@ const GIT_BACKED_CARDS = {
   // shared backing file alongside their own route.
   mtscs: ['routes/mtscs.js', 'public/mtscs.html'],
   'nissan-mn': ['routes/nissanMn.js', 'public/mtscs.html'],
-  'tvn-dashboard': ['routes/tvn.js', 'public/tvn.html'],
+  // One card links to all three /tvn pages, so all of them count as its
+  // backing files - otherwise editing Top Error Codes or Crashlytics leaves
+  // the card showing a stale date.
+  'tvn-dashboard': [
+    'routes/tvn.js', 'public/tvn.html',
+    'public/tvn-top-error-codes.html', 'public/tvn-crashlytics.html',
+    'public/tvn-shared.css', 'public/tvn-shared.js',
+  ],
   'ktc-chat': ['routes/ktcChat.js', 'public/ktc-chat.html', 'services/jiraKtc.js', 'services/ktcHandoverSearch.js', 'data/ktc-handover.md'],
   'tvs-kb': ['routes/kb.js', 'public/tvs-error-code-kb.html'],
   tdg: ['apps-script/muze-tdg-dashboard'],
