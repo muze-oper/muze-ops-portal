@@ -34,15 +34,6 @@
   <section class="block">
     <div class="block-head"><h2 class="h">Top Error Codes</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="field-row" style="margin-bottom:12px;">
-        <label class="field-label" for="tec-platform">Platform</label>
-        <select id="tec-platform" onchange="onTecPlatformChange(true)"><option value="">กำลังโหลด...</option></select>
-        <label class="field-label" for="tec-date" style="margin-left:8px;">Date</label>
-        <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
-        <span id="tec-platform-source" class="platform-source"></span>
-      </div>
-      <div id="tec-filters-preview" class="hint" style="margin-bottom:12px;"></div>
-
       <ol class="how-to">
         <li>เปิด Bitmovin → ตั้ง <strong>Filters</strong> ของ platform ที่ต้องการ → แคป screenshot กราฟ "Top Error Codes" <strong>ให้เห็นกล่อง Filters ด้วย</strong> (Claude ใช้ตรงนั้นบอกว่าเป็น platform ไหน) พร้อมชื่อ error code, แท่งกราฟ และแกนตัวเลขด้านล่าง</li>
         <li>เปิดแชท <strong>Claude Code</strong> (จากโฟลเดอร์ <code>muze-ops-portal</code> ตามวิธีด้านล่างของหน้านี้) → วาง screenshot ลงในแชทโดยตรง (Ctrl/Cmd+V) → พิมพ์คำสั่ง:
@@ -50,8 +41,8 @@
             <button type="button" class="btn-ghost" onclick="copyClaudePrompt()">📋 copy คำสั่ง</button>
           </div>
         </li>
-        <li>copy คำตอบทั้งก้อนของ Claude มาวางในกล่องด้านล่าง → กด <strong>“แยกลงตาราง”</strong> — ถ้าคำตอบมีบรรทัด <code>Platform:</code> ระบบจะเลือก Platform ให้อัตโนมัติ (ตัวหนังสือใน dropdown จะเป็น<span style="color:#1a73e8;font-weight:700;">สีน้ำเงิน</span>) ให้เช็คว่าตรงกับรูป</li>
-        <li>ตรวจค่าในตาราง + Date ให้ครบ แล้วกด <strong>Sync to Google Sheet</strong></li>
+        <li>copy คำตอบทั้งก้อนของ Claude มาวางในกล่องด้านล่าง — ถ้าบรรทัดบนสุดเป็น <code>Platform:</code> ระบบจะเลือก Platform ให้ทันทีที่วาง (ตัวหนังสือใน dropdown จะเป็น<span style="color:#1a73e8;font-weight:700;">สีน้ำเงิน</span>) ให้เช็คว่าตรงกับรูป</li>
+        <li>กด <strong>“แยกลงตาราง”</strong> → ตรวจค่าในตาราง + Date ให้ครบ แล้วกด <strong>Sync to Google Sheet</strong></li>
       </ol>
 
       <label class="field-label" for="tec-paste-input" style="display:block;margin-bottom:6px;">วางคำตอบที่ Claude อ่านให้</label>
@@ -59,6 +50,15 @@
       <div class="table-actions" style="margin-top:8px;">
         <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
       </div>
+
+      <div class="field-row" style="margin-top:16px;">
+        <label class="field-label" for="tec-platform">Platform</label>
+        <select id="tec-platform" onchange="onTecPlatformChange(true)"><option value="">กำลังโหลด...</option></select>
+        <label class="field-label" for="tec-date" style="margin-left:8px;">Date</label>
+        <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
+        <span id="tec-platform-source" class="platform-source"></span>
+      </div>
+      <div id="tec-filters-preview" class="hint" style="margin-top:6px;"></div>
 
       <div id="error-codes-export-panel" style="background:var(--surface);margin-top:14px;">
         <table class="data" id="error-codes-table">
@@ -235,28 +235,39 @@ function setPlatformAutofilled(on, note) {
   document.getElementById('tec-platform-source').textContent = note || '';
 }
 
+// Applies a "Platform:" line found in the pasted text to the dropdown.
+// Returns notes describing what happened, for the caller to surface.
+// Switching platform re-renders the table from that block, which would
+// discard rows already in it - so this no-ops when the platform is already
+// the one named, letting it run on every keystroke without clobbering work.
+function applyPlatformHintFromText(text) {
+  const notes = [];
+  const select = document.getElementById('tec-platform');
+  const hinted = text
+    .split('\n')
+    .map(l => parsePlatformLine(l))
+    .find(Boolean);
+  if (!hinted) return notes;
+
+  const match = [...select.options].find(o => o.value && o.value.toLowerCase() === hinted.toLowerCase());
+  if (!match) {
+    notes.push(`คำตอบระบุ Platform "${hinted}" ซึ่งไม่ตรงกับตัวเลือกใดในชีต - เลือกเองด้านล่าง`);
+    return notes;
+  }
+  if (select.value !== match.value) {
+    select.value = match.value;
+    onTecPlatformChange(false);
+  }
+  setPlatformAutofilled(true, '← ตั้งจากคำตอบของ Claude');
+  notes.push(`เลือก Platform เป็น "${match.value}" จากบรรทัดบนสุดของคำตอบ`);
+  return notes;
+}
+
 function parseTecPasted() {
   const resultEl = document.getElementById('error-codes-result');
-  const lines = document.getElementById('tec-paste-input').value.split('\n').map(l => l.trim()).filter(Boolean);
-
-  // A leading Platform: line has to be applied before the table is sized,
-  // since block capacity depends on which platform is selected.
-  const notes = [];
-  const remaining = [];
-  lines.forEach(line => {
-    const hinted = parsePlatformLine(line);
-    if (!hinted) { remaining.push(line); return; }
-    const select = document.getElementById('tec-platform');
-    const match = [...select.options].find(o => o.value.toLowerCase() === hinted.toLowerCase());
-    if (match) {
-      select.value = match.value;
-      onTecPlatformChange(false);
-      setPlatformAutofilled(true, `← ตั้งจากคำตอบของ Claude`);
-      notes.push(`เลือก Platform เป็น "${match.value}" จากคำตอบของ Claude`);
-    } else {
-      notes.push(`คำตอบระบุ Platform "${hinted}" ซึ่งไม่ตรงกับตัวเลือกใดในชีต - เลือกเองด้านบน`);
-    }
-  });
+  const raw = document.getElementById('tec-paste-input').value;
+  const notes = applyPlatformHintFromText(raw);
+  const remaining = raw.split('\n').map(l => l.trim()).filter(l => l && !parsePlatformLine(l));
 
   const block = currentTecBlock();
   const capacity = block ? block.endRow - block.startRow + 1 : 10;
@@ -375,6 +386,12 @@ async function copyClaudePrompt() {
     resultEl.textContent = 'Error: ' + err.message;
   }
 }
+
+// Pick the platform up the moment the answer is pasted, rather than making
+// "แยกลงตาราง" the only thing that reads that first line.
+document.getElementById('tec-paste-input').addEventListener('input', () => {
+  applyPlatformHintFromText(document.getElementById('tec-paste-input').value);
+});
 
 loadTopErrorCodes();
 </script>
