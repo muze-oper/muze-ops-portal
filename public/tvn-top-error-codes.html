@@ -32,28 +32,47 @@
 <div class="wrap">
 
   <section class="block">
-    <div class="block-head"><h2 class="h">Dashboard</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">BITMOVIN Top Error in 24 Hours</h2><div class="rule"></div></div>
     <div class="card">
       <div id="tec-dash-empty" class="hint">กำลังโหลดข้อมูลจากชีต...</div>
       <div id="tec-dash" hidden>
-        <div class="stat-row" id="tec-stats"></div>
-        <div class="chart-grid">
-          <figure class="chart">
-            <figcaption>
-              <span class="chart-title">Approx sessions แยกตาม Platform</span>
-              <span class="chart-sub">รวมทุก error code ที่บันทึกไว้ของแต่ละ platform</span>
-            </figcaption>
-            <div class="bars" id="tec-chart-platform"></div>
-          </figure>
-          <figure class="chart">
-            <figcaption>
-              <span class="chart-title">Top error codes รวมทุก Platform</span>
-              <span class="chart-sub">รวม sessions ของ error code เดียวกันข้าม platform</span>
-            </figcaption>
-            <div class="bars" id="tec-chart-code"></div>
-          </figure>
+        <div class="dash-toolbar">
+          <div class="dash-filters">
+            <label class="field-label" for="tec-f-date-from">Date</label>
+            <select id="tec-f-date-from" onchange="renderTecDashboard()"></select>
+            <span class="field-label">ถึง</span>
+            <select id="tec-f-date-to" onchange="renderTecDashboard()"></select>
+            <label class="field-label" for="tec-f-platform" style="margin-left:6px;">Platform</label>
+            <select id="tec-f-platform" onchange="renderTecDashboard()"></select>
+            <label class="field-label" for="tec-f-code" style="margin-left:6px;">Error code</label>
+            <input id="tec-f-code" class="date-cell-input" placeholder="เช่น 3018" oninput="renderTecDashboard()">
+            <button class="btn-ghost" onclick="resetTecFilters()">ล้างฟิลเตอร์</button>
+          </div>
+          <button class="btn-ghost" id="tec-dash-export-btn" onclick="copyElementAsImage('tec-dash-export','tec-dash-result','tec-dash-export-btn')">📋 Export เป็นรูปภาพ</button>
         </div>
-        <div class="hint" id="tec-dash-note" style="margin-top:12px;"></div>
+        <div id="tec-dash-result" class="result-text"></div>
+
+        <div id="tec-dash-export" style="background:var(--surface);padding-top:4px;">
+          <div class="stat-row" id="tec-stats"></div>
+          <div class="chart-grid">
+            <figure class="chart">
+              <figcaption>
+                <span class="chart-title">Approx sessions แยกตาม Platform</span>
+                <span class="chart-sub">รวมทุก error code ที่บันทึกไว้ของแต่ละ platform</span>
+              </figcaption>
+              <div class="bars" id="tec-chart-platform"></div>
+            </figure>
+            <figure class="chart">
+              <figcaption>
+                <span class="chart-title">Top error codes รวมทุก Platform</span>
+                <span class="chart-sub">รวม sessions ของ error code เดียวกันข้าม platform</span>
+              </figcaption>
+              <div class="bars" id="tec-chart-code"></div>
+              <button class="btn-ghost view-more-btn" id="tec-view-more" onclick="toggleTecViewMore()" hidden></button>
+            </figure>
+          </div>
+          <div class="dash-note" id="tec-dash-note"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -188,6 +207,7 @@ async function loadTopErrorCodes() {
     if (data.error) throw new Error(data.error);
     tecBlocks = data.blocks || [];
     renderFilterReference();
+    populateTecFilters();
     renderTecDashboard();
     select.innerHTML = tecBlocks
       .map(b => `<option value="${escapeHtml(b.platform)}">${escapeHtml(b.platform)}</option>`)
@@ -252,12 +272,96 @@ function renderBars(el, rows, opts) {
   `).join('') : `<div class="hint">ยังไม่มีข้อมูล</div>`;
 }
 
+const TEC_MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+
+// "Fri-14-Aug" carries no year, so this only needs to be good enough to sort
+// and range-compare labels within the same reporting period.
+function tecDateKey(label) {
+  const m = /^[A-Za-z]{3}-(\d{1,2})-([A-Za-z]{3})$/.exec(String(label || '').trim());
+  if (!m) return -1;
+  const month = TEC_MONTHS[m[2].toLowerCase()];
+  return month === undefined ? -1 : month * 100 + parseInt(m[1], 10);
+}
+
+const TEC_TOP_N = 10; // rows shown before "view more"
+let tecShowAllCodes = false;
+
+function toggleTecViewMore() {
+  tecShowAllCodes = !tecShowAllCodes;
+  renderTecDashboard();
+}
+
+function resetTecFilters() {
+  const dates = tecAvailableDates();
+  document.getElementById('tec-f-date-from').value = dates[0] || '';
+  document.getElementById('tec-f-date-to').value = dates[dates.length - 1] || '';
+  document.getElementById('tec-f-platform').value = '';
+  document.getElementById('tec-f-code').value = '';
+  tecShowAllCodes = false;
+  renderTecDashboard();
+}
+
+function tecAvailableDates() {
+  const dates = new Set();
+  tecBlocks.forEach(b => tecFilledEntries(b).forEach(e => { if (e.date) dates.add(e.date.trim()); }));
+  return [...dates].sort((a, b) => tecDateKey(a) - tecDateKey(b));
+}
+
+// Populated once per load; keeps the current picks if they still exist so a
+// re-render after a sync doesn't silently widen the range being viewed.
+function populateTecFilters() {
+  const dates = tecAvailableDates();
+  const from = document.getElementById('tec-f-date-from');
+  const to = document.getElementById('tec-f-date-to');
+  const platform = document.getElementById('tec-f-platform');
+  const keep = { from: from.value, to: to.value, platform: platform.value };
+
+  const dateOpts = dates.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(prettyDate(d))}</option>`).join('');
+  from.innerHTML = dateOpts;
+  to.innerHTML = dateOpts;
+  from.value = dates.includes(keep.from) ? keep.from : (dates[0] || '');
+  to.value = dates.includes(keep.to) ? keep.to : (dates[dates.length - 1] || '');
+
+  const platforms = tecBlocks.filter(b => tecFilledEntries(b).length).map(b => b.platform);
+  platform.innerHTML = '<option value="">ทุก platform</option>' +
+    platforms.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+  platform.value = platforms.includes(keep.platform) ? keep.platform : '';
+}
+
+// Flattens the blocks to one row per error code, then applies the filters -
+// doing it in this order keeps each filter independent of the others.
+function tecFilteredRows() {
+  const fromKey = tecDateKey(document.getElementById('tec-f-date-from').value);
+  const toKey = tecDateKey(document.getElementById('tec-f-date-to').value);
+  const platformPick = document.getElementById('tec-f-platform').value;
+  const codeQuery = document.getElementById('tec-f-code').value.trim().toLowerCase();
+
+  const rows = [];
+  tecBlocks.forEach(b => tecFilledEntries(b).forEach(e => {
+    rows.push({
+      platform: b.platform,
+      date: (e.date || '').trim(),
+      label: `${(e.playerVersion || '').trim()}: ${(e.errorCode || '').trim()}`,
+      sessions: toSessions(e.approxSession),
+    });
+  }));
+
+  return rows.filter(r => {
+    if (platformPick && r.platform !== platformPick) return false;
+    if (codeQuery && !r.label.toLowerCase().includes(codeQuery)) return false;
+    const k = tecDateKey(r.date);
+    if (fromKey >= 0 && k >= 0 && k < fromKey) return false;
+    if (toKey >= 0 && k >= 0 && k > toKey) return false;
+    return true;
+  });
+}
+
 function renderTecDashboard() {
   const dash = document.getElementById('tec-dash');
   const empty = document.getElementById('tec-dash-empty');
-  const withData = tecBlocks.filter(b => tecFilledEntries(b).length > 0);
+  const hasAny = tecBlocks.some(b => tecFilledEntries(b).length > 0);
 
-  if (!withData.length) {
+  if (!hasAny) {
     dash.hidden = true;
     empty.hidden = false;
     empty.textContent = 'ยังไม่มีข้อมูลในชีต — sync อย่างน้อย 1 platform ก่อน แล้ว dashboard จะขึ้นให้เอง';
@@ -266,33 +370,38 @@ function renderTecDashboard() {
   empty.hidden = true;
   dash.hidden = false;
 
-  // Per-platform totals, biggest first.
-  const perPlatform = withData
-    .map(b => ({ label: b.platform, value: tecFilledEntries(b).reduce((s, e) => s + toSessions(e.approxSession), 0) }))
+  const rows = tecFilteredRows();
+
+  const platformTotals = new Map();
+  const byCode = new Map();
+  rows.forEach(r => {
+    platformTotals.set(r.platform, (platformTotals.get(r.platform) || 0) + r.sessions);
+    // Same "version: code" identity Bitmovin shows, summed across platforms -
+    // this is what surfaces a single code dominating several at once.
+    const hit = byCode.get(r.label) || { label: r.label, value: 0, platforms: new Set() };
+    hit.value += r.sessions;
+    hit.platforms.add(r.platform);
+    byCode.set(r.label, hit);
+  });
+
+  const perPlatform = [...platformTotals.entries()]
+    .map(([label, value]) => ({ label, value }))
     .sort((a, b) => b.value - a.value);
 
-  // Same "version: code" identity Bitmovin shows, summed across platforms -
-  // this is what surfaces a single code dominating several platforms at once.
-  const byCode = new Map();
-  withData.forEach(b => tecFilledEntries(b).forEach(e => {
-    const key = `${(e.playerVersion || '').trim()}: ${(e.errorCode || '').trim()}`;
-    const hit = byCode.get(key) || { label: key, value: 0, platforms: [] };
-    hit.value += toSessions(e.approxSession);
-    hit.platforms.push(b.platform);
-    byCode.set(key, hit);
-  }));
-  const topCodes = [...byCode.values()].sort((a, b) => b.value - a.value).slice(0, 8)
-    .map(r => ({ ...r, title: `${r.label}\n${r.value.toLocaleString()} sessions\nพบใน: ${r.platforms.join(', ')}` }));
+  const allCodes = [...byCode.values()]
+    .map(r => ({ ...r, platforms: [...r.platforms] }))
+    .sort((a, b) => b.value - a.value);
+  const shown = tecShowAllCodes ? allCodes : allCodes.slice(0, TEC_TOP_N);
 
   const total = perPlatform.reduce((s, r) => s + r.value, 0);
-  const worst = topCodes[0];
-  const dates = [...new Set(withData.flatMap(b => tecFilledEntries(b).map(e => e.date).filter(Boolean)))];
+  const worst = allCodes[0];
+  const dates = [...new Set(rows.map(r => r.date).filter(Boolean))].sort((a, b) => tecDateKey(a) - tecDateKey(b));
 
   document.getElementById('tec-stats').innerHTML = [
     { label: 'Approx sessions รวม', value: total.toLocaleString() },
-    { label: 'Platform ที่มีข้อมูล', value: `${withData.length}/${tecBlocks.length}` },
-    { label: 'Error code ที่ต่างกัน', value: byCode.size.toLocaleString() },
-    { label: 'วันที่บันทึก', value: dates.length === 1 ? prettyDate(dates[0]) : `${dates.length} วัน` },
+    { label: 'Platform ที่มีข้อมูล', value: `${perPlatform.length}/${tecBlocks.length}` },
+    { label: 'Error code ที่ต่างกัน', value: allCodes.length.toLocaleString() },
+    { label: 'วันที่บันทึก', value: dates.length === 1 ? prettyDate(dates[0]) : (dates.length ? `${dates.length} วัน` : '—') },
   ].map(s => `
     <div class="stat">
       <div class="stat-value">${escapeHtml(s.value)}</div>
@@ -301,17 +410,30 @@ function renderTecDashboard() {
   `).join('');
 
   renderBars(document.getElementById('tec-chart-platform'), perPlatform);
-  renderBars(document.getElementById('tec-chart-code'), topCodes);
+  renderBars(document.getElementById('tec-chart-code'), shown.map(r => ({
+    ...r,
+    title: `${r.label}\n${r.value.toLocaleString()} sessions\nพบใน: ${r.platforms.join(', ')}`,
+  })));
+
+  const viewMore = document.getElementById('tec-view-more');
+  viewMore.hidden = allCodes.length <= TEC_TOP_N;
+  viewMore.textContent = tecShowAllCodes
+    ? `▲ ย่อกลับเหลือ ${TEC_TOP_N} อันดับ`
+    : `▼ View more — ดู error ทั้งหมด ${allCodes.length} รายการ`;
 
   const note = [];
   if (worst) {
     const share = total > 0 ? Math.round((worst.value / total) * 100) : 0;
-    note.push(`error code ที่หนักสุดคือ <code>${escapeHtml(worst.label)}</code> — ${worst.value.toLocaleString()} sessions (${share}% ของทั้งหมด) พบใน ${worst.platforms.length} platform: ${escapeHtml(worst.platforms.join(', '))}`);
+    const list = worst.platforms.map((p, i) => `${i + 1}. ${p}`).join(', ');
+    note.push(`<div>Top error code คือ <strong class="note-bad">${escapeHtml(worst.label)} — ${worst.value.toLocaleString()} sessions (${share}% ของทั้งหมด)</strong></div>`);
+    note.push(`<div>พบใน <span class="note-info">${worst.platforms.length}</span> platform: <span class="note-info">${escapeHtml(list)}</span></div>`);
+  } else {
+    note.push('<div>ไม่มีข้อมูลตรงกับฟิลเตอร์ที่เลือก</div>');
   }
   if (dates.length > 1) {
-    note.push(`⚠️ ข้อมูลในชีตมาจากหลายวัน (${dates.map(prettyDate).join(', ')}) ตัวเลขรวมด้านบนจึงเทียบกันตรง ๆ ไม่ได้`);
+    note.push(`<div>⚠️ ข้อมูลมาจากหลายวัน (${dates.map(prettyDate).join(', ')}) ตัวเลขรวมจึงเทียบกันตรง ๆ ไม่ได้</div>`);
   }
-  document.getElementById('tec-dash-note').innerHTML = note.join('<br>');
+  document.getElementById('tec-dash-note').innerHTML = note.join('');
 }
 
 function currentTecBlock() {

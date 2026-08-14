@@ -20,6 +20,7 @@
   --warn-soft: #F7EBD6;
   --critical: #B3261E;
   --critical-soft: #FBE4E2;
+  --info: #1A56C4;
   --font-sans: -apple-system, "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, "Liberation Mono", monospace;
 }
@@ -41,6 +42,7 @@
     --warn-soft: #3A2C10;
     --critical: #F0716A;
     --critical-soft: #3A1613;
+    --info: #8CB8FF;
   }
 }
 
@@ -205,6 +207,16 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .stat-value { font-family: var(--font-mono); font-size: 21px; font-weight: 700; color: var(--ink); line-height: 1.2; }
 .stat-label { font-size: 11px; color: var(--ink-dim); margin-top: 3px; }
 
+/* Filters in one row above the charts, export action pushed to the far end. */
+.dash-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.dash-filters { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.dash-filters .date-cell-input { width: 120px; }
+
+.dash-note { font-size: 12.5px; color: var(--ink-dim); margin-top: 14px; line-height: 1.75; }
+.dash-note .note-bad { color: var(--critical); font-weight: 700; }
+.dash-note .note-info { color: var(--info); font-weight: 700; }
+.view-more-btn { margin-top: 10px; width: 100%; }
+
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 22px; }
 .chart { margin: 0; min-width: 0; }
 .chart figcaption { margin-bottom: 10px; }
@@ -234,8 +246,8 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 
 /* A dropdown filled from Claude's answer rather than by hand - blue marks it
    as a machine guess that still wants a glance before syncing. */
-select.autofilled { color: #1a73e8; font-weight: 700; }
-.platform-source { font-size: 11.5px; color: #1a73e8; font-weight: 600; }
+select.autofilled { color: var(--info); font-weight: 700; }
+.platform-source { font-size: 11.5px; color: var(--info); font-weight: 600; }
 
 /* ---------- Confirm dialog (review-before-sync) ---------- */
 .confirm-dialog {
