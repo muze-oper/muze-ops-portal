@@ -176,17 +176,17 @@
           </colgroup>
           <thead>
             <tr style="background:#f8f9fa">
-              <th style="padding:6px 4px;text-align:center;border-bottom:2px solid #e0e0e0"><input id="dm-select-all" type="checkbox" onchange="toggleSelectAllVisible(this.checked)" title="เลือกทั้งหมดที่แสดงอยู่"></th>
-              <th style="padding:6px 2px;text-align:center;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0">Cat</th>
-              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Account</th>
-              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Due (Arrival+30m)</th>
-              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Last Update</th>
-              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Sender</th>
-              <th style="padding:6px 8px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0">Summary</th>
-              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Status</th>
-              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Assignee</th>
-              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Action Done</th>
-              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Working Time</th>
+              <th style="padding:6px 3px;text-align:center;border-bottom:2px solid #e0e0e0"><input id="dm-select-all" type="checkbox" onchange="toggleSelectAllVisible(this.checked)" title="เลือกทั้งหมดที่แสดงอยู่"></th>
+              <th style="padding:6px 2px;text-align:center;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0">Cat</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Account</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Due (Arrival+30m)</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Last Update</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Sender</th>
+              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0">Summary</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Status</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Assignee</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Action Done</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Working Time</th>
             </tr>
           </thead>
           <tbody id="dm-tbody">
@@ -912,11 +912,11 @@ function renderDashboard() {
       // Select — checkbox carries every msgId in the group, so bulk actions
       // (either the group row's own Assignee/Status, or the toolbar) apply
       // to every instance of this thread at once.
-      '<td style="padding:6px 4px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" data-msgids="'+idsAttr+'" '+(allSelected?'checked':'')+' onchange="syncCheckbox(this)"></td>'+
+      '<td style="padding:6px 3px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" data-msgids="'+idsAttr+'" '+(allSelected?'checked':'')+' onchange="syncCheckbox(this)"></td>'+
       // Category — color only (red/yellow/grey), no text
       '<td style="padding:6px 2px;text-align:center;overflow:hidden" title="'+(effectiveCategory||'')+'"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+(CATEGORY_DOT[effectiveCategory]||'#ccc')+'"></span></td>'+
       // Account
-      '<td style="padding:6px 4px;overflow:hidden;white-space:nowrap"><span style="font-size:9px;padding:2px 5px;border-radius:10px;background:#e8f0fe;color:#1a73e8;font-weight:700">'+shortAcc+'</span></td>'+
+      '<td style="padding:6px 3px;overflow:hidden;white-space:nowrap"><span style="font-size:10px;padding:2px 5px;border-radius:10px;background:#e8f0fe;color:#1a73e8;font-weight:700">'+shortAcc+'</span></td>'+
       // Due — compact formatted text with a fully transparent native
       // datetime-local input overlaid on top, so clicking anywhere on the
       // text opens the real picker without a native input's own locale-
@@ -926,27 +926,27 @@ function renderDashboard() {
       // px here would just overflow the column instead of resizing it.
       // Represents the group's first occurrence only — grouped items can
       // have genuinely different arrival times, so this isn't bulk-applied.
-      '<td style="padding:6px 6px;overflow:hidden">'+
+      '<td style="padding:6px 4px;overflow:hidden">'+
         '<div style="position:relative;display:block;width:100%" onclick="event.stopPropagation()">'+
           '<input id="'+dueId+'" type="datetime-local" value="'+dueVal+'" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0">'+
-          '<div style="pointer-events:none;font-size:10px;font-weight:'+dueWeight+';color:'+dueColor+';border:1px solid '+dueBorder+';border-radius:5px;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(dueVal?fmtReceived(dueVal):'—')+'</div>'+
+          '<div style="pointer-events:none;font-size:11px;font-weight:'+dueWeight+';color:'+dueColor+';border:1px solid '+dueBorder+';border-radius:5px;padding:2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(dueVal?fmtReceived(dueVal):'—')+'</div>'+
         '</div>'+
       '</td>'+
       // Last Update — blank unless grouped; see lastUpdateVal above
-      '<td style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:#888">'+lastUpdateVal+'</td>'+
+      '<td style="padding:6px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#888">'+lastUpdateVal+'</td>'+
       // Sender
-      '<td style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555;font-size:11px">'+e.from+'</td>'+
+      '<td style="padding:6px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555;font-size:12px">'+e.from+'</td>'+
       // Summary — the one column with no fixed <col> width, so table-layout:fixed gives it all the leftover space
-      '<td style="padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#222">'+e.subject+groupBadge+'</td>'+
+      '<td style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#222;font-size:13px">'+e.subject+groupBadge+'</td>'+
       // Status — applied to every msgId in the group (see idsAttr above)
-      '<td style="padding:6px 4px;overflow:hidden">'+
-        '<select onclick="event.stopPropagation()" onchange="applyStatusToMsgIds([\''+msgIds.join("','")+'\'],this.value).then(renderDashboard)" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:'+sb.bg+';color:'+sb.text+';font-weight:600;width:100%">'+
+      '<td style="padding:6px 3px;overflow:hidden">'+
+        '<select onclick="event.stopPropagation()" onchange="applyStatusToMsgIds([\''+msgIds.join("','")+'\'],this.value).then(renderDashboard)" style="font-size:11px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:'+sb.bg+';color:'+sb.text+';font-weight:600;width:100%">'+
           EMAIL_STATUSES.map(s=>'<option value="'+s+'"'+(s===st?' selected':'')+'>'+s+'</option>').join('')+
         '</select>'+
       '</td>'+
       // Assignee — applied to every msgId in the group (see idsAttr above)
-      '<td style="padding:6px 4px;overflow:hidden">'+
-        '<select onclick="event.stopPropagation()" onchange="applyAssigneeToMsgIds([\''+msgIds.join("','")+'\'],this.value).then(renderDashboard)" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:white;width:100%">'+
+      '<td style="padding:6px 3px;overflow:hidden">'+
+        '<select onclick="event.stopPropagation()" onchange="applyAssigneeToMsgIds([\''+msgIds.join("','")+'\'],this.value).then(renderDashboard)" style="font-size:11px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:white;width:100%">'+
           '<option value="">—</option>'+
           ASSIGNEES.map(a=>'<option value="'+a.email+'"'+(a.email===assigneeVal?' selected':'')+'>'+a.name+'</option>').join('')+
         '</select>'+
@@ -954,13 +954,13 @@ function renderDashboard() {
       // Action Done — free text, applied to every msgId in the group (see
       // idsAttr above) so a whole [MN-xx] thread shares one reference.
       // Defaults (until edited) to the [MN-xx] tag scanned off the subject.
-      '<td style="padding:6px 4px;overflow:hidden" onclick="event.stopPropagation()">'+
-        '<input value="'+escapeHtmlSmall(actionDoneVal)+'" onchange="applyActionDoneToMsgIds([\''+msgIds.join("','")+'\'],this.value).then(renderDashboard)" style="font-size:10px;padding:2px 4px;border:1px solid #ddd;border-radius:5px;width:100%;box-sizing:border-box">'+
+      '<td style="padding:6px 3px;overflow:hidden" onclick="event.stopPropagation()">'+
+        '<input value="'+escapeHtmlSmall(actionDoneVal)+'" onchange="applyActionDoneToMsgIds([\''+msgIds.join("','")+'\'],this.value).then(renderDashboard)" style="font-size:11px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;width:100%;box-sizing:border-box">'+
       '</td>'+
       // Working Time — elapsed since status first left "To Do", frozen once
       // Done. data-worktime-msgid + data-resolved let tickWorkTime() find and
       // update this cell every second without a full re-render.
-      '<td data-worktime-msgid="'+(e.msgId||'')+'" data-in-progress-since="'+(timing?.inProgressSince||'')+'" data-resolved-at="'+(timing?.resolvedAt||'')+'" style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-variant-numeric:tabular-nums;color:'+(timing?.resolvedAt?'#34a853':'#888')+';font-weight:'+(timing?.resolvedAt?'700':'400')+'">'+fmtDuration(timing?.inProgressSince, timing?.resolvedAt)+'</td>';
+      '<td data-worktime-msgid="'+(e.msgId||'')+'" data-in-progress-since="'+(timing?.inProgressSince||'')+'" data-resolved-at="'+(timing?.resolvedAt||'')+'" style="padding:6px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-variant-numeric:tabular-nums;color:'+(timing?.resolvedAt?'#34a853':'#888')+';font-weight:'+(timing?.resolvedAt?'700':'400')+'">'+fmtDuration(timing?.inProgressSince, timing?.resolvedAt)+'</td>';
     tbody.appendChild(tr);
 
     // Collapsed-by-default sub-rows for a grouped thread — read-only (no
@@ -976,13 +976,13 @@ function renderDashboard() {
           '<td></td>'+
           '<td></td>'+
           '<td></td>'+
-          '<td style="padding:4px 6px 4px 22px;font-size:10px;color:#999">'+fmtReceived(emailInboxDue(m.e.date))+'</td>'+
+          '<td style="padding:4px 4px 4px 20px;font-size:11px;color:#999">'+fmtReceived(emailInboxDue(m.e.date))+'</td>'+
           '<td></td>'+
-          '<td style="padding:4px 8px;font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.e.from+'</td>'+
+          '<td style="padding:4px 6px;font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.e.from+'</td>'+
           // This instance's OWN subject — grouping merges by ticket
           // reference, not exact subject text, so each occurrence can read
           // differently from the group row's representative subject above it.
-          '<td style="padding:4px 8px;font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.e.subject+'</td>'+
+          '<td style="padding:4px 6px;font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.e.subject+'</td>'+
           '<td colspan="4"></td>';
         tbody.appendChild(sub);
       });
