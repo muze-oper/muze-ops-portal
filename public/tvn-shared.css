@@ -196,13 +196,19 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .step strong { color: var(--ink); }
 .step button { flex: none; }
 
-/* Platform -> filter reference, rendered from the sheet's own Filters column. */
-.filter-ref { margin-top: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
-.filter-ref-head { font-size: 11.5px; margin-bottom: 6px; }
-.filter-ref-table { border-collapse: collapse; font-size: 11.5px; }
-.filter-ref-table th, .filter-ref-table td { padding: 3px 10px 3px 0; text-align: left; vertical-align: top; font-weight: 600; white-space: nowrap; }
-.filter-ref-table th { color: var(--ink); width: 120px; }
-.filter-ref-table td code { font-weight: 400; color: var(--ink-dim); }
+/* Platform -> filter reference, rendered from the sheet's own Filters column.
+   Filter lines stack one per line, the way Bitmovin's Filters panel shows
+   them, since this exists to be compared against that panel. */
+.filter-ref { margin-top: 8px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.filter-ref-head { font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+.filter-ref-sub { font-size: 11.5px; margin-bottom: 4px; }
+.filter-ref-list {
+  margin: 6px 0 0; padding-left: 22px; font-size: 11.5px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 18px;
+}
+.filter-ref-list li { margin: 0; }
+.ref-platform { display: block; font-weight: 700; color: var(--ink); margin-bottom: 1px; }
+.ref-line { display: block; color: var(--ink-dim); line-height: 1.55; }
 
 /* A dropdown filled from Claude's answer rather than by hand - blue marks it
    as a machine guess that still wants a glance before syncing. */
