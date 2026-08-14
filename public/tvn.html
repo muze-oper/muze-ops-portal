@@ -32,7 +32,7 @@
 <div class="wrap">
 
   <section class="block">
-    <div class="block-head"><h2 class="h">Error Sessions รายชั่วโมง (Bitmovin)</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">BITMOVIN Error Session in 24 hours</h2><div class="rule"></div></div>
     <div class="card">
       <div class="toolbar">
         <button class="btn-ghost" id="hourly-refresh-btn" onclick="loadHourlyTable()">🔄 รีเฟรชข้อมูล</button>
@@ -380,14 +380,14 @@ function renderHourlyTable() {
 
   const statCell = (v) => `<td class="col-stat">${v ? escapeHtml(v) : '<span style="color:var(--ink-faint)">—</span>'}</td>`;
 
-  // Average shares the hour cells' scale (green->yellow up to 2.00, then
-  // light->dark red), so a platform's overall day reads at a glance the same
-  // way its individual hours do. Because it looks identical to an hour cell,
-  // .col-avg carries a gap on its right to keep the two blocks apart.
+  // Average shares the hour cells' colour scale (green->yellow up to 2.00,
+  // then light->dark red), so a platform's overall day still reads at a
+  // glance the same way its individual hours do - but as a font colour, not
+  // a filled background, so it doesn't get mistaken for another hour cell.
   const avgCell = (raw) => {
     const color = heatColorForValue(raw ? parseFloat(raw) : NaN);
     const inner = raw ? escapeHtml(raw) : '<span style="color:var(--ink-faint)">—</span>';
-    const style = color ? ` style="background:${color};color:${heatTextColorFor(color)};"` : '';
+    const style = color ? ` style="color:${color};font-weight:700;"` : '';
     return `<td class="col-stat col-avg"${style}>${inner}</td>`;
   };
 
@@ -404,21 +404,33 @@ function renderHourlyTable() {
     </tr>`;
   }).join('');
 
-  // Label every 3rd hour only - 24 labels don't fit without colliding. Kept
-  // in the sheet's own "10.00" form so they read as times, not counts.
+  // Label every 3rd hour only - 24 labels don't fit without colliding. Split
+  // onto two explicit lines ("10" / ":00") via <br> rather than relying on
+  // the column overflowing into its blank neighbours - that overflow gets
+  // silently clipped when the table is captured as an export image, cutting
+  // "10.00" down to "10.".
   const headHours = hourlyTableColumns
-    .map((h, i) => `<th class="col-hour">${i % HOUR_LABEL_EVERY === 0 ? h : ''}</th>`)
+    .map((h, i) => `<th class="col-hour">${i % HOUR_LABEL_EVERY === 0 ? formatHourLabel(h) : ''}</th>`)
     .join('');
 
   body.innerHTML = `
     ${heatLegendHtml()}
     <div id="hourly-export-panel" style="overflow-x:auto;background:var(--surface);">
+      <div class="export-head"><span class="export-title">BITMOVIN Error Session in 24 hours</span></div>
       <table class="data hourly-heatmap">
-        <thead><tr><th class="col-platform">Platform</th><th class="col-date">Date</th><th class="col-stat">Peak</th><th class="col-stat">Peak&nbsp;Time</th><th class="col-stat col-avg">Avg</th>${headHours}</tr></thead>
+        <thead><tr><th class="col-platform">Platform</th><th class="col-date">Date</th><th class="col-stat">Peak</th><th class="col-stat">Peak<br>Time</th><th class="col-stat col-avg">Avg</th>${headHours}</tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
     </div>
   `;
+}
+
+// Sheet stores hours as "10.00" (dot, not colon) - reformat to "10:00" for
+// display, split as "10" / ":00" so it always fits the narrow column on two
+// lines instead of getting clipped on one.
+function formatHourLabel(h) {
+  const m = /^(\d{1,2})\./.exec(h || '');
+  return m ? `${m[1]}<br>:00` : escapeHtml(h || '');
 }
 
 const HOUR_LABEL_EVERY = 3; // show an hour label every N columns

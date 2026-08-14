@@ -109,19 +109,21 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
    columns so Platform+Date+24 hours+Average fits the page width without a
    horizontal scrollbar on a normal desktop viewport. */
 .hourly-heatmap { table-layout: fixed; font-size: 10.5px; }
-.hourly-heatmap th, .hourly-heatmap td { padding: 4px 3px; text-align: center; }
+/* table.data th/td (line 103/105 above) set text-align via 2 type selectors +
+   1 class, which beats this rule's 1 type + 1 class on specificity alone -
+   !important is the only way this centering actually wins. */
+.hourly-heatmap th, .hourly-heatmap td { padding: 4px 3px; text-align: center !important; }
 .hourly-heatmap td { font-variant-numeric: tabular-nums; border-top: 1px solid var(--border); }
 /* Label columns hold real words, so they get enough room to not collide with
    the first hour column - fixed layout clips rather than wraps otherwise. */
-.hourly-heatmap .col-platform { text-align: left; width: 104px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hourly-heatmap .col-platform { text-align: left !important; width: 104px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hourly-heatmap .col-date { width: 92px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Hour cells are colour-only except each row's peak, so they can stay narrow.
-   The "10.00" headers are wider than one column, but only every 3rd carries a
-   label - the rest are blank, so a label may overflow into them rather than
-   wrap or clip. */
-.hourly-heatmap .col-hour { width: 26px; }
-.hourly-heatmap th.col-hour { white-space: nowrap; overflow: visible; }
-.hourly-heatmap .col-stat { width: 54px; white-space: nowrap; }
+/* Hour cells are colour-only except each row's peak, so they can stay narrow -
+   the header label ("10"/":00") is split onto two lines via <br> in the JS,
+   not relied on to overflow into blank neighbour columns. */
+.hourly-heatmap .col-hour { width: 28px; }
+.hourly-heatmap .col-stat { width: 54px; }
+.hourly-heatmap td.col-stat { white-space: nowrap; }
 /* Avg is coloured on the same scale as the hours, so without a break it reads
    as just another hour cell - this gap separates the summary block. */
 .hourly-heatmap .col-avg { border-right: 6px solid var(--surface); }
