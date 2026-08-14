@@ -147,8 +147,19 @@ async function copyElementAsImage(targetId, resultElId, btnId) {
 
   btn.disabled = true;
   resultEl.textContent = 'กำลังสร้างรูปภาพ...';
+
+  // html2canvas captures the element's exact box, so without this the content
+  // ends up flush against every edge of the PNG. The padding has to be on the
+  // live element (not the clone) because the capture size is measured before
+  // cloning - a clone-only change would just get cropped. Reverted below.
+  const previousPadding = target.style.padding;
+  target.style.padding = '18px 20px';
+
   try {
-    const canvas = await html2canvas(target, { backgroundColor: '#ffffff', scale: 2 });
+    // Read the surface from the tokens so a dark-mode export doesn't come out
+    // with light text on a white background.
+    const surface = getComputedStyle(document.body).getPropertyValue('--surface').trim() || '#ffffff';
+    const canvas = await html2canvas(target, { backgroundColor: surface, scale: 2 });
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!blob) throw new Error('สร้างรูปภาพไม่สำเร็จ');
 
@@ -157,6 +168,7 @@ async function copyElementAsImage(targetId, resultElId, btnId) {
   } catch (err) {
     resultEl.textContent = 'Error: ' + err.message;
   } finally {
+    target.style.padding = previousPadding;
     btn.disabled = false;
   }
 }

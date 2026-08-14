@@ -207,6 +207,10 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .stat-value { font-family: var(--font-mono); font-size: 21px; font-weight: 700; color: var(--ink); line-height: 1.2; }
 .stat-label { font-size: 11px; color: var(--ink-dim); margin-top: 3px; }
 
+/* Kept in CSS, not inline: copyElementAsImage temporarily sets and clears the
+   padding shorthand on this element, which would wipe an inline padding-top. */
+#tec-dash-export { background: var(--surface); padding-top: 4px; }
+
 /* Filters in one row above the charts, export action pushed to the far end. */
 .dash-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .dash-filters { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
