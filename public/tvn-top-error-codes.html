@@ -37,7 +37,13 @@
       <div class="steps">
         <div class="step">
           <span class="step-no">Step 1</span>
-          <span class="step-text">เปิด Bitmovin → ตั้ง <strong>Filters</strong> ของ platform ที่ต้องการ → แคป screenshot กราฟ "Top Error Codes" <strong>ให้เห็นกล่อง Filters ด้วย</strong> พร้อมแกนตัวเลขด้านล่าง</span>
+          <span class="step-text">
+            เปิด Bitmovin → ตั้ง <strong>Filters</strong> ของ platform ที่ต้องการ → แคป screenshot กราฟ "Top Error Codes" <strong>ให้เห็นกล่อง Filters ด้วย</strong> พร้อมแกนตัวเลขด้านล่าง
+            <div class="filter-ref">
+              <div class="filter-ref-head">Filter ที่ต้องใช้ — <strong>Show Metrics Between = Last 24 hours</strong> และ Platform filters ตามนี้:</div>
+              <table class="filter-ref-table"><tbody id="tec-filter-ref"></tbody></table>
+            </div>
+          </span>
         </div>
         <div class="step">
           <span class="step-no">Step 2</span>
@@ -152,6 +158,7 @@ async function loadTopErrorCodes() {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     tecBlocks = data.blocks || [];
+    renderFilterReference();
     select.innerHTML = tecBlocks
       .map(b => `<option value="${escapeHtml(b.platform)}">${escapeHtml(b.platform)}</option>`)
       .join('');
@@ -165,6 +172,19 @@ async function loadTopErrorCodes() {
     select.innerHTML = '<option value="">โหลด platform ไม่สำเร็จ</option>';
     document.getElementById('error-codes-result').textContent = 'Error: ' + err.message;
   }
+}
+
+// Built from the sheet's own Filters column rather than a copy kept here, so
+// the reference can't drift from what the platform blocks actually say.
+function renderFilterReference() {
+  const el = document.getElementById('tec-filter-ref');
+  if (!el) return;
+  el.innerHTML = tecBlocks.map(b => `
+    <tr>
+      <th>${escapeHtml(b.platform)}</th>
+      <td><code>${escapeHtml(b.filters.replace(/\n/g, '  ·  '))}</code></td>
+    </tr>
+  `).join('');
 }
 
 function currentTecBlock() {
