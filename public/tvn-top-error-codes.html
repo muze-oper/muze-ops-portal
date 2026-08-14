@@ -32,40 +32,36 @@
 <div class="wrap">
 
   <section class="block">
-    <div class="block-head"><h2 class="h">แนบ Screenshot + เลือก Platform</h2><div class="rule"></div></div>
-    <div class="card">
-      <div class="hint">
-        แคป screenshot กราฟ "Top Error Codes" จาก Bitmovin → วางไว้ที่นี่เพื่อดูอ้างอิง → เทียบ <strong>Filters</strong> ในรูปกับรายการ platform ด้านล่าง แล้วเลือกให้ตรง (ตัวที่เลือกเป็นตัวกำหนดว่าจะเขียนลงแถวไหนในชีต)
-      </div>
-      <div id="paste-area-errorcodes" class="paste-area" tabindex="0">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง</div>
-
-      <div class="field-row" style="margin-top:14px;">
-        <label class="field-label" for="tec-platform">Platform (ต้องตรงกับ Filters ในรูป)</label>
-        <select id="tec-platform" onchange="onTecPlatformChange()"><option value="">กำลังโหลด...</option></select>
-      </div>
-      <div id="tec-filters-preview" class="hint" style="margin-top:6px;"></div>
-
-      <div class="field-row" style="margin-top:12px;">
-        <label class="field-label" for="tec-date">Date (วันที่บันทึก)</label>
-        <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
-      </div>
-    </div>
-  </section>
-
-  <section class="block">
     <div class="block-head"><h2 class="h">Top Error Codes</h2><div class="rule"></div></div>
     <div class="card">
       <div class="hint">
-        ให้ Claude อ่านค่าจาก screenshot ในแชท Claude Code (ใช้ skill ด้านล่างของหน้านี้) แล้ววางผลลัพธ์ลงกล่องด้านล่าง บรรทัดละ 1 อันดับ รูปแบบ <code>avplayer-26.6: -12643, 600</code> แล้วกด "แยกลงตาราง" — หรือจะพิมพ์ลงตารางเองก็ได้
+        แคป screenshot กราฟ "Top Error Codes" จาก Bitmovin → วางทางซ้ายไว้อ้างอิง → ให้ Claude อ่านค่าในแชท Claude Code (ใช้ skill ด้านล่างของหน้านี้) แล้ววางผลลัพธ์ทางขวา บรรทัดละ 1 อันดับ รูปแบบ <code>avplayer-26.6: -12643, 600</code> → กด "แยกลงตาราง" (หรือพิมพ์ลงตารางเองก็ได้)
       </div>
       <div class="sheet-link-row">
         <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1613893186#gid=1613893186" target="_blank" rel="noopener">📄 เปิดชีต BitMovin Top Error Codes</a>
       </div>
 
-      <textarea id="tec-paste-input" class="paste-input" placeholder="avplayer-26.6: -12643, 600&#10;avplayer-26.5.2: -12643, 570&#10;avplayer-26.6: -16839, 225"></textarea>
-      <div class="table-actions">
-        <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
+      <div class="tec-input-grid">
+        <div class="tec-input-col">
+          <label class="field-label">Screenshot (อ้างอิงอย่างเดียว)</label>
+          <div id="paste-area-errorcodes" class="paste-area paste-area-compact" tabindex="0">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูปมาวาง</div>
+        </div>
+        <div class="tec-input-col">
+          <label class="field-label" for="tec-paste-input">วางค่าที่ Claude อ่านให้</label>
+          <textarea id="tec-paste-input" class="paste-input paste-input-compact" placeholder="avplayer-26.6: -12643, 600&#10;avplayer-26.5.2: -12643, 557&#10;avplayer-26.6: -16839, 224"></textarea>
+          <div class="table-actions" style="margin-top:8px;">
+            <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
+          </div>
+        </div>
       </div>
+
+      <div class="field-row" style="margin-top:14px;">
+        <label class="field-label" for="tec-platform">Platform (ต้องตรงกับ Filters ในรูป)</label>
+        <select id="tec-platform" onchange="onTecPlatformChange()"><option value="">กำลังโหลด...</option></select>
+        <label class="field-label" for="tec-date" style="margin-left:8px;">Date</label>
+        <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
+      </div>
+      <div id="tec-filters-preview" class="hint" style="margin-top:6px;"></div>
 
       <div id="error-codes-export-panel" style="background:var(--surface);margin-top:14px;">
         <table class="data" id="error-codes-table">
@@ -74,13 +70,22 @@
         </table>
       </div>
       <div class="table-actions">
-        <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync เข้าชีต</button>
+        <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync to Google Sheet</button>
         <button class="btn-ghost" id="tec-clear-btn" onclick="clearTecRows()">ล้างตาราง</button>
         <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
       </div>
       <div id="error-codes-result" class="result-text"></div>
     </div>
   </section>
+
+  <dialog id="tec-confirm" class="confirm-dialog">
+    <div class="confirm-title">ตรวจข้อมูลเรียบร้อยแล้วใช่ไหม?</div>
+    <div class="confirm-body" id="tec-confirm-body"></div>
+    <div class="confirm-actions">
+      <button class="btn-ghost" onclick="closeTecConfirm(false)">Review Again</button>
+      <button class="btn-primary" onclick="closeTecConfirm(true)">Yes, sync now</button>
+    </div>
+  </dialog>
 
   <section class="block">
     <div class="block-head"><h2 class="h">วิธี Import Skill ให้ทีม</h2><div class="rule"></div></div>
@@ -248,6 +253,31 @@ function readTecRows() {
   }));
 }
 
+// Sync overwrites a whole block, so it goes through an explicit review gate -
+// resolves true only when "Yes, sync now" is pressed. Esc / backdrop dismissal
+// counts as "Review Again".
+let tecConfirmResolve = null;
+
+function askTecConfirm(bodyHtml) {
+  const dlg = document.getElementById('tec-confirm');
+  document.getElementById('tec-confirm-body').innerHTML = bodyHtml;
+  return new Promise(resolve => {
+    tecConfirmResolve = resolve;
+    dlg.showModal();
+  });
+}
+
+function closeTecConfirm(confirmed) {
+  // Claim the resolver before close(), so the 'close' event handler below
+  // can't re-enter and settle the same promise with `false` first.
+  const resolve = tecConfirmResolve;
+  tecConfirmResolve = null;
+  document.getElementById('tec-confirm').close();
+  if (resolve) resolve(confirmed);
+}
+
+document.getElementById('tec-confirm').addEventListener('close', () => closeTecConfirm(false));
+
 async function syncTopErrorCodes() {
   const btn = document.getElementById('tec-sync-btn');
   const resultEl = document.getElementById('error-codes-result');
@@ -255,8 +285,24 @@ async function syncTopErrorCodes() {
   if (!block) { resultEl.textContent = 'ยังไม่ได้เลือก platform'; return; }
 
   const entries = readTecRows();
-  if (!entries.some(e => e.playerVersion.trim() || e.errorCode.trim() || e.approxSession.trim())) {
+  const filled = entries.filter(e => e.playerVersion.trim() || e.errorCode.trim() || e.approxSession.trim());
+  if (!filled.length) {
     resultEl.textContent = 'ตารางว่างอยู่ - ยังไม่มีอะไรให้ sync';
+    return;
+  }
+
+  const date = document.getElementById('tec-date').value.trim() || todayBangkokLabel();
+  const capacity = block.endRow - block.startRow + 1;
+  const confirmed = await askTecConfirm(`
+    จะเขียนทับข้อมูลเดิมทั้งบล็อกของ platform นี้:<br><br>
+    Platform: <strong>${escapeHtml(block.platform)}</strong><br>
+    Date: <strong>${escapeHtml(date)}</strong><br>
+    จำนวน: <strong>${filled.length}</strong> อันดับ (แถว ${block.startRow}–${block.endRow})<br><br>
+    ${filled.length < capacity ? `แถวที่เหลืออีก ${capacity - filled.length} แถวจะถูกล้างให้ว่าง<br><br>` : ''}
+    ตรวจค่าในตารางเรียบร้อยแล้วใช่ไหม?
+  `);
+  if (!confirmed) {
+    resultEl.textContent = 'ยกเลิกแล้ว - กลับไปตรวจข้อมูลอีกครั้ง';
     return;
   }
 
@@ -266,7 +312,7 @@ async function syncTopErrorCodes() {
     const res = await fetch('/api/tvn/top-error-codes/record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform: block.platform, entries, dateLabel: document.getElementById('tec-date').value.trim() }),
+      body: JSON.stringify({ platform: block.platform, entries, dateLabel: date }),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);

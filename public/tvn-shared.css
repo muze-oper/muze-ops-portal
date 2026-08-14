@@ -162,6 +162,27 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 }
 .paste-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 
+/* Screenshot box and value box sit side by side, so both are kept to about
+   half the standalone paste-area's height to stay level with each other. */
+.tec-input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; margin-top: 12px; }
+.tec-input-col { min-width: 0; }
+.tec-input-col .field-label { display: block; margin-bottom: 6px; }
+.paste-area-compact { padding: 14px; font-size: 12px; min-height: 150px; display: flex; align-items: center; justify-content: center; }
+.paste-area-compact img { max-height: 180px; }
+.paste-input-compact { height: 150px; margin-top: 0; }
+@media (max-width: 720px) { .tec-input-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Confirm dialog (review-before-sync) ---------- */
+.confirm-dialog {
+  border: 1px solid var(--border); border-radius: 12px; padding: 0; max-width: 440px; width: calc(100% - 32px);
+  background: var(--surface); color: var(--ink); box-shadow: 0 16px 44px rgba(0,0,0,.28);
+}
+.confirm-dialog::backdrop { background: rgba(10, 15, 13, .45); }
+.confirm-dialog .confirm-title { font-family: var(--font-sans); font-size: 15px; font-weight: 700; padding: 18px 20px 0; }
+.confirm-dialog .confirm-body { padding: 10px 20px 0; font-size: 12.5px; line-height: 1.65; color: var(--ink-dim); }
+.confirm-dialog .confirm-body strong { color: var(--ink); }
+.confirm-dialog .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 18px 20px; }
+
 /* ---------- Crashlytics table ---------- */
 .cl-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .cl-table th { text-align: left; background: var(--surface-2); color: var(--ink-faint); font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; font-family: var(--font-mono); border-bottom: 1px solid var(--border); }
