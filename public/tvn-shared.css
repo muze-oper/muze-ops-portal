@@ -175,6 +175,9 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .tec-btn-col { display: flex; flex-direction: column; gap: 8px; }
 .tec-btn-col button { width: 100%; }
 .tec-btn-col .result-text { margin-top: 4px; }
+/* A step row sitting in this narrow column stacks its badge above the text,
+   rather than squeezing both onto one line. */
+.tec-btn-col .step { flex-direction: column; align-items: flex-start; gap: 5px; margin-bottom: 2px; }
 
 @media (max-width: 860px) {
   .tec-paste-row, .tec-table-row { grid-template-columns: 1fr; }

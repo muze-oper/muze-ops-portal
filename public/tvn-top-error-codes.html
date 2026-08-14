@@ -48,10 +48,6 @@
           <span class="step-no">Step 3</span>
           <span class="step-text">copy คำตอบของ Claude มาวางในช่องด้านล่าง — Platform จะถูกเลือกให้ทันที (ขึ้น<span style="color:#1a73e8;font-weight:700;">สีน้ำเงิน</span>) ให้เช็คว่าตรงกับรูป</span>
         </div>
-        <div class="step">
-          <span class="step-no">Step 4</span>
-          <span class="step-text">กด <strong>แยกลงตาราง</strong> → ตรวจค่าในตาราง + Date → กด <strong>Sync to Google Sheet</strong></span>
-        </div>
       </div>
       <code id="tec-claude-prompt" hidden>อ่านกราฟ Top Error Codes นี้ ตอบบรรทัดแรกเป็น "Platform: &lt;ชื่อ platform&gt;" ตาม Filters ในรูป แล้วบรรทัดต่อไปละ 1 อันดับ รูปแบบ "player-version: error-code, approx-session" เรียงมากไปน้อย ไม่ต้องมีข้อความอื่น</code>
 
@@ -85,6 +81,10 @@
           </table>
         </div>
         <div class="tec-btn-col">
+          <div class="step">
+            <span class="step-no">Step 4</span>
+            <span class="step-text">กด <strong>แยกลงตาราง</strong> → ตรวจค่าในตาราง + Date → กด <strong>Sync to Google Sheet</strong></span>
+          </div>
           <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
           <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync to Google Sheet</button>
           <button class="btn-ghost" id="tec-clear-btn" onclick="clearTecRows()">ล้างตาราง</button>
