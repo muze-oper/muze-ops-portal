@@ -34,39 +34,31 @@
   <section class="block">
     <div class="block-head"><h2 class="h">Top Error Codes</h2><div class="rule"></div></div>
     <div class="card">
-      <ol class="how-to">
-        <li>เปิด Bitmovin → ตั้ง <strong>Filters</strong> ของ platform ที่ต้องการ → แคป screenshot กราฟ "Top Error Codes" ให้เห็นทั้งชื่อ error code, แท่งกราฟ และแกนตัวเลขด้านล่าง</li>
-        <li>วางรูป (Ctrl/Cmd+V) ในกล่องซ้าย → กด <strong>“ส่งรูปให้ Claude Code”</strong> เพื่อ copy รูปเข้า clipboard</li>
-        <li>สลับไปที่แชท Claude Code (เปิดจากโฟลเดอร์ <code>muze-ops-portal</code> ตามวิธีด้านล่างของหน้านี้) → กด Ctrl/Cmd+V วางรูป → พิมพ์คำสั่งที่หน้านี้บอกไว้ให้</li>
-        <li>copy คำตอบของ Claude มาวางในกล่องขวา → กด <strong>“แยกลงตาราง”</strong> → ตรวจค่าในตารางให้ครบ</li>
-        <li>เลือก <strong>Platform</strong> ให้ตรงกับ Filters ในรูป (ตัวนี้เป็นตัวกำหนดว่าจะเขียนลงแถวไหน) แล้วกด <strong>Sync to Google Sheet</strong></li>
-      </ol>
-
-      <div class="tec-input-grid">
-        <div class="tec-input-col">
-          <label class="field-label">1. Screenshot จาก Bitmovin</label>
-          <div id="paste-area-errorcodes" class="paste-area paste-area-compact" tabindex="0">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูปมาวาง</div>
-          <div class="table-actions" style="margin-top:8px;">
-            <button class="btn-ghost" id="tec-send-claude-btn" onclick="sendPictureToClaudeCode()" disabled>🤖 ส่งรูปให้ Claude Code</button>
-          </div>
-          <div id="tec-claude-hint" class="result-text"></div>
-        </div>
-        <div class="tec-input-col">
-          <label class="field-label" for="tec-paste-input">2. วางค่าที่ Claude อ่านให้</label>
-          <textarea id="tec-paste-input" class="paste-input paste-input-compact" placeholder="avplayer-26.6: -12643, 600&#10;avplayer-26.5.2: -12643, 557&#10;avplayer-26.6: -16839, 224"></textarea>
-          <div class="table-actions" style="margin-top:8px;">
-            <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="field-row" style="margin-top:14px;">
-        <label class="field-label" for="tec-platform">Platform (ต้องตรงกับ Filters ในรูป)</label>
-        <select id="tec-platform" onchange="onTecPlatformChange()"><option value="">กำลังโหลด...</option></select>
+      <div class="field-row" style="margin-bottom:12px;">
+        <label class="field-label" for="tec-platform">Platform</label>
+        <select id="tec-platform" onchange="onTecPlatformChange(true)"><option value="">กำลังโหลด...</option></select>
         <label class="field-label" for="tec-date" style="margin-left:8px;">Date</label>
         <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
+        <span id="tec-platform-source" class="platform-source"></span>
       </div>
-      <div id="tec-filters-preview" class="hint" style="margin-top:6px;"></div>
+      <div id="tec-filters-preview" class="hint" style="margin-bottom:12px;"></div>
+
+      <ol class="how-to">
+        <li>เปิด Bitmovin → ตั้ง <strong>Filters</strong> ของ platform ที่ต้องการ → แคป screenshot กราฟ "Top Error Codes" <strong>ให้เห็นกล่อง Filters ด้วย</strong> (Claude ใช้ตรงนั้นบอกว่าเป็น platform ไหน) พร้อมชื่อ error code, แท่งกราฟ และแกนตัวเลขด้านล่าง</li>
+        <li>เปิดแชท <strong>Claude Code</strong> (จากโฟลเดอร์ <code>muze-ops-portal</code> ตามวิธีด้านล่างของหน้านี้) → วาง screenshot ลงในแชทโดยตรง (Ctrl/Cmd+V) → พิมพ์คำสั่ง:
+          <div class="prompt-box"><code id="tec-claude-prompt">อ่านกราฟ Top Error Codes นี้ ตอบบรรทัดแรกเป็น "Platform: &lt;ชื่อ platform&gt;" ตาม Filters ในรูป แล้วบรรทัดต่อไปละ 1 อันดับ รูปแบบ "player-version: error-code, approx-session" เรียงมากไปน้อย ไม่ต้องมีข้อความอื่น</code>
+            <button type="button" class="btn-ghost" onclick="copyClaudePrompt()">📋 copy คำสั่ง</button>
+          </div>
+        </li>
+        <li>copy คำตอบทั้งก้อนของ Claude มาวางในกล่องด้านล่าง → กด <strong>“แยกลงตาราง”</strong> — ถ้าคำตอบมีบรรทัด <code>Platform:</code> ระบบจะเลือก Platform ให้อัตโนมัติ (ตัวหนังสือใน dropdown จะเป็น<span style="color:#1a73e8;font-weight:700;">สีน้ำเงิน</span>) ให้เช็คว่าตรงกับรูป</li>
+        <li>ตรวจค่าในตาราง + Date ให้ครบ แล้วกด <strong>Sync to Google Sheet</strong></li>
+      </ol>
+
+      <label class="field-label" for="tec-paste-input" style="display:block;margin-bottom:6px;">วางคำตอบที่ Claude อ่านให้</label>
+      <textarea id="tec-paste-input" class="paste-input paste-input-compact" placeholder="Platform: Android Mobile&#10;media3-exoplayer-1.10.1: 2004, 519&#10;media3-exoplayer-1.10.1: 4001, 345"></textarea>
+      <div class="table-actions" style="margin-top:8px;">
+        <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
+      </div>
 
       <div id="error-codes-export-panel" style="background:var(--surface);margin-top:14px;">
         <table class="data" id="error-codes-table">
@@ -154,7 +146,10 @@ function currentTecBlock() {
 // Shows the sheet's own Filters text for the selected platform so it can be
 // eyeballed against the Filters panel in the screenshot, and loads whatever
 // that block currently holds so a sync starts from the existing snapshot.
-function onTecPlatformChange() {
+// `byHand` is true when a human moved the dropdown, which drops the
+// auto-filled highlight - the value is no longer Claude's suggestion.
+function onTecPlatformChange(byHand) {
+  if (byHand) setPlatformAutofilled(false, '');
   const block = currentTecBlock();
   const preview = document.getElementById('tec-filters-preview');
   if (!block) { preview.textContent = ''; return; }
@@ -224,28 +219,66 @@ function parseErrorCodeLine(line) {
   };
 }
 
+// Claude is asked to lead its answer with "Platform: <name>", read off the
+// Filters box in the screenshot - that line is what prefills the dropdown, so
+// the platform never has to be matched by hand.
+function parsePlatformLine(line) {
+  const m = /^platform\s*[:=]\s*(.+)$/i.exec(String(line).trim());
+  return m ? m[1].trim() : null;
+}
+
+// Marks the dropdown as machine-filled (blue) rather than hand-picked, so a
+// wrong auto-detection is obvious instead of silently trusted.
+function setPlatformAutofilled(on, note) {
+  const select = document.getElementById('tec-platform');
+  select.classList.toggle('autofilled', !!on);
+  document.getElementById('tec-platform-source').textContent = note || '';
+}
+
 function parseTecPasted() {
   const resultEl = document.getElementById('error-codes-result');
+  const lines = document.getElementById('tec-paste-input').value.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // A leading Platform: line has to be applied before the table is sized,
+  // since block capacity depends on which platform is selected.
+  const notes = [];
+  const remaining = [];
+  lines.forEach(line => {
+    const hinted = parsePlatformLine(line);
+    if (!hinted) { remaining.push(line); return; }
+    const select = document.getElementById('tec-platform');
+    const match = [...select.options].find(o => o.value.toLowerCase() === hinted.toLowerCase());
+    if (match) {
+      select.value = match.value;
+      onTecPlatformChange(false);
+      setPlatformAutofilled(true, `← ตั้งจากคำตอบของ Claude`);
+      notes.push(`เลือก Platform เป็น "${match.value}" จากคำตอบของ Claude`);
+    } else {
+      notes.push(`คำตอบระบุ Platform "${hinted}" ซึ่งไม่ตรงกับตัวเลือกใดในชีต - เลือกเองด้านบน`);
+    }
+  });
+
   const block = currentTecBlock();
   const capacity = block ? block.endRow - block.startRow + 1 : 10;
-  const lines = document.getElementById('tec-paste-input').value.split('\n').map(l => l.trim()).filter(Boolean);
 
   const parsed = [];
   const skipped = [];
-  lines.forEach(line => {
+  remaining.forEach(line => {
     const entry = parseErrorCodeLine(line);
     if (entry) parsed.push(entry); else skipped.push(line);
   });
 
+  const say = (msg) => { resultEl.textContent = [...notes, msg].join('\n'); };
+
   if (!parsed.length) {
-    resultEl.textContent = 'อ่านไม่ได้สักบรรทัด - รูปแบบที่รองรับคือ "avplayer-26.6: -12643, 600"';
+    say('อ่านค่าไม่ได้สักบรรทัด - รูปแบบที่รองรับคือ "avplayer-26.6: -12643, 600"');
     return;
   }
   if (parsed.length > capacity) {
-    resultEl.textContent = `แยกได้ ${parsed.length} บรรทัด แต่ ${block.platform} รับได้แค่ ${capacity} - ตัดเหลือ ${capacity} อันดับแรก`;
+    say(`แยกได้ ${parsed.length} บรรทัด แต่ ${block.platform} รับได้แค่ ${capacity} - ตัดเหลือ ${capacity} อันดับแรก`);
     parsed.length = capacity;
   } else {
-    resultEl.textContent = `แยกลงตารางแล้ว ${parsed.length} อันดับ` + (skipped.length ? ` (ข้าม ${skipped.length} บรรทัดที่อ่านไม่ออก: ${skipped.join(' | ')})` : '');
+    say(`แยกลงตารางแล้ว ${parsed.length} อันดับ` + (skipped.length ? ` (ข้าม ${skipped.length} บรรทัดที่อ่านไม่ออก: ${skipped.join(' | ')})` : ''));
   }
   renderTecRows(parsed, capacity);
 }
@@ -330,49 +363,19 @@ async function syncTopErrorCodes() {
   }
 }
 
-// The page can't talk to Claude Code directly - it runs on the reader's own
-// machine with nothing listening for a browser to call. The closest thing is
-// to put the screenshot on the clipboard and hand over the exact prompt, so
-// the handoff is two keystrokes instead of a re-screenshot.
-const CLAUDE_PROMPT = 'อ่านกราฟ Top Error Codes นี้ให้หน่อย ตอบเป็นบรรทัดละ 1 อันดับ รูปแบบ "player-version: error-code, approx-session" เรียงจากมากไปน้อย ไม่ต้องมีข้อความอื่น';
-
-async function sendPictureToClaudeCode() {
-  const btn = document.getElementById('tec-send-claude-btn');
-  const hint = document.getElementById('tec-claude-hint');
-  btn.disabled = true;
-  hint.textContent = 'กำลัง copy รูป...';
-  try {
-    await copyPastedImageToClipboard('paste-area-errorcodes');
-    hint.innerHTML = `copy รูปแล้ว → ไปที่แชท Claude Code กด Ctrl/Cmd+V วางรูป แล้วพิมพ์:
-      <br><code id="tec-claude-prompt">${escapeHtml(CLAUDE_PROMPT)}</code>
-      <br><button type="button" class="btn-ghost" style="margin-top:6px;" onclick="copyClaudePrompt()">📋 copy คำสั่ง</button>`;
-  } catch (err) {
-    hint.textContent = 'Error: ' + err.message;
-  } finally {
-    btn.disabled = !getPastedImageFile('paste-area-errorcodes');
-  }
-}
-
+// The screenshot goes straight into the Claude Code chat rather than through
+// this page - it can't reach Claude Code anyway, and routing the image
+// through here only added a copy step. This just hands over the prompt text.
 async function copyClaudePrompt() {
+  const resultEl = document.getElementById('error-codes-result');
   try {
-    await navigator.clipboard.writeText(CLAUDE_PROMPT);
-    document.getElementById('tec-claude-hint').textContent = 'copy คำสั่งแล้ว - วางต่อจากรูปในแชท Claude Code ได้เลย (รูปยังอยู่ในกล่องซ้าย ถ้าต้อง copy รูปใหม่กดปุ่มเดิมอีกครั้ง)';
+    await navigator.clipboard.writeText(document.getElementById('tec-claude-prompt').textContent.trim());
+    resultEl.textContent = 'copy คำสั่งแล้ว - ไปวางต่อจาก screenshot ในแชท Claude Code ได้เลย';
   } catch (err) {
-    document.getElementById('tec-claude-hint').textContent = 'Error: ' + err.message;
+    resultEl.textContent = 'Error: ' + err.message;
   }
 }
 
-// Only offer the handoff once there's actually an image to send.
-function syncSendButtonState() {
-  document.getElementById('tec-send-claude-btn').disabled = !getPastedImageFile('paste-area-errorcodes');
-}
-document.getElementById('paste-area-errorcodes').addEventListener('paste-area-change', () => {
-  syncSendButtonState();
-  document.getElementById('tec-claude-hint').textContent = '';
-});
-
-setupPasteArea('paste-area-errorcodes');
-syncSendButtonState();
 loadTopErrorCodes();
 </script>
 </body>

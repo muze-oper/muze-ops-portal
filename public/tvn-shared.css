@@ -162,27 +162,23 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 }
 .paste-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 
-/* Screenshot box and value box sit side by side, so both are kept to about
-   half the standalone paste-area's height to stay level with each other. */
-.tec-input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; margin-top: 12px; }
-.tec-input-col { min-width: 0; }
-.tec-input-col .field-label { display: block; margin-bottom: 6px; }
-/* Column direction matters once an image is in here: the image and its
-   "remove" button are siblings, so a row layout puts them side by side and
-   pushes the button out of the box. */
-.paste-area-compact {
-  padding: 14px; font-size: 12px; min-height: 150px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-}
-.paste-area-compact img { max-width: 100%; max-height: 190px; width: auto; object-fit: contain; }
-.paste-area-compact .clear-btn { margin-top: 0; flex: none; }
 .paste-input-compact { height: 150px; margin-top: 0; }
-@media (max-width: 720px) { .tec-input-grid { grid-template-columns: 1fr; } }
 
 /* Numbered walkthrough above an input panel. */
-.how-to { margin: 0 0 4px; padding-left: 20px; font-size: 12.5px; line-height: 1.75; color: var(--ink-dim); }
+.how-to { margin: 0 0 14px; padding-left: 20px; font-size: 12.5px; line-height: 1.75; color: var(--ink-dim); }
 .how-to li { margin-bottom: 3px; }
 .how-to strong { color: var(--ink); }
+.prompt-box {
+  display: flex; align-items: flex-start; gap: 8px; margin: 6px 0 4px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2);
+}
+.prompt-box code { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.6; }
+.prompt-box button { flex: none; }
+
+/* A dropdown filled from Claude's answer rather than by hand - blue marks it
+   as a machine guess that still wants a glance before syncing. */
+select.autofilled { color: #1a73e8; font-weight: 700; }
+.platform-source { font-size: 11.5px; color: #1a73e8; font-weight: 600; }
 
 /* ---------- Confirm dialog (review-before-sync) ---------- */
 .confirm-dialog {

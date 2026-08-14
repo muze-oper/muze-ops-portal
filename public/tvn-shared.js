@@ -104,19 +104,13 @@ function setupPasteArea(areaId) {
   });
 }
 
-// The pasted file itself is kept (not just its data URL) so callers can hand
-// the original image back to the clipboard - see copyPastedImageToClipboard.
-const pastedImageFiles = new Map(); // areaId -> File
-
 function showPastedImage(area, file) {
   const reader = new FileReader();
   reader.onload = () => {
-    pastedImageFiles.set(area.id, file);
     area.dataset.hasImage = '1';
     area.classList.add('has-image');
     area.innerHTML = `<img src="${reader.result}" alt="screenshot ที่แนบไว้">
       <button type="button" class="btn-ghost clear-btn" onclick="clearPasteArea('${area.id}')">✕ ลบรูป</button>`;
-    area.dispatchEvent(new CustomEvent('paste-area-change', { bubbles: true }));
   };
   reader.readAsDataURL(file);
 }
@@ -124,37 +118,9 @@ function showPastedImage(area, file) {
 function clearPasteArea(areaId) {
   const area = document.getElementById(areaId);
   if (!area) return;
-  pastedImageFiles.delete(areaId);
   delete area.dataset.hasImage;
   area.classList.remove('has-image');
   area.innerHTML = '📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง';
-  area.dispatchEvent(new CustomEvent('paste-area-change', { bubbles: true }));
-}
-
-function getPastedImageFile(areaId) {
-  return pastedImageFiles.get(areaId) || null;
-}
-
-// Puts the pasted screenshot back on the clipboard so it can be pasted
-// straight into a Claude Code chat. Always re-encodes to PNG through a
-// canvas: ClipboardItem only reliably accepts image/png, and a screenshot
-// dragged in from disk may well be a JPEG.
-async function copyPastedImageToClipboard(areaId) {
-  const file = getPastedImageFile(areaId);
-  if (!file) throw new Error('ยังไม่ได้วางรูป');
-  if (!navigator.clipboard || !window.ClipboardItem) {
-    throw new Error('เบราว์เซอร์นี้ copy รูปเข้า clipboard ไม่ได้ (ลองใช้ Chrome/Edge)');
-  }
-
-  const bitmap = await createImageBitmap(file);
-  const canvas = document.createElement('canvas');
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  canvas.getContext('2d').drawImage(bitmap, 0, 0);
-  const png = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-  if (!png) throw new Error('แปลงรูปเป็น PNG ไม่สำเร็จ');
-
-  await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
 }
 
 // ---- Copy a rendered table (or any element) to the clipboard as a PNG -

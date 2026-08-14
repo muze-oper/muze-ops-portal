@@ -53,12 +53,31 @@ Report:
   (Crashlytics) filter was actually active, so the person entering it can
   double check it matches what they intended to check
 
-**List read (Bitmovin Top Error Codes):** Report every row visible in the
-screenshot as a numbered list of `rank, error code, session count` -
-don't truncate to just the top few unless asked to. Keep the error code
-string exactly as shown (it usually includes a library/version prefix
-like `media3-exoplayer-1.10.1:` before the numeric code - that prefix is
-part of the code, not noise to strip).
+**List read (Bitmovin Top Error Codes):** Answer in exactly the shape the
+`/tvn/top-error-codes` page parses, so it can be pasted in with no editing -
+a `Platform:` line first, then one line per row, ranked highest first, and
+nothing else in the reply:
+
+```
+Platform: Android Mobile
+media3-exoplayer-1.10.1: 2004, 519
+media3-exoplayer-1.10.1: 4001, 345
+```
+
+- The `Platform:` value must be the **sheet's** platform name from the table
+  in step 2 (`Android Mobile`), not the raw filter text (`android`) - the
+  page matches it against its dropdown and ignores anything it can't match.
+- Split the row label at its colon: the library/version prefix
+  (`media3-exoplayer-1.10.1`, `avplayer-26.6`) goes before the colon, the
+  numeric error code after it. Keep negative signs (`-12643`).
+- Report every row visible, not just the top few, unless asked otherwise.
+
+Session counts on this chart are bar lengths with no printed number, so they
+are estimates - say so. Calibrate the pixels-per-unit scale against the
+**farthest** labelled gridline, not a nearby one: a small error in locating a
+near tick gets multiplied across the axis, which reads every bar low in
+proportion to its length. Bar *order* is reliable even when magnitudes drift,
+so rank with more confidence than counts.
 
 If any digit or character is genuinely unreadable (blur, glare, cropped),
 say which part is uncertain rather than silently rounding or guessing -
@@ -73,11 +92,13 @@ it never writes anywhere itself:
   Record box for that platform, formatted `<date label>, <value>%` - e.g.
   `Mon-3-Aug, 2.07%`. The date label must match the sheet's existing format
   exactly (`Mon-3-Aug` weekday-day-month style).
-- **Bitmovin Top Error Codes -> "BITMOVIN" section, Top Error Codes table**:
-  one row per error code (rank / error code / sessions). This table is a
-  scratch/reference table only - there's no sheet tab for this data yet, so
-  it doesn't sync anywhere; it's there to type into and optionally copy as
-  an image to share.
+- **Bitmovin Top Error Codes -> the `/tvn/top-error-codes` page**: paste the
+  whole reply (including the `Platform:` line) into the "วางคำตอบที่ Claude
+  อ่านให้" box and press "แยกลงตาราง". The page reads the `Platform:` line to
+  preselect the platform - which is what decides the block of sheet rows the
+  sync writes to - and turns the dropdown blue to show it was machine-filled
+  and still wants a glance. Syncing overwrites that platform's whole block,
+  since these are ranked snapshots.
 - **Crashlytics -> "Firebase Crashlytics" section**: the `Crash Free User %`
   input for that platform's row, plus the `Filter` field if the version list
   changed from what's already recorded there.
