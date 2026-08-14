@@ -380,29 +380,39 @@ function renderHourlyTable() {
 
   const statCell = (v) => `<td class="col-stat">${v ? escapeHtml(v) : '<span style="color:var(--ink-faint)">—</span>'}</td>`;
 
+  // Average shares the hour cells' scale (green->yellow up to 2.00, then
+  // light->dark red), so a platform's overall day reads at a glance the same
+  // way its individual hours do.
+  const avgCell = (raw) => {
+    const color = heatColorForValue(raw ? parseFloat(raw) : NaN);
+    if (!color) return statCell(raw);
+    return `<td class="col-stat" style="background:${color};color:${heatTextColorFor(color)};">${escapeHtml(raw)}</td>`;
+  };
+
   const rowsHtml = platforms.map(p => {
     const peakHour = peakHourFor(p);
     return `
     <tr>
       <td class="col-platform">${escapeHtml(p.platform)}</td>
       <td class="col-date">${escapeHtml(p.date)}</td>
-      ${hourlyTableColumns.map(h => heatCell(p.values[h], h, h === peakHour)).join('')}
       ${statCell(p.peak)}
-      ${statCell(p.peakTime ? p.peakTime.replace('.00', '') + ':00' : '')}
-      ${statCell(p.average)}
+      ${statCell(p.peakTime)}
+      ${avgCell(p.average)}
+      ${hourlyTableColumns.map(h => heatCell(p.values[h], h, h === peakHour)).join('')}
     </tr>`;
   }).join('');
 
-  // Label every 3rd hour only - 24 labels don't fit without colliding.
+  // Label every 3rd hour only - 24 labels don't fit without colliding. Kept
+  // in the sheet's own "10.00" form so they read as times, not counts.
   const headHours = hourlyTableColumns
-    .map((h, i) => `<th class="col-hour">${i % HOUR_LABEL_EVERY === 0 ? h.replace('.00', '') : ''}</th>`)
+    .map((h, i) => `<th class="col-hour">${i % HOUR_LABEL_EVERY === 0 ? h : ''}</th>`)
     .join('');
 
   body.innerHTML = `
     ${heatLegendHtml()}
     <div id="hourly-export-panel" style="overflow-x:auto;background:var(--surface);">
       <table class="data hourly-heatmap">
-        <thead><tr><th class="col-platform">Platform</th><th class="col-date">Date</th>${headHours}<th class="col-stat">Peak</th><th class="col-stat">Peak&nbsp;Time</th><th class="col-stat">Avg</th></tr></thead>
+        <thead><tr><th class="col-platform">Platform</th><th class="col-date">Date</th><th class="col-stat">Peak</th><th class="col-stat">Peak&nbsp;Time</th><th class="col-stat">Avg</th>${headHours}</tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
     </div>

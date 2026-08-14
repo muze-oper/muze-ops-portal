@@ -113,9 +113,13 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
    the first hour column - fixed layout clips rather than wraps otherwise. */
 .hourly-heatmap .col-platform { text-align: left; width: 104px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hourly-heatmap .col-date { width: 82px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Hour cells are colour-only except each row's peak, so they can stay narrow. */
-.hourly-heatmap .col-hour { width: 22px; }
-.hourly-heatmap .col-stat { width: 52px; white-space: nowrap; }
+/* Hour cells are colour-only except each row's peak, so they can stay narrow.
+   The "10.00" headers are wider than one column, but only every 3rd carries a
+   label - the rest are blank, so a label may overflow into them rather than
+   wrap or clip. */
+.hourly-heatmap .col-hour { width: 26px; }
+.hourly-heatmap th.col-hour { white-space: nowrap; overflow: visible; }
+.hourly-heatmap .col-stat { width: 54px; white-space: nowrap; }
 
 .cell-input, .date-cell-input, .cl-filter, .cl-value {
   font-family: var(--font-mono); font-size: 12.5px; padding: 5px 7px; border: 1px solid var(--border);
