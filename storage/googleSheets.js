@@ -41,6 +41,19 @@ async function updateSheetRow(spreadsheetId, range, values) {
   });
 }
 
+// Writes a rectangular block (array of rows) in a single call - updateSheetRow
+// above only handles one row, so filling an N-row block through it would cost
+// N round-trips.
+async function updateSheetGrid(spreadsheetId, range, rows) {
+  const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: rows },
+  });
+}
+
 // Cell background colors for a range - effectiveFormat (not userEnteredFormat)
 // so a conditional-formatting rule's color counts the same as a manually-set
 // one; either way it's what a person actually sees in the sheet. Returns a 2D
@@ -78,4 +91,4 @@ function rowsToObjects(rows) {
   });
 }
 
-module.exports = { fetchSheetRows, rowsToObjects, updateSheetRow, fetchSheetFormatting, colorToHex, resolveSheetTitleByGid };
+module.exports = { fetchSheetRows, rowsToObjects, updateSheetRow, updateSheetGrid, fetchSheetFormatting, colorToHex, resolveSheetTitleByGid };

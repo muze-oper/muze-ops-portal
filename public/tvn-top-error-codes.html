@@ -32,35 +32,53 @@
 <div class="wrap">
 
   <section class="block">
-    <div class="block-head"><h2 class="h">Top Error Codes</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">แนบ Screenshot + เลือก Platform</h2><div class="rule"></div></div>
     <div class="card">
       <div class="hint">
-        ยังไม่มีแท็บในชีตสำหรับข้อมูลนี้ — ตารางด้านล่างไว้กรอกเก็บดู/แชร์เป็นรูปเท่านั้น (ยังไม่ sync เข้าชีต):
-        แคป screenshot กราฟ "Top Error Codes" จาก Bitmovin → วางในแชท Claude Code (ใช้ skill ด้านล่างของหน้านี้ให้ Claude อ่าน Error Code + จำนวน Session ให้) → พิมพ์ผลที่ได้ลงตารางด้านล่างนี้
+        แคป screenshot กราฟ "Top Error Codes" จาก Bitmovin → วางไว้ที่นี่เพื่อดูอ้างอิง → เทียบ <strong>Filters</strong> ในรูปกับรายการ platform ด้านล่าง แล้วเลือกให้ตรง (ตัวที่เลือกเป็นตัวกำหนดว่าจะเขียนลงแถวไหนในชีต)
       </div>
-      <div class="sheet-link-row">
-        <span class="sheet-link disabled">📄 ยังไม่มีชีตต้นทางสำหรับข้อมูลนี้</span>
-      </div>
+      <div id="paste-area-errorcodes" class="paste-area" tabindex="0">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง</div>
 
-      <div id="error-codes-export-panel" style="background:var(--surface);margin-top:14px;">
-        <table class="data" id="error-codes-table">
-          <thead><tr><th>อันดับ</th><th style="text-align:left">Error Code</th><th>จำนวน Sessions</th></tr></thead>
-          <tbody id="error-codes-table-body"></tbody>
-        </table>
+      <div class="field-row" style="margin-top:14px;">
+        <label class="field-label" for="tec-platform">Platform (ต้องตรงกับ Filters ในรูป)</label>
+        <select id="tec-platform" onchange="onTecPlatformChange()"><option value="">กำลังโหลด...</option></select>
       </div>
-      <div class="table-actions">
-        <button class="btn-ghost" id="add-error-code-btn" onclick="addErrorCodeRow()">+ เพิ่มแถว</button>
-        <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
+      <div id="tec-filters-preview" class="hint" style="margin-top:6px;"></div>
+
+      <div class="field-row" style="margin-top:12px;">
+        <label class="field-label" for="tec-date">Date (วันที่บันทึก)</label>
+        <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
       </div>
-      <div id="error-codes-result" class="result-text"></div>
     </div>
   </section>
 
   <section class="block">
-    <div class="block-head"><h2 class="h">แนบ Screenshot</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">Top Error Codes</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">แนบ/วาง screenshot ของกราฟ Top Error Codes ไว้ที่นี่เพื่อดูอ้างอิงตอนกรอกค่า (ไม่มีการวิเคราะห์อัตโนมัติ — ใช้ skill ด้านล่างในแชท Claude Code เพื่อให้ Claude อ่านค่าให้)</div>
-      <div id="paste-area-errorcodes" class="paste-area" tabindex="0">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง</div>
+      <div class="hint">
+        ให้ Claude อ่านค่าจาก screenshot ในแชท Claude Code (ใช้ skill ด้านล่างของหน้านี้) แล้ววางผลลัพธ์ลงกล่องด้านล่าง บรรทัดละ 1 อันดับ รูปแบบ <code>avplayer-26.6: -12643, 600</code> แล้วกด "แยกลงตาราง" — หรือจะพิมพ์ลงตารางเองก็ได้
+      </div>
+      <div class="sheet-link-row">
+        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1613893186#gid=1613893186" target="_blank" rel="noopener">📄 เปิดชีต BitMovin Top Error Codes</a>
+      </div>
+
+      <textarea id="tec-paste-input" class="paste-input" placeholder="avplayer-26.6: -12643, 600&#10;avplayer-26.5.2: -12643, 570&#10;avplayer-26.6: -16839, 225"></textarea>
+      <div class="table-actions">
+        <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
+      </div>
+
+      <div id="error-codes-export-panel" style="background:var(--surface);margin-top:14px;">
+        <table class="data" id="error-codes-table">
+          <thead><tr><th>อันดับ</th><th style="text-align:left">Player Version</th><th>Error Code</th><th>Approx Session</th></tr></thead>
+          <tbody id="error-codes-table-body"></tbody>
+        </table>
+      </div>
+      <div class="table-actions">
+        <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync เข้าชีต</button>
+        <button class="btn-ghost" id="tec-clear-btn" onclick="clearTecRows()">ล้างตาราง</button>
+        <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
+      </div>
+      <div id="error-codes-result" class="result-text"></div>
     </div>
   </section>
 
@@ -94,28 +112,175 @@
 </div>
 
 <script>
-// Real editable scratch table, no auto-reading here - the actual reading
-// happens in a Claude Code chat using the tvn-dashboard-reading skill; this
-// table is just for typing in what Claude reported and sharing/copying it,
-// since there's no sheet tab for it yet.
+// No auto-reading of the screenshot here - Claude reads it in a Claude Code
+// chat via the tvn-dashboard-reading skill, and its output gets pasted below.
+// The sheet lays each platform out as a fixed block of rows, so the platform
+// picked here is what decides which rows a sync writes to.
 
-function addErrorCodeRow(rank, code, sessions) {
+let tecBlocks = []; // platform blocks as they currently stand in the sheet
+
+async function loadTopErrorCodes() {
+  const select = document.getElementById('tec-platform');
+  try {
+    const res = await fetch('/api/tvn/top-error-codes');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    tecBlocks = data.blocks || [];
+    select.innerHTML = tecBlocks
+      .map(b => `<option value="${escapeHtml(b.platform)}">${escapeHtml(b.platform)}</option>`)
+      .join('');
+    onTecPlatformChange();
+  } catch (err) {
+    select.innerHTML = '<option value="">โหลด platform ไม่สำเร็จ</option>';
+    document.getElementById('error-codes-result').textContent = 'Error: ' + err.message;
+  }
+}
+
+function currentTecBlock() {
+  const platform = document.getElementById('tec-platform').value;
+  return tecBlocks.find(b => b.platform === platform) || null;
+}
+
+// Shows the sheet's own Filters text for the selected platform so it can be
+// eyeballed against the Filters panel in the screenshot, and loads whatever
+// that block currently holds so a sync starts from the existing snapshot.
+function onTecPlatformChange() {
+  const block = currentTecBlock();
+  const preview = document.getElementById('tec-filters-preview');
+  if (!block) { preview.textContent = ''; return; }
+
+  const capacity = block.endRow - block.startRow + 1;
+  preview.innerHTML = `Filters ในชีต: <code>${escapeHtml(block.filters.replace(/\n/g, '  ·  '))}</code> — เขียนลงแถว ${block.startRow}–${block.endRow} (สูงสุด ${capacity} อันดับ)`;
+
+  const existing = (block.entries || []).filter(e => e.playerVersion || e.errorCode || e.approxSession);
+  renderTecRows(existing, capacity);
+
+  const dateInput = document.getElementById('tec-date');
+  if (!dateInput.value) dateInput.value = (existing[0] && existing[0].date) || todayBangkokLabel();
+}
+
+// "Thu-14-Aug" - matches the label format the other tabs in this sheet use.
+function todayBangkokLabel() {
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short' })
+    .formatToParts(new Date())
+    .reduce((acc, part) => { acc[part.type] = part.value; return acc; }, {});
+  return `${p.weekday}-${p.day}-${p.month}`;
+}
+
+function renderTecRows(entries, capacity) {
+  const tbody = document.getElementById('error-codes-table-body');
+  tbody.innerHTML = '';
+  for (let i = 0; i < capacity; i++) {
+    const e = entries[i] || {};
+    addErrorCodeRow(i + 1, e.playerVersion, e.errorCode, e.approxSession);
+  }
+}
+
+function addErrorCodeRow(rank, playerVersion, errorCode, approxSession) {
   const tbody = document.getElementById('error-codes-table-body');
   const nextRank = rank !== undefined ? rank : tbody.children.length + 1;
   const row = document.createElement('tr');
   row.innerHTML = `
-    <td><input class="cell-input" style="width:44px;" value="${escapeHtml(nextRank)}"></td>
-    <td><input class="cell-input" style="width:100%;min-width:200px;text-align:left;font-weight:400;" value="${escapeHtml(code || '')}" placeholder="เช่น media3-exoplayer-1.10.1: 1002"></td>
-    <td><input class="cell-input" style="width:90px;" value="${escapeHtml(sessions || '')}" placeholder="เช่น 3823"></td>
+    <td>${escapeHtml(nextRank)}</td>
+    <td><input class="cell-input tec-version" style="width:100%;min-width:170px;text-align:left;font-weight:400;" value="${escapeHtml(playerVersion || '')}" placeholder="เช่น avplayer-26.6"></td>
+    <td><input class="cell-input tec-code" style="width:100px;" value="${escapeHtml(errorCode || '')}" placeholder="เช่น -12643"></td>
+    <td><input class="cell-input tec-session" style="width:100px;" value="${escapeHtml(approxSession || '')}" placeholder="เช่น 600"></td>
   `;
   tbody.appendChild(row);
   return row;
 }
 
-// Seed a few blank rows so the table isn't empty on first load.
-for (let i = 1; i <= 5; i++) addErrorCodeRow(i);
+function clearTecRows() {
+  const block = currentTecBlock();
+  renderTecRows([], block ? block.endRow - block.startRow + 1 : 10);
+  document.getElementById('error-codes-result').textContent = '';
+}
+
+// Splits "avplayer-26.6: -12643, 600" into its three fields. The version can
+// itself contain hyphens and dots, and the error code can be negative, so the
+// split happens on the last colon rather than on any separator.
+function parseErrorCodeLine(line) {
+  const raw = String(line).trim();
+  if (!raw) return null;
+  const colon = raw.lastIndexOf(':');
+  if (colon === -1) return null;
+  const rest = raw.slice(colon + 1).trim();
+  const m = /^(-?\d+)\s*(?:[,\t]\s*|\s+)?([\d,]+)?$/.exec(rest);
+  if (!m) return null;
+  return {
+    playerVersion: raw.slice(0, colon).trim(),
+    errorCode: m[1],
+    approxSession: (m[2] || '').replace(/,/g, ''),
+  };
+}
+
+function parseTecPasted() {
+  const resultEl = document.getElementById('error-codes-result');
+  const block = currentTecBlock();
+  const capacity = block ? block.endRow - block.startRow + 1 : 10;
+  const lines = document.getElementById('tec-paste-input').value.split('\n').map(l => l.trim()).filter(Boolean);
+
+  const parsed = [];
+  const skipped = [];
+  lines.forEach(line => {
+    const entry = parseErrorCodeLine(line);
+    if (entry) parsed.push(entry); else skipped.push(line);
+  });
+
+  if (!parsed.length) {
+    resultEl.textContent = 'อ่านไม่ได้สักบรรทัด - รูปแบบที่รองรับคือ "avplayer-26.6: -12643, 600"';
+    return;
+  }
+  if (parsed.length > capacity) {
+    resultEl.textContent = `แยกได้ ${parsed.length} บรรทัด แต่ ${block.platform} รับได้แค่ ${capacity} - ตัดเหลือ ${capacity} อันดับแรก`;
+    parsed.length = capacity;
+  } else {
+    resultEl.textContent = `แยกลงตารางแล้ว ${parsed.length} อันดับ` + (skipped.length ? ` (ข้าม ${skipped.length} บรรทัดที่อ่านไม่ออก: ${skipped.join(' | ')})` : '');
+  }
+  renderTecRows(parsed, capacity);
+}
+
+function readTecRows() {
+  return [...document.querySelectorAll('#error-codes-table-body tr')].map(tr => ({
+    playerVersion: (tr.querySelector('.tec-version') || {}).value || '',
+    errorCode: (tr.querySelector('.tec-code') || {}).value || '',
+    approxSession: (tr.querySelector('.tec-session') || {}).value || '',
+  }));
+}
+
+async function syncTopErrorCodes() {
+  const btn = document.getElementById('tec-sync-btn');
+  const resultEl = document.getElementById('error-codes-result');
+  const block = currentTecBlock();
+  if (!block) { resultEl.textContent = 'ยังไม่ได้เลือก platform'; return; }
+
+  const entries = readTecRows();
+  if (!entries.some(e => e.playerVersion.trim() || e.errorCode.trim() || e.approxSession.trim())) {
+    resultEl.textContent = 'ตารางว่างอยู่ - ยังไม่มีอะไรให้ sync';
+    return;
+  }
+
+  btn.disabled = true;
+  resultEl.textContent = 'กำลัง sync...';
+  try {
+    const res = await fetch('/api/tvn/top-error-codes/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform: block.platform, entries, dateLabel: document.getElementById('tec-date').value.trim() }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    resultEl.textContent = data.result;
+    await loadTopErrorCodes(); // pull back what the sheet now holds
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 setupPasteArea('paste-area-errorcodes');
+loadTopErrorCodes();
 </script>
 </body>
 </html>

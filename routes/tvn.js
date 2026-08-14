@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const path = require('path');
-const { fetchSheetRows, resolveSheetTitleByGid, updateSheetRow } = require('../storage/googleSheets');
+const { fetchSheetRows, resolveSheetTitleByGid, updateSheetRow, updateSheetGrid } = require('../storage/googleSheets');
 const { readValueFromScreenshot } = require('../lib/anthropicVision');
 
 const SHEET_ID = process.env.TVN_SHEET_ID;
@@ -386,6 +386,110 @@ router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
     await updateSheetRow(SHEET_ID, `'${title}'!${firstColLetter}${rowNum}:${lastColLetter}${rowNum}`, merged);
 
     res.json({ result: `${platform}: อัปเดต ${updatedCount} ช่วงเวลา` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- BitMovin Top Error Codes tab: laid out as one fixed block of rows per
+// platform, with Filters (A) and Platform (B) already filled in by hand. This
+// only ever writes Date/Player Version/Error Code/Approx Session (C-F) into an
+// existing block; it never adds rows or touches A/B.
+const TOP_ERROR_CODES_SHEET_GID = 1613893186;
+const TEC_FILTERS_COL_IDX = 0; // column A
+const TEC_PLATFORM_COL_IDX = 1; // column B
+const TEC_DATE_COL_IDX = 2; // column C - first of the four written columns (C:F)
+const TEC_WRITE_COLS = 4; // Date, Player Version, Error Code, Approx Session
+
+async function fetchTopErrorCodesTitleAndRows() {
+  const title = await resolveSheetTitleByGid(SHEET_ID, TOP_ERROR_CODES_SHEET_GID);
+  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:F200`);
+  return { title, rows };
+}
+
+// Derives each platform's row span from the sheet's own Platform column
+// rather than hardcoding row numbers, so re-sizing a block in the sheet (or
+// adding a platform) needs no code change here. Blocks are runs of
+// consecutive rows carrying the same platform name.
+function groupTopErrorCodeBlocks(rows) {
+  const blocks = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const platform = (row[TEC_PLATFORM_COL_IDX] || '').trim();
+    if (!platform) continue;
+    const rowNum = i + 1; // sheet rows are 1-based and row 1 is the header
+    const last = blocks[blocks.length - 1];
+    if (last && last.platform === platform && last.endRow === rowNum - 1) {
+      last.endRow = rowNum;
+      last.entries.push(readTopErrorCodeEntry(row));
+    } else {
+      blocks.push({
+        platform,
+        filters: (row[TEC_FILTERS_COL_IDX] || '').trim(),
+        startRow: rowNum,
+        endRow: rowNum,
+        entries: [readTopErrorCodeEntry(row)],
+      });
+    }
+  }
+  return blocks;
+}
+
+function readTopErrorCodeEntry(row) {
+  return {
+    date: row[TEC_DATE_COL_IDX] || '',
+    playerVersion: row[TEC_DATE_COL_IDX + 1] || '',
+    errorCode: row[TEC_DATE_COL_IDX + 2] || '',
+    approxSession: row[TEC_DATE_COL_IDX + 3] || '',
+  };
+}
+
+router.get('/api/tvn/top-error-codes', async (req, res) => {
+  if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
+  try {
+    const { rows } = await fetchTopErrorCodesTitleAndRows();
+    res.json({ blocks: groupTopErrorCodeBlocks(rows) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Replaces one platform's whole block, since the entries are a ranked
+// snapshot - a code that dropped out of the top N has to disappear, so
+// unused rows in the block are deliberately blanked rather than left behind.
+router.post('/api/tvn/top-error-codes/record', async (req, res) => {
+  if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
+  const { platform, entries, dateLabel } = req.body || {};
+  try {
+    const { title, rows } = await fetchTopErrorCodesTitleAndRows();
+    const wanted = String(platform || '').trim().toLowerCase();
+    const block = groupTopErrorCodeBlocks(rows).find(b => b.platform.toLowerCase() === wanted);
+    if (!block) {
+      return res.status(400).json({ error: `ไม่รู้จัก platform "${platform}" ในแท็บ Top Error Codes` });
+    }
+
+    const capacity = block.endRow - block.startRow + 1;
+    const list = (Array.isArray(entries) ? entries : []).filter(
+      e => e && (String(e.playerVersion || '').trim() || String(e.errorCode || '').trim() || String(e.approxSession || '').trim())
+    );
+    if (list.length > capacity) {
+      return res.status(400).json({ error: `${platform} รับได้สูงสุด ${capacity} แถว (ส่งมา ${list.length})` });
+    }
+
+    const date = String(dateLabel || '').trim() || formatBangkokWeekdayLabel();
+    const grid = [];
+    for (let i = 0; i < capacity; i++) {
+      const e = list[i];
+      grid.push(e
+        ? [date, String(e.playerVersion || '').trim(), String(e.errorCode || '').trim(), String(e.approxSession || '').trim()]
+        : new Array(TEC_WRITE_COLS).fill(''));
+    }
+
+    const firstCol = colLetter(TEC_DATE_COL_IDX);
+    const lastCol = colLetter(TEC_DATE_COL_IDX + TEC_WRITE_COLS - 1);
+    await updateSheetGrid(SHEET_ID, `'${title}'!${firstCol}${block.startRow}:${lastCol}${block.endRow}`, grid);
+
+    res.json({ result: `${platform}: บันทึก ${list.length} error code (แถว ${block.startRow}-${block.endRow}) วันที่ ${date}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

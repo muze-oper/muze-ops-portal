@@ -152,6 +152,16 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .platform-input label { margin-top: 0; }
 .platform-input textarea { height: 84px; resize: vertical; }
 
+/* Labelled inline field + a full-width paste box (Top Error Codes input). */
+.field-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.field-label { font-size: 12px; font-weight: 600; color: var(--ink-dim); }
+.paste-input {
+  width: 100%; box-sizing: border-box; margin-top: 10px; height: 120px; resize: vertical;
+  font-family: var(--font-mono); font-size: 12.5px; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink);
+}
+.paste-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
 /* ---------- Crashlytics table ---------- */
 .cl-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .cl-table th { text-align: left; background: var(--surface-2); color: var(--ink-faint); font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; font-family: var(--font-mono); border-bottom: 1px solid var(--border); }
