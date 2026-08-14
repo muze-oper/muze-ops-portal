@@ -202,13 +202,12 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .filter-ref { margin-top: 8px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
 .filter-ref-head { font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
 .filter-ref-sub { font-size: 11.5px; margin-bottom: 4px; }
-.filter-ref-list {
-  margin: 6px 0 0; padding-left: 22px; font-size: 11.5px;
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 18px;
-}
-.filter-ref-list li { margin: 0; }
-.ref-platform { display: block; font-weight: 700; color: var(--ink); margin-bottom: 1px; }
-.ref-line { display: block; color: var(--ink-dim); line-height: 1.55; }
+/* Three columns - name, OS, Platform - so the Platform values line up under
+   each other regardless of how long the OS string beside them is. */
+.filter-ref-table { margin: 6px 0 0 18px; border-collapse: collapse; font-size: 11.5px; }
+.filter-ref-table th, .filter-ref-table td { padding: 2px 20px 2px 0; text-align: left; vertical-align: top; white-space: nowrap; }
+.filter-ref-table th { color: var(--ink); font-weight: 700; }
+.filter-ref-table td code { color: var(--ink-dim); }
 
 /* A dropdown filled from Claude's answer rather than by hand - blue marks it
    as a machine guess that still wants a glance before syncing. */

@@ -43,7 +43,7 @@
               <div class="filter-ref-head">Filter ที่ต้องใช้</div>
               <div class="filter-ref-sub">1. <strong>Show Metrics Between</strong> = <code>Last 24 hours</code></div>
               <div class="filter-ref-sub">2. <strong>Platform filters</strong> — ตั้งให้ตรงกับ platform ที่จะบันทึก:</div>
-              <ol class="filter-ref-list" id="tec-filter-ref"></ol>
+              <table class="filter-ref-table"><tbody id="tec-filter-ref"></tbody></table>
             </div>
           </span>
         </div>
@@ -177,18 +177,23 @@ async function loadTopErrorCodes() {
 }
 
 // Built from the sheet's own Filters column rather than a copy kept here, so
-// the reference can't drift from what the platform blocks actually say. Each
-// filter line is kept on its own line, matching how Bitmovin's own Filters
-// panel stacks them - that's what this is meant to be compared against.
+// the reference can't drift from what the platform blocks actually say. The
+// OS and Platform values get their own columns: joining them on one line left
+// the Platform values ragged, since the OS strings differ in length, and
+// Platform is exactly what has to be compared closely (it's the only thing
+// separating Android Mobile from Android TV).
 function renderFilterReference() {
   const el = document.getElementById('tec-filter-ref');
   if (!el) return;
   el.innerHTML = tecBlocks.map(b => {
     const lines = b.filters.split('\n').map(l => l.trim()).filter(Boolean);
-    return `<li>
-      <span class="ref-platform">${escapeHtml(b.platform)}</span>
-      ${lines.map(l => `<code class="ref-line">${escapeHtml(l)}</code>`).join('')}
-    </li>`;
+    const platformLine = lines.find(l => /^platform\s*:/i.test(l)) || '';
+    const osLine = lines.filter(l => l !== platformLine).join(' ');
+    return `<tr>
+      <th>${escapeHtml(b.platform)}</th>
+      <td><code>${escapeHtml(osLine)}</code></td>
+      <td><code>${escapeHtml(platformLine)}</code></td>
+    </tr>`;
   }).join('');
 }
 
