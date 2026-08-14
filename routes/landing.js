@@ -11,10 +11,12 @@ const DIGEST_STATUS_BADGE = {
   [MUSTREAD_CATEGORY]: { label: 'ควรรับรู้', tone: 'yellow' },
 };
 
-// Reformats digest.js's "06Aug26 14:30" into "6 Aug 2026" for display.
+// Reformats digest.js's "06Aug26 14:30" into "6 Aug 2026, 14:30" for
+// display - keeps the time so the hot-issues list shows when the email
+// actually arrived, not just the day.
 function formatDigestDateLabel(dateStr) {
-  const m = /^(\d{2})([A-Za-z]{3})(\d{2})/.exec(dateStr || '');
-  return m ? `${+m[1]} ${m[2]} 20${m[3]}` : (dateStr || '');
+  const m = /^(\d{2})([A-Za-z]{3})(\d{2}) (\d{2}:\d{2})/.exec(dateStr || '');
+  return m ? `${+m[1]} ${m[2]} 20${m[3]}, ${m[4]}` : (dateStr || '');
 }
 
 function formatKtcDate(iso) {
