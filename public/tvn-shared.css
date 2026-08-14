@@ -162,18 +162,36 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 }
 .paste-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 
-.paste-input-compact { height: 150px; margin-top: 0; }
+.paste-input-half { height: 78px; margin-top: 6px; }
 
-/* Numbered walkthrough above an input panel. */
-.how-to { margin: 0 0 14px; padding-left: 20px; font-size: 12.5px; line-height: 1.75; color: var(--ink-dim); }
-.how-to li { margin-bottom: 3px; }
-.how-to strong { color: var(--ink); }
-.prompt-box {
-  display: flex; align-items: flex-start; gap: 8px; margin: 6px 0 4px;
-  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2);
+/* Paste box on the left, the Platform/Date it feeds on the right. */
+.tec-paste-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; margin-bottom: 16px; }
+.tec-paste-col { min-width: 0; }
+.tec-paste-col .field-label { display: block; }
+
+/* The table only needs about two thirds of the width, so the action buttons
+   live in the space beside it instead of stacking below. */
+.tec-table-row { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 16px; align-items: start; }
+.tec-btn-col { display: flex; flex-direction: column; gap: 8px; }
+.tec-btn-col button { width: 100%; }
+.tec-btn-col .result-text { margin-top: 4px; }
+
+@media (max-width: 860px) {
+  .tec-paste-row, .tec-table-row { grid-template-columns: 1fr; }
 }
-.prompt-box code { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.6; }
-.prompt-box button { flex: none; }
+
+/* Step list: a badge, the instruction, and that step's button on the same
+   line, so the walkthrough scans as rows rather than one block of prose. */
+.steps { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.step { display: flex; align-items: center; gap: 10px; font-size: 12.5px; line-height: 1.6; color: var(--ink-dim); }
+.step-no {
+  flex: none; align-self: flex-start; margin-top: 1px; padding: 2px 9px; border-radius: 20px;
+  background: var(--accent-soft); color: var(--accent-ink);
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; white-space: nowrap;
+}
+.step-text { flex: 1; min-width: 0; }
+.step strong { color: var(--ink); }
+.step button { flex: none; }
 
 /* A dropdown filled from Claude's answer rather than by hand - blue marks it
    as a machine guess that still wants a glance before syncing. */

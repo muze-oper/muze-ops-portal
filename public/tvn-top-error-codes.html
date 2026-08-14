@@ -34,44 +34,64 @@
   <section class="block">
     <div class="block-head"><h2 class="h">Top Error Codes</h2><div class="rule"></div></div>
     <div class="card">
-      <ol class="how-to">
-        <li>เปิด Bitmovin → ตั้ง <strong>Filters</strong> ของ platform ที่ต้องการ → แคป screenshot กราฟ "Top Error Codes" <strong>ให้เห็นกล่อง Filters ด้วย</strong> (Claude ใช้ตรงนั้นบอกว่าเป็น platform ไหน) พร้อมชื่อ error code, แท่งกราฟ และแกนตัวเลขด้านล่าง</li>
-        <li>เปิดแชท <strong>Claude Code</strong> (จากโฟลเดอร์ <code>muze-ops-portal</code> ตามวิธีด้านล่างของหน้านี้) → วาง screenshot ลงในแชทโดยตรง (Ctrl/Cmd+V) → พิมพ์คำสั่ง:
-          <div class="prompt-box"><code id="tec-claude-prompt">อ่านกราฟ Top Error Codes นี้ ตอบบรรทัดแรกเป็น "Platform: &lt;ชื่อ platform&gt;" ตาม Filters ในรูป แล้วบรรทัดต่อไปละ 1 อันดับ รูปแบบ "player-version: error-code, approx-session" เรียงมากไปน้อย ไม่ต้องมีข้อความอื่น</code>
-            <button type="button" class="btn-ghost" onclick="copyClaudePrompt()">📋 copy คำสั่ง</button>
+      <div class="steps">
+        <div class="step">
+          <span class="step-no">Step 1</span>
+          <span class="step-text">เปิด Bitmovin → ตั้ง <strong>Filters</strong> ของ platform ที่ต้องการ → แคป screenshot กราฟ "Top Error Codes" <strong>ให้เห็นกล่อง Filters ด้วย</strong> พร้อมแกนตัวเลขด้านล่าง</span>
+        </div>
+        <div class="step">
+          <span class="step-no">Step 2</span>
+          <span class="step-text">เปิดแชท <strong>Claude Code</strong> จากโฟลเดอร์ <code>muze-ops-portal</code> → วาง screenshot ลงในแชท (Ctrl/Cmd+V) → วางคำสั่งต่อท้าย</span>
+          <button type="button" class="btn-ghost" onclick="copyClaudePrompt()">📋 copy คำสั่ง</button>
+        </div>
+        <div class="step">
+          <span class="step-no">Step 3</span>
+          <span class="step-text">copy คำตอบของ Claude มาวางในช่องด้านล่าง — Platform จะถูกเลือกให้ทันที (ขึ้น<span style="color:#1a73e8;font-weight:700;">สีน้ำเงิน</span>) ให้เช็คว่าตรงกับรูป</span>
+        </div>
+        <div class="step">
+          <span class="step-no">Step 4</span>
+          <span class="step-text">กด <strong>แยกลงตาราง</strong> → ตรวจค่าในตาราง + Date → กด <strong>Sync to Google Sheet</strong></span>
+        </div>
+      </div>
+      <code id="tec-claude-prompt" hidden>อ่านกราฟ Top Error Codes นี้ ตอบบรรทัดแรกเป็น "Platform: &lt;ชื่อ platform&gt;" ตาม Filters ในรูป แล้วบรรทัดต่อไปละ 1 อันดับ รูปแบบ "player-version: error-code, approx-session" เรียงมากไปน้อย ไม่ต้องมีข้อความอื่น</code>
+
+      <div class="tec-paste-row">
+        <div class="tec-paste-col">
+          <label class="field-label" for="tec-paste-input">วางคำตอบที่ Claude อ่านให้</label>
+          <textarea id="tec-paste-input" class="paste-input paste-input-half" placeholder="Platform: Android Mobile&#10;media3-exoplayer-1.10.1: 2004, 519"></textarea>
+          <div class="table-actions" style="margin-top:6px;">
+            <button class="btn-ghost" id="tec-clear-paste-btn" onclick="clearTecPasteInput()">🧹 ล้างข้อมูลที่วาง</button>
           </div>
-        </li>
-        <li>copy คำตอบทั้งก้อนของ Claude มาวางในกล่องด้านล่าง — ถ้าบรรทัดบนสุดเป็น <code>Platform:</code> ระบบจะเลือก Platform ให้ทันทีที่วาง (ตัวหนังสือใน dropdown จะเป็น<span style="color:#1a73e8;font-weight:700;">สีน้ำเงิน</span>) ให้เช็คว่าตรงกับรูป</li>
-        <li>กด <strong>“แยกลงตาราง”</strong> → ตรวจค่าในตาราง + Date ให้ครบ แล้วกด <strong>Sync to Google Sheet</strong></li>
-      </ol>
-
-      <label class="field-label" for="tec-paste-input" style="display:block;margin-bottom:6px;">วางคำตอบที่ Claude อ่านให้</label>
-      <textarea id="tec-paste-input" class="paste-input paste-input-compact" placeholder="Platform: Android Mobile&#10;media3-exoplayer-1.10.1: 2004, 519&#10;media3-exoplayer-1.10.1: 4001, 345"></textarea>
-      <div class="table-actions" style="margin-top:8px;">
-        <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
+        </div>
+        <div class="tec-paste-col">
+          <label class="field-label" for="tec-platform">Platform ที่จะเขียนลงชีต</label>
+          <div class="field-row" style="margin-top:2px;">
+            <select id="tec-platform" onchange="onTecPlatformChange(true)"><option value="">กำลังโหลด...</option></select>
+            <span id="tec-platform-source" class="platform-source"></span>
+          </div>
+          <div class="field-row" style="margin-top:8px;">
+            <label class="field-label" for="tec-date">Date</label>
+            <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
+          </div>
+          <div id="tec-filters-preview" class="hint" style="margin-top:8px;"></div>
+        </div>
       </div>
 
-      <div class="field-row" style="margin-top:16px;">
-        <label class="field-label" for="tec-platform">Platform</label>
-        <select id="tec-platform" onchange="onTecPlatformChange(true)"><option value="">กำลังโหลด...</option></select>
-        <label class="field-label" for="tec-date" style="margin-left:8px;">Date</label>
-        <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
-        <span id="tec-platform-source" class="platform-source"></span>
+      <div class="tec-table-row">
+        <div id="error-codes-export-panel" style="background:var(--surface);">
+          <table class="data" id="error-codes-table">
+            <thead><tr><th>อันดับ</th><th style="text-align:left">Player Version</th><th>Error Code</th><th>Approx Session</th></tr></thead>
+            <tbody id="error-codes-table-body"></tbody>
+          </table>
+        </div>
+        <div class="tec-btn-col">
+          <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
+          <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync to Google Sheet</button>
+          <button class="btn-ghost" id="tec-clear-btn" onclick="clearTecRows()">ล้างตาราง</button>
+          <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
+          <div id="error-codes-result" class="result-text"></div>
+        </div>
       </div>
-      <div id="tec-filters-preview" class="hint" style="margin-top:6px;"></div>
-
-      <div id="error-codes-export-panel" style="background:var(--surface);margin-top:14px;">
-        <table class="data" id="error-codes-table">
-          <thead><tr><th>อันดับ</th><th style="text-align:left">Player Version</th><th>Error Code</th><th>Approx Session</th></tr></thead>
-          <tbody id="error-codes-table-body"></tbody>
-        </table>
-      </div>
-      <div class="table-actions">
-        <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync to Google Sheet</button>
-        <button class="btn-ghost" id="tec-clear-btn" onclick="clearTecRows()">ล้างตาราง</button>
-        <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
-      </div>
-      <div id="error-codes-result" class="result-text"></div>
     </div>
   </section>
 
@@ -123,6 +143,10 @@ let tecBlocks = []; // platform blocks as they currently stand in the sheet
 
 async function loadTopErrorCodes() {
   const select = document.getElementById('tec-platform');
+  // Rebuilding the options drops the selection, which after a sync would
+  // silently swing the page to the first platform while the "from Claude"
+  // highlight stayed on - a second Sync would then hit the wrong block.
+  const previous = select.value;
   try {
     const res = await fetch('/api/tvn/top-error-codes');
     const data = await res.json();
@@ -131,7 +155,12 @@ async function loadTopErrorCodes() {
     select.innerHTML = tecBlocks
       .map(b => `<option value="${escapeHtml(b.platform)}">${escapeHtml(b.platform)}</option>`)
       .join('');
-    onTecPlatformChange();
+    if (previous && tecBlocks.some(b => b.platform === previous)) {
+      select.value = previous;
+      onTecPlatformChange(false);
+    } else {
+      onTecPlatformChange(true); // selection genuinely changed - drop the highlight
+    }
   } catch (err) {
     select.innerHTML = '<option value="">โหลด platform ไม่สำเร็จ</option>';
     document.getElementById('error-codes-result').textContent = 'Error: ' + err.message;
@@ -199,6 +228,13 @@ function clearTecRows() {
   const block = currentTecBlock();
   renderTecRows([], block ? block.endRow - block.startRow + 1 : 10);
   document.getElementById('error-codes-result').textContent = '';
+}
+
+// Clears only the pasted text, leaving the table and platform alone - useful
+// when a second platform's answer is about to be pasted over the first.
+function clearTecPasteInput() {
+  document.getElementById('tec-paste-input').value = '';
+  document.getElementById('error-codes-result').textContent = 'ล้างข้อความที่วางแล้ว (ตารางกับ Platform ยังอยู่)';
 }
 
 // Splits "avplayer-26.6: -12643, 600" into its three fields. The version can
