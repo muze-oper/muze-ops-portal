@@ -39,6 +39,8 @@
     .mode-btn.active { background: #1a73e8; color: white; box-shadow: 0 1px 3px rgba(26,115,232,0.4); }
     .mode-btn:not(.active):hover { background: rgba(0,0,0,0.06); }
     @keyframes notifSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes lastUpdateBlink { 0%, 100% { background: #fff3b0; } 50% { background: transparent; } }
+    .last-update-new { animation: lastUpdateBlink 1.1s ease-in-out infinite; cursor: pointer; border-radius: 4px; }
   </style>
 </head>
 <body>
@@ -291,6 +293,31 @@ let _filterLoading = false;
 // Gmail for a date range that's mostly already resolved/settled.
 let _historyData = [];
 let _historyLoading = false;
+
+// "Last Update" blink — a group's Last Update value flashes until someone
+// clicks it. _lastUpdateSeen maps groupKey -> the last acknowledged update
+// timestamp (ms), persisted so a page reload doesn't forget what's already
+// been seen. _lastUpdateSeenInitialized guards a one-time silent seeding of
+// every group's CURRENT last-update time on the very first render this ever
+// runs (or after localStorage is cleared) — otherwise every already-existing
+// group would start blinking the moment this feature ships, when only
+// genuinely new arrivals from here on should.
+let _lastUpdateSeen = {};
+let _lastUpdateSeenInitialized = false;
+try {
+  const _stored = localStorage.getItem('digestLastUpdateSeen');
+  if (_stored) { _lastUpdateSeen = JSON.parse(_stored); _lastUpdateSeenInitialized = true; }
+} catch { /* corrupt localStorage value — just re-seed */ }
+
+function ackLastUpdate(cell) {
+  const key = cell.dataset.lastupdateKey;
+  const time = +cell.dataset.lastupdateTime;
+  if (key && time) {
+    _lastUpdateSeen[key] = time;
+    localStorage.setItem('digestLastUpdateSeen', JSON.stringify(_lastUpdateSeen));
+  }
+  cell.classList.remove('last-update-new');
+}
 function currentData() {
   if (_mode === 'filter') return _filterData;
   if (_mode === 'history') return _historyData;
@@ -894,6 +921,19 @@ function renderDashboard() {
       ? members.reduce((max, m) => { const d = new Date(m.e.date); return (!max || d > max) ? d : max; }, null)
       : null;
     const lastUpdateVal = lastUpdateDate ? fmtReceived(lastUpdateDate) : '';
+    // Group's grouping key doubles as a stable identity for "have I already
+    // seen this update" tracking (msgIds within a group shift as new emails
+    // arrive, but the key — case ref/MN-tag/Zendesk ID/subject — doesn't).
+    const lastUpdateKey = groupKeyFor(e);
+    const lastUpdateTime = lastUpdateDate ? lastUpdateDate.getTime() : null;
+    let isNewLastUpdate = false;
+    if (lastUpdateTime) {
+      if (_lastUpdateSeenInitialized) {
+        isNewLastUpdate = !_lastUpdateSeen[lastUpdateKey] || lastUpdateTime > _lastUpdateSeen[lastUpdateKey];
+      } else {
+        _lastUpdateSeen[lastUpdateKey] = lastUpdateTime; // silent one-time baseline seed — see declaration above
+      }
+    }
     const shortAcc = account.split('@')[0];
     const inProgress = st !== 'To Do';
     const isPast = dueVal && new Date(dueVal) < new Date();
@@ -932,8 +972,11 @@ function renderDashboard() {
           '<div style="pointer-events:none;font-size:11px;font-weight:'+dueWeight+';color:'+dueColor+';border:1px solid '+dueBorder+';border-radius:5px;padding:2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(dueVal?fmtReceived(dueVal):'—')+'</div>'+
         '</div>'+
       '</td>'+
-      // Last Update — blank unless grouped; see lastUpdateVal above
-      '<td style="padding:6px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#888">'+lastUpdateVal+'</td>'+
+      // Last Update — blank unless grouped; see lastUpdateVal above. Blinks
+      // (last-update-new) until clicked — a new arrival in an already-open
+      // group is easy to miss otherwise, since the group row itself doesn't
+      // move or change shape when it happens.
+      '<td class="'+(isNewLastUpdate?'last-update-new':'')+'" data-lastupdate-key="'+escapeHtmlSmall(lastUpdateKey)+'" data-lastupdate-time="'+(lastUpdateTime||'')+'" onclick="event.stopPropagation();ackLastUpdate(this)" style="padding:6px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#888">'+lastUpdateVal+'</td>'+
       // Sender
       '<td style="padding:6px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555;font-size:12px">'+e.from+'</td>'+
       // Summary — the one column with no fixed <col> width, so table-layout:fixed gives it all the leftover space
@@ -988,6 +1031,14 @@ function renderDashboard() {
       });
     }
   });
+  // First render ever (or first since localStorage was cleared) — the
+  // baseline just got silently seeded above with every group's CURRENT
+  // last-update time, so persist it now and stop re-seeding on every
+  // future render (only a genuinely newer update should blink from here on).
+  if (!_lastUpdateSeenInitialized) {
+    _lastUpdateSeenInitialized = true;
+    localStorage.setItem('digestLastUpdateSeen', JSON.stringify(_lastUpdateSeen));
+  }
   // update status bar
   document.getElementById('db-unread').textContent    = '📥 To Do ' + counts['To Do'];
   document.getElementById('db-processing').textContent= '⚙ Processing ' + counts['Processing'];
