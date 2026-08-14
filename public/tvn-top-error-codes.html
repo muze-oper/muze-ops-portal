@@ -53,6 +53,10 @@
         <div id="tec-dash-result" class="result-text"></div>
 
         <div id="tec-dash-export">
+          <div class="export-head">
+            <span class="export-title">BITMOVIN Top Error in 24 Hours</span>
+            <span class="export-meta" id="tec-export-meta"></span>
+          </div>
           <div class="stat-row" id="tec-stats"></div>
           <div class="chart-grid">
             <figure class="chart">
@@ -396,6 +400,18 @@ function renderTecDashboard() {
   const total = perPlatform.reduce((s, r) => s + r.value, 0);
   const worst = allCodes[0];
   const dates = [...new Set(rows.map(r => r.date).filter(Boolean))].sort((a, b) => tecDateKey(a) - tecDateKey(b));
+
+  // The exported PNG travels without the page around it, so it has to say
+  // which window and which filters produced these numbers - otherwise a
+  // filtered export is indistinguishable from the full picture.
+  const platformPick = document.getElementById('tec-f-platform').value;
+  const codeQuery = document.getElementById('tec-f-code').value.trim();
+  const meta = [];
+  meta.push(dates.length === 1 ? prettyDate(dates[0]) : (dates.length ? `${prettyDate(dates[0])} – ${prettyDate(dates[dates.length - 1])}` : 'ไม่มีข้อมูล'));
+  if (platformPick) meta.push(`Platform: ${platformPick}`);
+  if (codeQuery) meta.push(`Error code มี "${codeQuery}"`);
+  if (!platformPick && !codeQuery) meta.push('ทุก platform');
+  document.getElementById('tec-export-meta').textContent = meta.join('  ·  ');
 
   document.getElementById('tec-stats').innerHTML = [
     { label: 'Approx sessions รวม', value: total.toLocaleString() },

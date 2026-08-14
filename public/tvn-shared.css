@@ -211,6 +211,12 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
    padding shorthand on this element, which would wipe an inline padding-top. */
 #tec-dash-export { background: var(--surface); padding-top: 4px; }
 
+/* Title inside the captured area - the PNG gets shared on its own, so it has
+   to carry its own heading and the window/filters it represents. */
+.export-head { margin-bottom: 14px; }
+.export-title { display: block; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+.export-meta { display: block; font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+
 /* Filters in one row above the charts, export action pushed to the far end. */
 .dash-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .dash-filters { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
