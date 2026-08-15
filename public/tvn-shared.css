@@ -116,20 +116,34 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .hourly-heatmap td { font-variant-numeric: tabular-nums; border-top: 1px solid var(--border); }
 /* Label columns hold real words, so they get enough room to not collide with
    the first hour column - fixed layout clips rather than wraps otherwise. */
-.hourly-heatmap .col-platform { text-align: left !important; width: 86px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hourly-heatmap .col-date { width: 66px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Platform and its date stack in one column rather than taking two: side by
+   side, neither fitted its width and both were being cut off. Nothing here
+   truncates now - no ellipsis, no hidden overflow. */
+.hourly-heatmap .col-id { text-align: left !important; width: 86px; }
+.hourly-heatmap .id-platform { display: block; font-family: var(--font-sans); font-size: 10px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.hourly-heatmap .id-date { display: block; font-family: var(--font-mono); font-size: 8.5px; color: var(--ink-faint); white-space: nowrap; }
+.hourly-heatmap th.col-id .id-platform,
+.hourly-heatmap th.col-id .id-date { color: var(--ink-faint); font-weight: 600; }
+
 /* Every printed number is a percentage ("8.21%"). The hour column carries it
    at its own smaller size so both the peak value and the "12.00" header fit
    wholly inside one cell - nothing overflows into a neighbour, which is what
    previously got clipped when the table was exported as an image. Widths sum
-   to 86 + 66 + 3x44 + 24x30 = 1004px, inside the ~1012px a full-width card
+   to 86 + 46 + 40 + 46 + 24x32 = 986px, inside the ~1012px a full-width card
    gives, so the table never needs to scroll at this page's max width. */
-.hourly-heatmap .col-hour { width: 30px; padding-left: 1px; padding-right: 1px; font-size: 8px; }
-.hourly-heatmap .col-stat { width: 44px; }
+.hourly-heatmap .col-hour { width: 32px; padding-left: 1px; padding-right: 1px; font-size: 8px; }
+.hourly-heatmap .col-stat { width: 46px; }
 .hourly-heatmap td.col-stat { white-space: nowrap; }
+.hourly-heatmap .col-time { width: 40px; }
 /* Peak is the day's maximum - a fixed critical colour, not a point on the
    ramp, so it never reads as "just another value". */
 .hourly-heatmap td.col-peak { color: var(--critical); font-weight: 700; }
+/* Peak and the hour it happened are one reading split across two cells, so a
+   tinted band with a border down each side frames them as a pair rather than
+   two unrelated columns that happen to be adjacent. */
+.hourly-heatmap .col-peak, .hourly-heatmap .col-time { background: var(--surface-2); }
+.hourly-heatmap .col-peak { border-left: 1px solid var(--border); }
+.hourly-heatmap .col-time { border-right: 1px solid var(--border); }
 /* Avg is coloured on the same scale as the hours, so without a break it reads
    as just another hour cell - this gap separates the summary block. */
 .hourly-heatmap .col-avg { border-right: 6px solid var(--surface); }
