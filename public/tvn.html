@@ -40,129 +40,123 @@
   </div>
 
   <section class="block" id="view-input">
-    <div class="subview-row">
-      <div class="view-toggle view-toggle--sub" role="tablist">
-        <button id="sub-sessions" class="active" onclick="switchTvnInput('sessions')">Error Sessions (CSV)</button>
-        <button id="sub-codes" onclick="switchTvnInput('codes')">Top Error Codes (paste)</button>
-      </div>
-    </div>
-
-    <div class="card" id="input-sessions">
+    <div class="card">
       <div class="steps">
         <div class="step">
           <span class="step-no">Step 1</span>
           <span class="step-text">
-            เปิด Bitmovin → metric <strong>Error Sessions</strong> → ตั้ง <strong>Filters</strong> ให้เหลือ platform เดียว → Export CSV
+            เปิด Bitmovin → ตั้ง <strong>Filters</strong> ให้เหลือ platform เดียว — ขั้นตอนนี้ใช้ร่วมกันทั้งสองแบบด้านล่าง
             <div class="filter-ref">
               <div class="filter-ref-head">Filter ที่ต้องใช้</div>
               <div class="filter-ref-sub">1. <strong>Show Metrics Between</strong> = <code>Last 24 hours</code></div>
               <div class="filter-ref-sub">2. <strong>Platform filters</strong> — ตั้งให้เหลือ platform เดียวเท่านั้น:</div>
-              <table class="filter-ref-table"><tbody id="hourly-filter-ref"></tbody></table>
+              <table class="filter-ref-table"><tbody id="shared-filter-ref"></tbody></table>
             </div>
           </span>
         </div>
-        <div class="step">
-          <span class="step-no">Step 2</span>
-          <span class="step-text">เลือกไฟล์ CSV ที่ export มา — ระบบจะอ่าน platform จาก filter ในไฟล์ และแปลงเวลาเป็นเวลาไทยให้</span>
-        </div>
       </div>
 
-      <div class="tec-paste-row">
-        <div class="tec-paste-col">
-          <label class="field-label" for="hourly-csv-file">ไฟล์ CSV จาก Bitmovin</label>
-          <input type="file" id="hourly-csv-file" accept=".csv,text/csv" onchange="handleHourlyCsvFile(this)">
-          <div id="hourly-csv-hours"></div>
+      <div class="track track--csv">
+        <div class="track-head">
+          <span class="track-name">A · Error Sessions</span>
+          <span class="track-sub">ผ่านไฟล์ CSV ที่ export จาก Bitmovin → แท็บ BitMovin Error</span>
         </div>
-        <div class="tec-paste-col">
-          <div class="step" style="margin-bottom:8px;">
+        <div class="steps">
+          <div class="step">
+            <span class="step-no">Step 2</span>
+            <span class="step-text">metric <strong>Error Sessions</strong> → <strong>Export CSV</strong> → เลือกไฟล์ที่ได้ — ระบบจะอ่าน platform จาก filter ในไฟล์ และแปลงเวลาเป็นเวลาไทยให้</span>
+          </div>
+        </div>
+
+        <div class="tec-paste-row">
+          <div class="tec-paste-col">
+            <label class="field-label" for="hourly-csv-file">ไฟล์ CSV จาก Bitmovin</label>
+            <input type="file" id="hourly-csv-file" accept=".csv,text/csv" onchange="handleHourlyCsvFile(this)">
+            <div id="hourly-csv-hours"></div>
+          </div>
+          <div class="tec-paste-col">
+            <div class="step" style="margin-bottom:8px;">
+              <span class="step-no">Step 3</span>
+              <span class="step-text">ตรวจ <strong>Platform</strong> + <strong>Date</strong> ให้ถูกก่อน sync</span>
+            </div>
+            <div id="hourly-validate"><div class="hint">ยังไม่ได้เลือกไฟล์</div></div>
+            <div class="step" style="margin:12px 0 8px;">
+              <span class="step-no">Step 4</span>
+              <span class="step-text">กด Sync — แทรกแถวใหม่บนสุดของ platform นั้น ของเดิมเลื่อนลง ไม่มีอะไรถูกลบ</span>
+            </div>
+            <button class="btn-primary" id="hourly-sync-btn" onclick="syncHourlyCsv()" disabled style="width:100%;">🔄 Sync เข้าชีต</button>
+            <div id="hourly-csv-result" class="result-text"></div>
+          </div>
+        </div>
+
+        <details class="extras">
+          <summary>แนบ screenshot ไว้อ้างอิง</summary>
+          <div id="paste-area-sessions" class="paste-area" tabindex="0" style="margin-top:12px;">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง</div>
+        </details>
+      </div>
+
+      <div class="track track--paste">
+        <div class="track-head">
+          <span class="track-name">B · Top Error Codes</span>
+          <span class="track-sub">ผ่าน screenshot ที่ให้ Claude อ่านค่าให้ → แท็บ BitMovin Top Error Codes</span>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <span class="step-no">Step 2</span>
+            <span class="step-text">แคป screenshot กราฟ "Top Error Codes" <strong>ให้เห็นกล่อง Filters ด้วย</strong> พร้อมแกนตัวเลขด้านล่าง</span>
+          </div>
+          <div class="step">
             <span class="step-no">Step 3</span>
-            <span class="step-text">ตรวจ <strong>Platform</strong> + <strong>Date</strong> ให้ถูกก่อน sync</span>
+            <span class="step-text">เปิดแชท <strong>Claude Code</strong> จากโฟลเดอร์ <code>muze-ops-portal</code> → วาง screenshot ลงในแชท (Ctrl/Cmd+V) → วางคำสั่งต่อท้าย</span>
+            <button type="button" class="btn-ghost" onclick="copyClaudePrompt()">📋 copy คำสั่ง</button>
           </div>
-          <div id="hourly-validate"><div class="hint">ยังไม่ได้เลือกไฟล์</div></div>
-          <div class="step" style="margin:12px 0 8px;">
-            <span class="step-no">Step 4</span>
-            <span class="step-text">กด Sync — เขียนทับเฉพาะชั่วโมงที่มีในไฟล์ คอลัมน์ Average เป็นสูตรในชีต ไม่ถูกแตะ</span>
-          </div>
-          <button class="btn-primary" id="hourly-sync-btn" onclick="syncHourlyCsv()" disabled style="width:100%;">🔄 Sync เข้าชีต</button>
-          <div id="hourly-csv-result" class="result-text"></div>
-        </div>
-      </div>
-
-      <details class="extras">
-        <summary>แนบ screenshot ไว้อ้างอิง / วิธี import skill ให้ทีม</summary>
-        <div id="paste-area-sessions" class="paste-area" tabindex="0" style="margin-top:12px;">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง</div>
-        <div class="hint" style="margin-top:12px;">
-          Skill <code>tvn-dashboard-reading</code> สอน Claude ให้อ่านค่าจาก screenshot — clone repo <code>muze-ops-portal</code>
-          แล้วเปิด Claude Code จากในโฟลเดอร์นั้น (ดูขั้นตอนเต็มที่หน้า Top Error Codes)
-        </div>
-      </details>
-    </div>
-
-    <div class="card" id="input-codes" hidden>
-      <div class="steps">
-        <div class="step">
-          <span class="step-no">Step 1</span>
-          <span class="step-text">
-            เปิด Bitmovin → ตั้ง <strong>Filters</strong> ของ platform ที่ต้องการ → แคป screenshot กราฟ "Top Error Codes" <strong>ให้เห็นกล่อง Filters ด้วย</strong> พร้อมแกนตัวเลขด้านล่าง
-            <div class="filter-ref">
-              <div class="filter-ref-head">Filter ที่ต้องใช้</div>
-              <div class="filter-ref-sub">1. <strong>Show Metrics Between</strong> = <code>Last 24 hours</code></div>
-              <div class="filter-ref-sub">2. <strong>Platform filters</strong> — ตั้งให้ตรงกับ platform ที่จะบันทึก:</div>
-              <table class="filter-ref-table"><tbody id="tec-filter-ref"></tbody></table>
-            </div>
-          </span>
-        </div>
-        <div class="step">
-          <span class="step-no">Step 2</span>
-          <span class="step-text">เปิดแชท <strong>Claude Code</strong> จากโฟลเดอร์ <code>muze-ops-portal</code> → วาง screenshot ลงในแชท (Ctrl/Cmd+V) → วางคำสั่งต่อท้าย</span>
-          <button type="button" class="btn-ghost" onclick="copyClaudePrompt()">📋 copy คำสั่ง</button>
-        </div>
-        <div class="step">
-          <span class="step-no">Step 3</span>
-          <span class="step-text">copy คำตอบของ Claude มาวางในช่องด้านล่าง — Platform จะถูกเลือกให้ทันที (ขึ้น<span style="color:#1a73e8;font-weight:700;">สีน้ำเงิน</span>) ให้เช็คว่าตรงกับรูป</span>
-        </div>
-      </div>
-      <code id="tec-claude-prompt" hidden>อ่านกราฟ Top Error Codes นี้ ตอบบรรทัดแรกเป็น "Platform: &lt;ชื่อ platform&gt;" ตาม Filters ในรูป แล้วบรรทัดต่อไปละ 1 อันดับ รูปแบบ "player-version: error-code, approx-session" เรียงมากไปน้อย ไม่ต้องมีข้อความอื่น</code>
-
-      <div class="tec-paste-row">
-        <div class="tec-paste-col">
-          <label class="field-label" for="tec-paste-input">วางคำตอบที่ Claude อ่านให้</label>
-          <textarea id="tec-paste-input" class="paste-input paste-input-half" placeholder="Platform: Android Mobile&#10;media3-exoplayer-1.10.1: 2004, 519"></textarea>
-          <div class="table-actions" style="margin-top:6px;">
-            <button class="btn-ghost" id="tec-clear-paste-btn" onclick="clearTecPasteInput()">🧹 ล้างข้อมูลที่วาง</button>
-          </div>
-        </div>
-        <div class="tec-paste-col">
-          <label class="field-label" for="tec-platform">Platform ที่จะเขียนลงชีต</label>
-          <div class="field-row" style="margin-top:2px;">
-            <select id="tec-platform" onchange="onTecPlatformChange(true)"><option value="">กำลังโหลด...</option></select>
-            <span id="tec-platform-source" class="platform-source"></span>
-          </div>
-          <div class="field-row" style="margin-top:8px;">
-            <label class="field-label" for="tec-date">Date</label>
-            <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
-          </div>
-          <div id="tec-filters-preview" class="hint" style="margin-top:8px;"></div>
-        </div>
-      </div>
-
-      <div class="tec-table-row">
-        <div class="tec-btn-col">
           <div class="step">
             <span class="step-no">Step 4</span>
-            <span class="step-text">กด <strong>แยกลงตาราง</strong> → ตรวจค่าในตาราง + Date → กด <strong>Sync to Google Sheet</strong></span>
+            <span class="step-text">copy คำตอบของ Claude มาวางในช่องด้านล่าง — Platform จะถูกเลือกให้ทันที (ขึ้น<span style="color:#1a73e8;font-weight:700;">สีน้ำเงิน</span>) ให้เช็คว่าตรงกับรูป</span>
           </div>
-          <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
-          <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync to Google Sheet</button>
-          <button class="btn-ghost" id="tec-clear-btn" onclick="clearTecRows()">ล้างตาราง</button>
-          <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
-          <div id="error-codes-result" class="result-text"></div>
         </div>
-        <div id="error-codes-export-panel" style="background:var(--surface);">
-          <table class="data" id="error-codes-table">
-            <thead><tr><th>อันดับ</th><th style="text-align:left">Player Version</th><th>Error Code</th><th>Approx Session</th></tr></thead>
-            <tbody id="error-codes-table-body"></tbody>
-          </table>
+        <code id="tec-claude-prompt" hidden>อ่านกราฟ Top Error Codes นี้ ตอบบรรทัดแรกเป็น "Platform: &lt;ชื่อ platform&gt;" ตาม Filters ในรูป แล้วบรรทัดต่อไปละ 1 อันดับ รูปแบบ "player-version: error-code, approx-session" เรียงมากไปน้อย ไม่ต้องมีข้อความอื่น</code>
+
+        <div class="tec-paste-row">
+          <div class="tec-paste-col">
+            <label class="field-label" for="tec-paste-input">วางคำตอบที่ Claude อ่านให้</label>
+            <textarea id="tec-paste-input" class="paste-input paste-input-half" placeholder="Platform: Android Mobile&#10;media3-exoplayer-1.10.1: 2004, 519"></textarea>
+            <div class="table-actions" style="margin-top:6px;">
+              <button class="btn-ghost" id="tec-clear-paste-btn" onclick="clearTecPasteInput()">🧹 ล้างข้อมูลที่วาง</button>
+            </div>
+          </div>
+          <div class="tec-paste-col">
+            <label class="field-label" for="tec-platform">Platform ที่จะเขียนลงชีต</label>
+            <div class="field-row" style="margin-top:2px;">
+              <select id="tec-platform" onchange="onTecPlatformChange(true)"><option value="">กำลังโหลด...</option></select>
+              <span id="tec-platform-source" class="platform-source"></span>
+            </div>
+            <div class="field-row" style="margin-top:8px;">
+              <label class="field-label" for="tec-date">Date</label>
+              <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
+            </div>
+            <div id="tec-filters-preview" class="hint" style="margin-top:8px;"></div>
+          </div>
+        </div>
+
+        <div class="tec-table-row">
+          <div class="tec-btn-col">
+            <div class="step">
+              <span class="step-no">Step 5</span>
+              <span class="step-text">กด <strong>แยกลงตาราง</strong> → ตรวจค่าในตาราง + Date → กด <strong>Sync to Google Sheet</strong></span>
+            </div>
+            <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
+            <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync to Google Sheet</button>
+            <button class="btn-ghost" id="tec-clear-btn" onclick="clearTecRows()">ล้างตาราง</button>
+            <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
+            <div id="error-codes-result" class="result-text"></div>
+          </div>
+          <div id="error-codes-export-panel" style="background:var(--surface);">
+            <table class="data" id="error-codes-table">
+              <thead><tr><th>อันดับ</th><th style="text-align:left">Player Version</th><th>Error Code</th><th>Approx Session</th></tr></thead>
+              <tbody id="error-codes-table-body"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -513,8 +507,8 @@ function switchTvnView(view) {
 // Same platform->filter reference as the Top Error Codes page, but sourced
 // from the matcher this page actually uses, so the instructions can't drift
 // from the detection.
-function renderHourlyFilterRef() {
-  const el = document.getElementById('hourly-filter-ref');
+function renderSharedFilterRef() {
+  const el = document.getElementById('shared-filter-ref');
   if (!el) return;
   // The matcher lowercases everything; these are the labels Bitmovin shows.
   const LABEL = {
@@ -681,7 +675,6 @@ async function loadTopErrorCodes() {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     tecBlocks = data.blocks || [];
-    renderTecFilterReference();
     populateTecFilters();
     renderTecDashboard();
     select.innerHTML = '<option value="">— เลือก platform —</option>' + tecBlocks
@@ -701,30 +694,12 @@ async function loadTopErrorCodes() {
 
 // Built from the sheet's own Filters column so the reference can't drift from
 // the blocks a sync actually writes to.
-function renderTecFilterReference() {
-  const el = document.getElementById('tec-filter-ref');
-  if (!el) return;
-  el.innerHTML = tecBlocks.map(b => {
-    const lines = b.filters.split('\n').map(l => l.trim()).filter(Boolean);
-    const platformLine = lines.find(l => /^platform\s*:/i.test(l)) || '';
-    const osLine = lines.filter(l => l !== platformLine).join(' ');
-    return `<tr><th>${escapeHtml(b.platform)}</th><td><code>${escapeHtml(osLine)}</code></td><td><code>${escapeHtml(platformLine)}</code></td></tr>`;
-  }).join('');
-}
 
 function tecFilledEntries(block) {
   return (block.entries || []).filter(e => (e.playerVersion || '').trim() || (e.errorCode || '').trim());
 }
 
 // Which kind of data is being entered. Only one card is in the DOM flow at a
-// time, so the input page still fits without scrolling.
-function switchTvnInput(kind) {
-  const isSessions = kind === 'sessions';
-  document.getElementById('input-sessions').hidden = !isSessions;
-  document.getElementById('input-codes').hidden = isSessions;
-  document.getElementById('sub-sessions').classList.toggle('active', isSessions);
-  document.getElementById('sub-codes').classList.toggle('active', !isSessions);
-}
 
 function currentTecBlock() {
   const platform = document.getElementById('tec-platform').value;
@@ -1218,7 +1193,7 @@ function renderTecDashboard() {
 
 
 setupPasteArea('paste-area-sessions');
-renderHourlyFilterRef();
+renderSharedFilterRef();
 loadHourlyTable();
 loadTopErrorCodes();
 </script>
