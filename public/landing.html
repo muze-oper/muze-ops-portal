@@ -179,12 +179,6 @@
     .non-project-body { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
     .tool-card--non { display: flex; align-items: center; gap: 10px; background: rgba(154,110,240,.06); border: 1px solid rgba(154,110,240,.3); }
     .tool-card--non:hover { box-shadow: 0 6px 18px rgba(154,110,240,.18); transform: translateY(-1px); }
-    .non-project-card {
-      display: flex; flex-direction: column; gap: 12px; padding: 13px 16px;
-      background: rgba(154,110,240,.06); border: 1px solid rgba(154,110,240,.3); border-radius: 12px;
-      color: #1c2340; transition: box-shadow .16s, transform .16s;
-    }
-    .non-project-card:hover { box-shadow: 0 6px 18px rgba(154,110,240,.18); }
 
     @media (max-width: 1100px) {
       main { grid-template-columns: 1fr; }
@@ -372,6 +366,16 @@
                 <a href="/resource-planning" class="pill">แก้ไขทั้งหมด →</a>
               </div>
             </div>
+            <div class="all-project-card" id="email-digest-card">
+              <div class="row">
+                <span class="icon-tile icon-tile--lg icon-tile--all"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m2.5 6.5 9.5 7 9.5-7"></path></svg></span>
+                <span class="tool-text">
+                  <a href="/digest" class="all-project-title" data-card="digest">Email Digest</a>
+                  <span class="tool-meta" data-meta="digest"></span>
+                </span>
+              </div>
+              <div class="project-hot" id="hot-email-digest"></div>
+            </div>
           </div>
         </section>
 
@@ -381,16 +385,6 @@
             <span class="category-caption">Personal Tools</span>
           </div>
           <div class="non-project-body">
-            <div class="non-project-card" id="email-digest-card">
-              <div class="row">
-                <span class="icon-tile icon-tile--lg icon-tile--non"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m2.5 6.5 9.5 7 9.5-7"></path></svg></span>
-                <span class="tool-text">
-                  <a href="/digest" class="tool-title tool-title--lg" data-card="digest">Email Digest</a>
-                  <span class="tool-meta tool-meta--non" data-meta="digest"></span>
-                </span>
-              </div>
-              <div class="project-hot" id="hot-email-digest"></div>
-            </div>
             <a href="/planner" class="tool-card tool-card--standalone tool-card--non" data-card="planner">
               <span class="icon-tile icon-tile--lg icon-tile--non"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="17" rx="2"></rect><path d="M8 3v3M16 3v3M3 10h18"></path><path d="m9 15 2 2 4-4"></path></svg></span>
               <span class="tool-text">
