@@ -496,9 +496,9 @@ function renderHourlyTable() {
         <span class="id-platform">${escapeHtml(p.platform)}</span>
         <span class="id-date">${escapeHtml(compactDate(p.date))}</span>
       </td>
+      ${avgCell(p.average)}
       ${peakCell(p.peak)}
       ${timeCell(p.peakTime)}
-      ${avgCell(p.average)}
       ${hourlyTableColumns.map(h => heatCell(p.values[h], h, h === peakHour)).join('')}
     </tr>`;
   }).join('');
@@ -518,7 +518,7 @@ function renderHourlyTable() {
     <div id="hourly-export-panel" style="overflow-x:auto;background:var(--surface);">
       <div class="export-head"><span class="export-title">BITMOVIN Error Session in 24 hours</span></div>
       <table class="data hourly-heatmap">
-        <thead><tr><th class="col-id"><span class="id-platform">Platform</span><span class="id-date">Date</span></th><th class="col-stat col-peak">Peak</th><th class="col-stat col-time">Time</th><th class="col-stat col-avg">Avg</th>${headHours}</tr></thead>
+        <thead><tr><th class="col-id"><span class="id-platform">Platform</span><span class="id-date">Date</span></th><th class="col-stat col-avg">Avg</th><th class="col-stat col-peak">Peak</th><th class="col-stat col-time">Time</th>${headHours}</tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
     </div>

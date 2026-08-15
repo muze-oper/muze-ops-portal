@@ -121,9 +121,10 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
    truncates now - no ellipsis, no hidden overflow. */
 .hourly-heatmap .col-id { text-align: left !important; width: 86px; }
 .hourly-heatmap .id-platform { display: block; font-family: var(--font-sans); font-size: 10px; font-weight: 600; color: var(--ink); white-space: nowrap; }
-.hourly-heatmap .id-date { display: block; font-family: var(--font-mono); font-size: 8.5px; color: var(--ink-faint); white-space: nowrap; }
-.hourly-heatmap th.col-id .id-platform,
-.hourly-heatmap th.col-id .id-date { color: var(--ink-faint); font-weight: 600; }
+/* Date is blue in both the header and the value, so the pairing is obvious
+   at a glance rather than being inferred from position. */
+.hourly-heatmap .id-date { display: block; font-family: var(--font-mono); font-size: 8.5px; color: var(--info); font-weight: 600; white-space: nowrap; }
+.hourly-heatmap th.col-id .id-platform { color: var(--ink-faint); font-weight: 600; }
 
 /* Every printed number is a percentage ("8.21%"). The hour column carries it
    at its own smaller size so both the peak value and the "12.00" header fit
@@ -132,9 +133,9 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
    to 86 + 46 + 40 + 46 + 24x32 = 986px, inside the ~1012px a full-width card
    gives, so the table never needs to scroll at this page's max width. */
 .hourly-heatmap .col-hour { width: 32px; padding-left: 1px; padding-right: 1px; font-size: 8px; }
-.hourly-heatmap .col-stat { width: 46px; }
+.hourly-heatmap .col-stat { width: 42px; font-size: 9px; }
 .hourly-heatmap td.col-stat { white-space: nowrap; }
-.hourly-heatmap .col-time { width: 40px; }
+.hourly-heatmap .col-time { width: 36px; }
 /* Peak is the day's maximum - a fixed critical colour, not a point on the
    ramp, so it never reads as "just another value". */
 .hourly-heatmap td.col-peak { color: var(--critical); font-weight: 700; }
