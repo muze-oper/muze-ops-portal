@@ -40,7 +40,14 @@
   </div>
 
   <section class="block" id="view-input">
-    <div class="card">
+    <div class="subview-row">
+      <div class="view-toggle view-toggle--sub" role="tablist">
+        <button id="sub-sessions" class="active" onclick="switchTvnInput('sessions')">Error Sessions (CSV)</button>
+        <button id="sub-codes" onclick="switchTvnInput('codes')">Top Error Codes (paste)</button>
+      </div>
+    </div>
+
+    <div class="card" id="input-sessions">
       <div class="steps">
         <div class="step">
           <span class="step-no">Step 1</span>
@@ -90,7 +97,85 @@
         </div>
       </details>
     </div>
+
+    <div class="card" id="input-codes" hidden>
+      <div class="steps">
+        <div class="step">
+          <span class="step-no">Step 1</span>
+          <span class="step-text">
+            เปิด Bitmovin → ตั้ง <strong>Filters</strong> ของ platform ที่ต้องการ → แคป screenshot กราฟ "Top Error Codes" <strong>ให้เห็นกล่อง Filters ด้วย</strong> พร้อมแกนตัวเลขด้านล่าง
+            <div class="filter-ref">
+              <div class="filter-ref-head">Filter ที่ต้องใช้</div>
+              <div class="filter-ref-sub">1. <strong>Show Metrics Between</strong> = <code>Last 24 hours</code></div>
+              <div class="filter-ref-sub">2. <strong>Platform filters</strong> — ตั้งให้ตรงกับ platform ที่จะบันทึก:</div>
+              <table class="filter-ref-table"><tbody id="tec-filter-ref"></tbody></table>
+            </div>
+          </span>
+        </div>
+        <div class="step">
+          <span class="step-no">Step 2</span>
+          <span class="step-text">เปิดแชท <strong>Claude Code</strong> จากโฟลเดอร์ <code>muze-ops-portal</code> → วาง screenshot ลงในแชท (Ctrl/Cmd+V) → วางคำสั่งต่อท้าย</span>
+          <button type="button" class="btn-ghost" onclick="copyClaudePrompt()">📋 copy คำสั่ง</button>
+        </div>
+        <div class="step">
+          <span class="step-no">Step 3</span>
+          <span class="step-text">copy คำตอบของ Claude มาวางในช่องด้านล่าง — Platform จะถูกเลือกให้ทันที (ขึ้น<span style="color:#1a73e8;font-weight:700;">สีน้ำเงิน</span>) ให้เช็คว่าตรงกับรูป</span>
+        </div>
+      </div>
+      <code id="tec-claude-prompt" hidden>อ่านกราฟ Top Error Codes นี้ ตอบบรรทัดแรกเป็น "Platform: &lt;ชื่อ platform&gt;" ตาม Filters ในรูป แล้วบรรทัดต่อไปละ 1 อันดับ รูปแบบ "player-version: error-code, approx-session" เรียงมากไปน้อย ไม่ต้องมีข้อความอื่น</code>
+
+      <div class="tec-paste-row">
+        <div class="tec-paste-col">
+          <label class="field-label" for="tec-paste-input">วางคำตอบที่ Claude อ่านให้</label>
+          <textarea id="tec-paste-input" class="paste-input paste-input-half" placeholder="Platform: Android Mobile&#10;media3-exoplayer-1.10.1: 2004, 519"></textarea>
+          <div class="table-actions" style="margin-top:6px;">
+            <button class="btn-ghost" id="tec-clear-paste-btn" onclick="clearTecPasteInput()">🧹 ล้างข้อมูลที่วาง</button>
+          </div>
+        </div>
+        <div class="tec-paste-col">
+          <label class="field-label" for="tec-platform">Platform ที่จะเขียนลงชีต</label>
+          <div class="field-row" style="margin-top:2px;">
+            <select id="tec-platform" onchange="onTecPlatformChange(true)"><option value="">กำลังโหลด...</option></select>
+            <span id="tec-platform-source" class="platform-source"></span>
+          </div>
+          <div class="field-row" style="margin-top:8px;">
+            <label class="field-label" for="tec-date">Date</label>
+            <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
+          </div>
+          <div id="tec-filters-preview" class="hint" style="margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <div class="tec-table-row">
+        <div id="error-codes-export-panel" style="background:var(--surface);">
+          <table class="data" id="error-codes-table">
+            <thead><tr><th>อันดับ</th><th style="text-align:left">Player Version</th><th>Error Code</th><th>Approx Session</th></tr></thead>
+            <tbody id="error-codes-table-body"></tbody>
+          </table>
+        </div>
+        <div class="tec-btn-col">
+          <div class="step">
+            <span class="step-no">Step 4</span>
+            <span class="step-text">กด <strong>แยกลงตาราง</strong> → ตรวจค่าในตาราง + Date → กด <strong>Sync to Google Sheet</strong></span>
+          </div>
+          <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
+          <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync to Google Sheet</button>
+          <button class="btn-ghost" id="tec-clear-btn" onclick="clearTecRows()">ล้างตาราง</button>
+          <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
+          <div id="error-codes-result" class="result-text"></div>
+        </div>
+      </div>
+    </div>
   </section>
+
+  <dialog id="tec-confirm" class="confirm-dialog">
+    <div class="confirm-title">ตรวจข้อมูลเรียบร้อยแล้วใช่ไหม?</div>
+    <div class="confirm-body" id="tec-confirm-body"></div>
+    <div class="confirm-actions">
+      <button class="btn-ghost" onclick="closeTecConfirm(false)">Review Again</button>
+      <button class="btn-primary" onclick="closeTecConfirm(true)">Yes, sync now</button>
+    </div>
+  </dialog>
 
   <section class="block" id="view-dash" hidden>
     <div class="card">
@@ -534,9 +619,331 @@ const HOUR_LABEL_EVERY = 3; // show an hour label every N columns
 // at 10.00, so an offset of 2 lands the labels on the round 12/15/18/21 hours.
 const HOUR_LABEL_OFFSET = 2;
 
+// ---- Top Error Codes input (moved here so all data entry lives on one page;
+// the Top Error Codes page keeps only its dashboard) ----
+let tecBlocks = [];
+
+async function loadTopErrorCodes() {
+  const select = document.getElementById('tec-platform');
+  const previous = select.value;
+  try {
+    const res = await fetch('/api/tvn/top-error-codes');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    tecBlocks = data.blocks || [];
+    renderTecFilterReference();
+    select.innerHTML = tecBlocks
+      .map(b => `<option value="${escapeHtml(b.platform)}">${escapeHtml(b.platform)}</option>`)
+      .join('');
+    if (previous && tecBlocks.some(b => b.platform === previous)) {
+      select.value = previous;
+      onTecPlatformChange(false);
+    } else {
+      onTecPlatformChange(true);
+    }
+  } catch (err) {
+    select.innerHTML = '<option value="">โหลด platform ไม่สำเร็จ</option>';
+    document.getElementById('error-codes-result').textContent = 'Error: ' + err.message;
+  }
+}
+
+// Built from the sheet's own Filters column so the reference can't drift from
+// the blocks a sync actually writes to.
+function renderTecFilterReference() {
+  const el = document.getElementById('tec-filter-ref');
+  if (!el) return;
+  el.innerHTML = tecBlocks.map(b => {
+    const lines = b.filters.split('\n').map(l => l.trim()).filter(Boolean);
+    const platformLine = lines.find(l => /^platform\s*:/i.test(l)) || '';
+    const osLine = lines.filter(l => l !== platformLine).join(' ');
+    return `<tr><th>${escapeHtml(b.platform)}</th><td><code>${escapeHtml(osLine)}</code></td><td><code>${escapeHtml(platformLine)}</code></td></tr>`;
+  }).join('');
+}
+
+function tecFilledEntries(block) {
+  return (block.entries || []).filter(e => (e.playerVersion || '').trim() || (e.errorCode || '').trim());
+}
+
+// Which kind of data is being entered. Only one card is in the DOM flow at a
+// time, so the input page still fits without scrolling.
+function switchTvnInput(kind) {
+  const isSessions = kind === 'sessions';
+  document.getElementById('input-sessions').hidden = !isSessions;
+  document.getElementById('input-codes').hidden = isSessions;
+  document.getElementById('sub-sessions').classList.toggle('active', isSessions);
+  document.getElementById('sub-codes').classList.toggle('active', !isSessions);
+}
+
+function currentTecBlock() {
+  const platform = document.getElementById('tec-platform').value;
+  return tecBlocks.find(b => b.platform === platform) || null;
+}
+
+// Shows the sheet's own Filters text for the selected platform so it can be
+// eyeballed against the Filters panel in the screenshot, and loads whatever
+// that block currently holds so a sync starts from the existing snapshot.
+// `byHand` is true when a human moved the dropdown, which drops the
+// auto-filled highlight - the value is no longer Claude's suggestion.
+function onTecPlatformChange(byHand) {
+  if (byHand) setPlatformAutofilled(false, '');
+  const block = currentTecBlock();
+  const preview = document.getElementById('tec-filters-preview');
+  if (!block) { preview.textContent = ''; return; }
+
+  const capacity = block.endRow - block.startRow + 1;
+  preview.innerHTML = `Filters ในชีต: <code>${escapeHtml(block.filters.replace(/\n/g, '  ·  '))}</code> — เขียนลงแถว ${block.startRow}–${block.endRow} (สูงสุด ${capacity} อันดับ)`;
+
+  const existing = (block.entries || []).filter(e => e.playerVersion || e.errorCode || e.approxSession);
+  renderTecRows(existing, capacity);
+}
+
+// "Thu-14-Aug" - matches the label format the other tabs in this sheet use.
+function todayBangkokLabel() {
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short' })
+    .formatToParts(new Date())
+    .reduce((acc, part) => { acc[part.type] = part.value; return acc; }, {});
+  return `${p.weekday}-${p.day}-${p.month}`;
+}
+
+function renderTecRows(entries, capacity) {
+  const tbody = document.getElementById('error-codes-table-body');
+  tbody.innerHTML = '';
+  for (let i = 0; i < capacity; i++) {
+    const e = entries[i] || {};
+    addErrorCodeRow(i + 1, e.playerVersion, e.errorCode, e.approxSession);
+  }
+}
+
+function addErrorCodeRow(rank, playerVersion, errorCode, approxSession) {
+  const tbody = document.getElementById('error-codes-table-body');
+  const nextRank = rank !== undefined ? rank : tbody.children.length + 1;
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td>${escapeHtml(nextRank)}</td>
+    <td><input class="cell-input tec-version" style="width:100%;min-width:170px;text-align:left;font-weight:400;" value="${escapeHtml(playerVersion || '')}" placeholder="เช่น avplayer-26.6"></td>
+    <td><input class="cell-input tec-code" style="width:100px;" value="${escapeHtml(errorCode || '')}" placeholder="เช่น -12643"></td>
+    <td><input class="cell-input tec-session" style="width:100px;" value="${escapeHtml(approxSession || '')}" placeholder="เช่น 600"></td>
+  `;
+  tbody.appendChild(row);
+  return row;
+}
+
+function clearTecRows() {
+  const block = currentTecBlock();
+  renderTecRows([], block ? block.endRow - block.startRow + 1 : 10);
+  document.getElementById('error-codes-result').textContent = '';
+}
+
+// Clears only the pasted text, leaving the table and platform alone - useful
+// when a second platform's answer is about to be pasted over the first.
+function clearTecPasteInput() {
+  document.getElementById('tec-paste-input').value = '';
+  document.getElementById('tec-date').value = ''; // back to "blank until pasted"
+  document.getElementById('error-codes-result').textContent = 'ล้างข้อความที่วางแล้ว (ตารางกับ Platform ยังอยู่)';
+}
+
+// Splits "avplayer-26.6: -12643, 600" into its three fields. The version can
+// itself contain hyphens and dots, and the error code can be negative, so the
+// split happens on the last colon rather than on any separator.
+function parseErrorCodeLine(line) {
+  const raw = String(line).trim();
+  if (!raw) return null;
+  const colon = raw.lastIndexOf(':');
+  if (colon === -1) return null;
+  const rest = raw.slice(colon + 1).trim();
+  const m = /^(-?\d+)\s*(?:[,\t]\s*|\s+)?([\d,]+)?$/.exec(rest);
+  if (!m) return null;
+  return {
+    playerVersion: raw.slice(0, colon).trim(),
+    errorCode: m[1],
+    approxSession: (m[2] || '').replace(/,/g, ''),
+  };
+}
+
+// Claude is asked to lead its answer with "Platform: <name>", read off the
+// Filters box in the screenshot - that line is what prefills the dropdown, so
+// the platform never has to be matched by hand.
+function parsePlatformLine(line) {
+  const m = /^platform\s*[:=]\s*(.+)$/i.exec(String(line).trim());
+  return m ? m[1].trim() : null;
+}
+
+// Marks the dropdown as machine-filled (blue) rather than hand-picked, so a
+// wrong auto-detection is obvious instead of silently trusted.
+function setPlatformAutofilled(on, note) {
+  const select = document.getElementById('tec-platform');
+  select.classList.toggle('autofilled', !!on);
+  document.getElementById('tec-platform-source').textContent = note || '';
+}
+
+// Applies a "Platform:" line found in the pasted text to the dropdown.
+// Returns notes describing what happened, for the caller to surface.
+// Switching platform re-renders the table from that block, which would
+// discard rows already in it - so this no-ops when the platform is already
+// the one named, letting it run on every keystroke without clobbering work.
+function applyPlatformHintFromText(text) {
+  const notes = [];
+  const select = document.getElementById('tec-platform');
+  const hinted = text
+    .split('\n')
+    .map(l => parsePlatformLine(l))
+    .find(Boolean);
+  if (!hinted) return notes;
+
+  const match = [...select.options].find(o => o.value && o.value.toLowerCase() === hinted.toLowerCase());
+  if (!match) {
+    notes.push(`คำตอบระบุ Platform "${hinted}" ซึ่งไม่ตรงกับตัวเลือกใดในชีต - เลือกเองด้านล่าง`);
+    return notes;
+  }
+  if (select.value !== match.value) {
+    select.value = match.value;
+    onTecPlatformChange(false);
+  }
+  setPlatformAutofilled(true, '← ตั้งจากคำตอบของ Claude');
+  notes.push(`เลือก Platform เป็น "${match.value}" จากบรรทัดบนสุดของคำตอบ`);
+  return notes;
+}
+
+function parseTecPasted() {
+  const resultEl = document.getElementById('error-codes-result');
+  const raw = document.getElementById('tec-paste-input').value;
+  const notes = applyPlatformHintFromText(raw);
+  const remaining = raw.split('\n').map(l => l.trim()).filter(l => l && !parsePlatformLine(l));
+
+  const block = currentTecBlock();
+  const capacity = block ? block.endRow - block.startRow + 1 : 10;
+
+  const parsed = [];
+  const skipped = [];
+  remaining.forEach(line => {
+    const entry = parseErrorCodeLine(line);
+    if (entry) parsed.push(entry); else skipped.push(line);
+  });
+
+  const say = (msg) => { resultEl.textContent = [...notes, msg].join('\n'); };
+
+  if (!parsed.length) {
+    say('อ่านค่าไม่ได้สักบรรทัด - รูปแบบที่รองรับคือ "avplayer-26.6: -12643, 600"');
+    return;
+  }
+  if (parsed.length > capacity) {
+    say(`แยกได้ ${parsed.length} บรรทัด แต่ ${block.platform} รับได้แค่ ${capacity} - ตัดเหลือ ${capacity} อันดับแรก`);
+    parsed.length = capacity;
+  } else {
+    say(`แยกลงตารางแล้ว ${parsed.length} อันดับ` + (skipped.length ? ` (ข้าม ${skipped.length} บรรทัดที่อ่านไม่ออก: ${skipped.join(' | ')})` : ''));
+  }
+  renderTecRows(parsed, capacity);
+}
+
+function readTecRows() {
+  return [...document.querySelectorAll('#error-codes-table-body tr')].map(tr => ({
+    playerVersion: (tr.querySelector('.tec-version') || {}).value || '',
+    errorCode: (tr.querySelector('.tec-code') || {}).value || '',
+    approxSession: (tr.querySelector('.tec-session') || {}).value || '',
+  }));
+}
+
+// Sync overwrites a whole block, so it goes through an explicit review gate -
+// resolves true only when "Yes, sync now" is pressed. Esc / backdrop dismissal
+// counts as "Review Again".
+let tecConfirmResolve = null;
+
+function askTecConfirm(bodyHtml) {
+  const dlg = document.getElementById('tec-confirm');
+  document.getElementById('tec-confirm-body').innerHTML = bodyHtml;
+  return new Promise(resolve => {
+    tecConfirmResolve = resolve;
+    dlg.showModal();
+  });
+}
+
+function closeTecConfirm(confirmed) {
+  // Claim the resolver before close(), so the 'close' event handler below
+  // can't re-enter and settle the same promise with `false` first.
+  const resolve = tecConfirmResolve;
+  tecConfirmResolve = null;
+  document.getElementById('tec-confirm').close();
+  if (resolve) resolve(confirmed);
+}
+
+document.getElementById('tec-confirm').addEventListener('close', () => closeTecConfirm(false));
+
+async function syncTopErrorCodes() {
+  const btn = document.getElementById('tec-sync-btn');
+  const resultEl = document.getElementById('error-codes-result');
+  const block = currentTecBlock();
+  if (!block) { resultEl.textContent = 'ยังไม่ได้เลือก platform'; return; }
+
+  const entries = readTecRows();
+  const filled = entries.filter(e => e.playerVersion.trim() || e.errorCode.trim() || e.approxSession.trim());
+  if (!filled.length) {
+    resultEl.textContent = 'ตารางว่างอยู่ - ยังไม่มีอะไรให้ sync';
+    return;
+  }
+
+  const date = document.getElementById('tec-date').value.trim() || todayBangkokLabel();
+  const capacity = block.endRow - block.startRow + 1;
+  const confirmed = await askTecConfirm(`
+    จะเขียนทับข้อมูลเดิมทั้งบล็อกของ platform นี้:<br><br>
+    Platform: <strong>${escapeHtml(block.platform)}</strong><br>
+    Date: <strong>${escapeHtml(date)}</strong><br>
+    จำนวน: <strong>${filled.length}</strong> อันดับ (แถว ${block.startRow}–${block.endRow})<br><br>
+    ${filled.length < capacity ? `แถวที่เหลืออีก ${capacity - filled.length} แถวจะถูกล้างให้ว่าง<br><br>` : ''}
+    ตรวจค่าในตารางเรียบร้อยแล้วใช่ไหม?
+  `);
+  if (!confirmed) {
+    resultEl.textContent = 'ยกเลิกแล้ว - กลับไปตรวจข้อมูลอีกครั้ง';
+    return;
+  }
+
+  btn.disabled = true;
+  resultEl.textContent = 'กำลัง sync...';
+  try {
+    const res = await fetch('/api/tvn/top-error-codes/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform: block.platform, entries, dateLabel: date }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    resultEl.textContent = data.result;
+    await loadTopErrorCodes(); // pull back what the sheet now holds
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// The screenshot goes straight into the Claude Code chat rather than through
+// this page - it can't reach Claude Code anyway, and routing the image
+// through here only added a copy step. This just hands over the prompt text.
+async function copyClaudePrompt() {
+  const resultEl = document.getElementById('error-codes-result');
+  try {
+    await navigator.clipboard.writeText(document.getElementById('tec-claude-prompt').textContent.trim());
+    resultEl.textContent = 'copy คำสั่งแล้ว - ไปวางต่อจาก screenshot ในแชท Claude Code ได้เลย';
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  }
+}
+
+// Pick the platform up the moment the answer is pasted, rather than making
+// "แยกลงตาราง" the only thing that reads that first line.
+// Date stays blank until an answer is actually pasted, so a stale-looking
+// date never sits there next to an empty form. Only filled when empty, so a
+// hand-typed date survives further edits to the pasted text.
+document.getElementById('tec-paste-input').addEventListener('input', () => {
+  const text = document.getElementById('tec-paste-input').value;
+  applyPlatformHintFromText(text);
+  const dateInput = document.getElementById('tec-date');
+  if (text.trim() && !dateInput.value) dateInput.value = todayBangkokLabel();
+});
+
 setupPasteArea('paste-area-sessions');
 renderHourlyFilterRef();
 loadHourlyTable();
+loadTopErrorCodes();
 </script>
 </body>
 </html>
