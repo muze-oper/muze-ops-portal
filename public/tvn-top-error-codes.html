@@ -473,9 +473,6 @@ function onTecPlatformChange(byHand) {
 
   const existing = (block.entries || []).filter(e => e.playerVersion || e.errorCode || e.approxSession);
   renderTecRows(existing, capacity);
-
-  const dateInput = document.getElementById('tec-date');
-  if (!dateInput.value) dateInput.value = (existing[0] && existing[0].date) || todayBangkokLabel();
 }
 
 // "Thu-14-Aug" - matches the label format the other tabs in this sheet use.
@@ -519,6 +516,7 @@ function clearTecRows() {
 // when a second platform's answer is about to be pasted over the first.
 function clearTecPasteInput() {
   document.getElementById('tec-paste-input').value = '';
+  document.getElementById('tec-date').value = ''; // back to "blank until pasted"
   document.getElementById('error-codes-result').textContent = 'ล้างข้อความที่วางแล้ว (ตารางกับ Platform ยังอยู่)';
 }
 
@@ -710,8 +708,14 @@ async function copyClaudePrompt() {
 
 // Pick the platform up the moment the answer is pasted, rather than making
 // "แยกลงตาราง" the only thing that reads that first line.
+// Date stays blank until an answer is actually pasted, so a stale-looking
+// date never sits there next to an empty form. Only filled when empty, so a
+// hand-typed date survives further edits to the pasted text.
 document.getElementById('tec-paste-input').addEventListener('input', () => {
-  applyPlatformHintFromText(document.getElementById('tec-paste-input').value);
+  const text = document.getElementById('tec-paste-input').value;
+  applyPlatformHintFromText(text);
+  const dateInput = document.getElementById('tec-date');
+  if (text.trim() && !dateInput.value) dateInput.value = todayBangkokLabel();
 });
 
 loadTopErrorCodes();
