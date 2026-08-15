@@ -31,8 +31,68 @@
 
 <div class="wrap">
 
-  <section class="block">
-    <div class="block-head"><h2 class="h">BITMOVIN Error Session in 24 hours</h2><div class="rule"></div></div>
+  <div class="view-switch-row">
+    <div class="view-toggle" role="tablist" aria-label="สลับหน้า">
+      <button id="tab-input" class="active" onclick="switchTvnView('input')">✍️ ใส่ข้อมูลใหม่</button>
+      <button id="tab-dash" onclick="switchTvnView('dash')">📊 Dashboard</button>
+    </div>
+    <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1338052572#gid=1338052572" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
+  </div>
+
+  <section class="block" id="view-input">
+    <div class="card">
+      <div class="steps">
+        <div class="step">
+          <span class="step-no">Step 1</span>
+          <span class="step-text">
+            เปิด Bitmovin → metric <strong>Error Sessions</strong> → ตั้ง <strong>Filters</strong> ให้เหลือ platform เดียว → Export CSV
+            <div class="filter-ref">
+              <div class="filter-ref-head">Filter ที่ต้องใช้</div>
+              <div class="filter-ref-sub">1. <strong>Show Metrics Between</strong> = <code>Last 24 hours</code></div>
+              <div class="filter-ref-sub">2. <strong>Platform filters</strong> — ตั้งให้เหลือ platform เดียวเท่านั้น:</div>
+              <table class="filter-ref-table"><tbody id="hourly-filter-ref"></tbody></table>
+            </div>
+          </span>
+        </div>
+        <div class="step">
+          <span class="step-no">Step 2</span>
+          <span class="step-text">เลือกไฟล์ CSV ที่ export มา — ระบบจะอ่าน platform จาก filter ในไฟล์ และแปลงเวลาเป็นเวลาไทยให้</span>
+        </div>
+      </div>
+
+      <div class="tec-paste-row">
+        <div class="tec-paste-col">
+          <label class="field-label" for="hourly-csv-file">ไฟล์ CSV จาก Bitmovin</label>
+          <input type="file" id="hourly-csv-file" accept=".csv,text/csv" onchange="handleHourlyCsvFile(this)">
+          <div id="hourly-csv-hours"></div>
+        </div>
+        <div class="tec-paste-col">
+          <div class="step" style="margin-bottom:8px;">
+            <span class="step-no">Step 3</span>
+            <span class="step-text">ตรวจ <strong>Platform</strong> + <strong>Date</strong> ให้ถูกก่อน sync</span>
+          </div>
+          <div id="hourly-validate"><div class="hint">ยังไม่ได้เลือกไฟล์</div></div>
+          <div class="step" style="margin:12px 0 8px;">
+            <span class="step-no">Step 4</span>
+            <span class="step-text">กด Sync — เขียนทับเฉพาะชั่วโมงที่มีในไฟล์ คอลัมน์ Average เป็นสูตรในชีต ไม่ถูกแตะ</span>
+          </div>
+          <button class="btn-primary" id="hourly-sync-btn" onclick="syncHourlyCsv()" disabled style="width:100%;">🔄 Sync เข้าชีต</button>
+          <div id="hourly-csv-result" class="result-text"></div>
+        </div>
+      </div>
+
+      <details class="extras">
+        <summary>แนบ screenshot ไว้อ้างอิง / วิธี import skill ให้ทีม</summary>
+        <div id="paste-area-sessions" class="paste-area" tabindex="0" style="margin-top:12px;">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง</div>
+        <div class="hint" style="margin-top:12px;">
+          Skill <code>tvn-dashboard-reading</code> สอน Claude ให้อ่านค่าจาก screenshot — clone repo <code>muze-ops-portal</code>
+          แล้วเปิด Claude Code จากในโฟลเดอร์นั้น (ดูขั้นตอนเต็มที่หน้า Top Error Codes)
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="block" id="view-dash" hidden>
     <div class="card">
       <div class="toolbar">
         <button class="btn-ghost" id="hourly-refresh-btn" onclick="loadHourlyTable()">🔄 รีเฟรชข้อมูล</button>
@@ -40,57 +100,8 @@
         <select id="hourly-date-filter" onchange="renderHourlyTable()"><option value="">ทุกวันที่</option></select>
         <button class="btn-ghost" id="hourly-export-btn" onclick="copyElementAsImage('hourly-export-panel','hourly-table-result','hourly-export-btn')">📋 Export เป็นรูปภาพ</button>
       </div>
-      <div class="sheet-link-row">
-        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1338052572#gid=1338052572" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง (แท็บ BitMovin Error, รายชั่วโมง)</a>
-      </div>
-      <div id="hourly-table-body" style="margin-top:14px;"><div id="hourly-table-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
+      <div id="hourly-table-body"><div id="hourly-table-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
       <div id="hourly-table-result" class="result-text"></div>
-
-      <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
-        <h3 style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-dim);">Import CSV จาก Bitmovin</h3>
-        <div class="hint">
-          Export CSV จาก Bitmovin (metric "Error Sessions", ตั้ง filter OS/Platform ให้ตรงกับ platform เดียวเท่านั้นก่อน export) แล้วเลือกไฟล์ที่นี่ —
-          ระบบจะตรวจ platform จาก filter ในไฟล์อัตโนมัติ แปลงเวลาเป็นเวลาไทย (Bangkok) ให้ตรวจสอบก่อน แล้วค่อยกด sync เข้าชีต
-          (sync จะเขียนทับเฉพาะชั่วโมงที่มีข้อมูลในไฟล์ พร้อมประทับ "วันที่" เป็นวันแรก(UTC+7)ที่พบในไฟล์ ไม่ใช่วันที่กด sync — คอลัมน์ Average เป็นสูตรในชีต ไม่ถูกเขียนทับ)
-        </div>
-        <input type="file" id="hourly-csv-file" accept=".csv,text/csv" onchange="handleHourlyCsvFile(this)">
-        <div id="hourly-csv-preview"></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="block">
-    <div class="block-head"><h2 class="h">แนบ Screenshot</h2><div class="rule"></div></div>
-    <div class="card">
-      <div class="hint">แนบ/วาง screenshot ของกราฟ Error Session % ไว้ที่นี่เพื่อดูอ้างอิงตอนกรอกค่า (ไม่มีการวิเคราะห์อัตโนมัติ — ใช้ skill ด้านล่างในแชท Claude Code เพื่อให้ Claude อ่านค่าให้)</div>
-      <div id="paste-area-sessions" class="paste-area" tabindex="0">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง</div>
-    </div>
-  </section>
-
-  <section class="block">
-    <div class="block-head"><h2 class="h">วิธี Import Skill ให้ทีม</h2><div class="rule"></div></div>
-    <div class="card skill-steps">
-      <div class="hint">Skill <code>tvn-dashboard-reading</code> สอน Claude ให้อ่านค่า Error Session % / Crash-free Users % / Top Error Codes จาก screenshot อย่างถูกต้อง (เช็ค filter ก่อนอ่าน ไม่กะจากเส้นกราฟ) — เก็บไว้ในโค้ดของ repo <code>muze-ops-portal</code> แล้ว ทำตามนี้เพื่อให้ Claude Code ของคุณเห็น skill นี้:</div>
-      <ol>
-        <li>เปิด Terminal แล้ว clone repo นี้ (ถ้ายังไม่มีในเครื่อง):
-          <pre>git clone git@github.com:muze-oper/muze-ops-portal.git</pre>
-          ถ้ามีอยู่แล้ว ให้ดึงโค้ดล่าสุดแทน — ต้องทำทุกครั้งที่ skill มีการอัปเดต:
-          <pre>cd muze-ops-portal &amp;&amp; git pull</pre>
-        </li>
-        <li>เข้าไปในโฟลเดอร์ repo:
-          <pre>cd muze-ops-portal</pre>
-        </li>
-        <li>เปิด Claude Code <strong>จากในโฟลเดอร์นี้เท่านั้น</strong> — สำคัญมาก ถ้าเปิด Claude Code จากโฟลเดอร์อื่นจะไม่เห็น skill นี้เลย:
-          <pre>claude</pre>
-          หรือถ้าใช้ VS Code: เปิด "Open Folder" ไปที่โฟลเดอร์ <code>muze-ops-portal</code> ก่อนเปิด Claude Code extension
-        </li>
-        <li>ทดสอบว่า skill โหลดมาจริง — ถามใน Claude Code ว่า <code>มี skill tvn-dashboard-reading ให้ใช้ไหม</code> หรือวาง screenshot ตัวอย่างแล้วดูว่า Claude เช็ค filter ก่อนอ่านค่าให้ตามที่ skill กำหนดไว้หรือไม่</li>
-        <li>ใช้งานจริง: เปิด Claude Code จากในโฟลเดอร์ <code>muze-ops-portal</code> ทุกครั้ง วาง screenshot ที่จะอ่านค่าเข้าไปในแชท แล้วขอให้ Claude อ่านค่าให้ จากนั้นพิมพ์ผลลงในตารางของหน้านี้เอง</li>
-        <li><span class="optional-tag">ตัวเลือกเสริม</span> ถ้าอยากให้ Claude Code เห็น skill นี้จากโฟลเดอร์ไหนก็ได้ ไม่ต้องเปิด repo นี้ทุกครั้ง ให้ copy โฟลเดอร์ skill ไปไว้ระดับ user ของตัวเอง:
-          <pre>cp -r muze-ops-portal/.claude/skills/tvn-dashboard-reading ~/.claude/skills/</pre>
-          (ใช้วิธีนี้แล้วต้อง copy ทับใหม่เองทุกครั้งที่ skill อัปเดต เพราะจะไม่โดน <code>git pull</code> อัปเดตให้อัตโนมัติ)
-        </li>
-      </ol>
     </div>
   </section>
 
@@ -235,44 +246,89 @@ function handleHourlyCsvFile(input) {
       hourlyParsed = parseHourlyCsv(String(reader.result));
       renderHourlyCsvPreview();
     } catch (err) {
-      document.getElementById('hourly-csv-preview').innerHTML = `<div class="result-text">Error: อ่านไฟล์ไม่สำเร็จ - ${escapeHtml(err.message)}</div>`;
+      document.getElementById('hourly-csv-result').textContent = `Error: อ่านไฟล์ไม่สำเร็จ - ${err.message}`;
     }
   };
   reader.readAsText(file);
 }
 
+// Renders the parsed file into the two columns: a compact heat strip of the
+// 24 hours on the left, and the Platform + Date that will actually be written
+// on the right. Both of those are editable and must be valid before Sync
+// unlocks - the file's own filter can be ambiguous (Android vs Android TV
+// share an OS) and its date is inferred, so neither is trusted silently.
 function renderHourlyCsvPreview() {
-  const el = document.getElementById('hourly-csv-preview');
-  if (!hourlyParsed) { el.innerHTML = ''; return; }
+  const hoursEl = document.getElementById('hourly-csv-hours');
+  const validateEl = document.getElementById('hourly-validate');
+  if (!hourlyParsed) {
+    hoursEl.innerHTML = '';
+    validateEl.innerHTML = '<div class="hint">ยังไม่ได้เลือกไฟล์</div>';
+    updateHourlySyncState();
+    return;
+  }
+
   const { osList, platformValue, hourValues, detectedPlatform, earliestDateLabel } = hourlyParsed;
   const filledCount = Object.keys(hourValues).length;
 
-  const platformPicker = detectedPlatform
-    ? `<span class="tag-pill" style="background:var(--good-soft);color:var(--good);">${escapeHtml(detectedPlatform)}</span>`
-    : `<select id="hourly-platform-manual">${HOURLY_ALL_PLATFORMS.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}</select>`;
+  // 24 hours as one strip rather than a 24-row table - the page has to fit
+  // without scrolling, and the shape of the day reads faster this way anyway.
+  const strip = HOUR_COLUMNS_JS.map(label => {
+    const v = hourValues[label];
+    const color = v === undefined ? '' : heatColorForValue(parseFloat(v));
+    const style = color ? `background:${color};` : 'background:var(--surface-2);';
+    return `<div class="strip-cell" style="${style}" title="${escapeHtml(label)} = ${v === undefined ? 'ไม่มีข้อมูล' : formatPct(v)}"></div>`;
+  }).join('');
 
-  const rowsHtml = HOUR_COLUMNS_JS.map(label => `
-    <tr>
-      <td>${label}</td>
-      <td>${hourValues[label] !== undefined ? escapeHtml(hourValues[label]) + '%' : '<span style="color:var(--ink-faint)">—</span>'}</td>
-    </tr>
-  `).join('');
-
-  el.innerHTML = `
-    <div class="hint" style="margin-top:12px;">
-      ตรวจพบ filter ในไฟล์: OS = ${escapeHtml(osList.join(', ') || '-')}, Platform = ${escapeHtml(platformValue || '-')}
-      ${detectedPlatform ? '→ ตรงกับ' : '→ ไม่พบ platform ที่ตรงกัน เลือกเองด้านล่าง:'} ${platformPicker}
-      — พบข้อมูล ${filledCount}/24 ชั่วโมง (เวลาไทย) — วันที่จะประทับ: <strong>${escapeHtml(earliestDateLabel || '-')}</strong>
-    </div>
-    <table class="data" style="max-width:280px;">
-      <thead><tr><th>ชั่วโมง (ไทย)</th><th>Error Session %</th></tr></thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>
-    <div class="table-actions">
-      <button class="btn-primary" id="hourly-sync-btn" onclick="syncHourlyCsv()">🔄 ยืนยัน &amp; Sync เข้าชีต</button>
-    </div>
-    <div id="hourly-csv-result" class="result-text"></div>
+  hoursEl.innerHTML = `
+    <div class="hint" style="margin:10px 0 4px;">พบข้อมูล <strong>${filledCount}/24</strong> ชั่วโมง (เวลาไทย)${filledCount < 24 ? ' — ชั่วโมงที่ขาดจะไม่ถูกเขียนทับ' : ''}</div>
+    <div class="hour-strip">${strip}</div>
+    <div class="strip-scale"><span>10.00</span><span>16.00</span><span>22.00</span><span>4.00</span><span>9.00</span></div>
   `;
+
+  const options = HOURLY_ALL_PLATFORMS
+    .map(pf => `<option value="${escapeHtml(pf)}" ${pf === detectedPlatform ? 'selected' : ''}>${escapeHtml(pf)}</option>`)
+    .join('');
+
+  validateEl.innerHTML = `
+    <div class="validate-row">
+      <span class="validate-label">Filter ในไฟล์</span>
+      <code class="validate-value">OS: ${escapeHtml(osList.join(', ') || '-')}${platformValue ? ' · Platform: ' + escapeHtml(platformValue) : ''}</code>
+    </div>
+    <div class="validate-row">
+      <span class="validate-label">Platform</span>
+      <select id="hourly-platform-pick" onchange="updateHourlySyncState()">
+        <option value="">— เลือก platform —</option>${options}
+      </select>
+      ${detectedPlatform
+        ? '<span class="validate-ok">✓ อ่านได้จากไฟล์</span>'
+        : '<span class="validate-warn">⚠ ไฟล์ไม่ได้บอกชัด เลือกเอง</span>'}
+    </div>
+    <div class="validate-row">
+      <span class="validate-label">Date</span>
+      <input class="date-cell-input" id="hourly-date-pick" value="${escapeHtml(earliestDateLabel || '')}" oninput="updateHourlySyncState()" placeholder="เช่น Thu-14-Aug">
+      ${earliestDateLabel ? '<span class="validate-ok">✓ วันแรกในไฟล์</span>' : '<span class="validate-warn">⚠ อ่านวันที่จากไฟล์ไม่ได้</span>'}
+    </div>
+    <div id="hourly-validate-msg" class="result-text"></div>
+  `;
+  updateHourlySyncState();
+}
+
+// Sync stays locked until both fields are actually filled, so a file whose
+// platform couldn't be inferred can't be written to whichever row happened to
+// be first in the list.
+function updateHourlySyncState() {
+  const btn = document.getElementById('hourly-sync-btn');
+  const msg = document.getElementById('hourly-validate-msg');
+  const platform = (document.getElementById('hourly-platform-pick') || {}).value || '';
+  const date = ((document.getElementById('hourly-date-pick') || {}).value || '').trim();
+
+  const problems = [];
+  if (!hourlyParsed) problems.push('ยังไม่ได้เลือกไฟล์');
+  if (hourlyParsed && !platform) problems.push('ยังไม่ได้เลือก Platform');
+  if (hourlyParsed && !date) problems.push('ยังไม่ได้ใส่ Date');
+
+  btn.disabled = problems.length > 0;
+  if (msg) msg.textContent = problems.length ? problems.join(' · ') : `พร้อม sync → ${platform} (${date})`;
 }
 
 const HOUR_COLUMNS_JS = [
@@ -282,12 +338,12 @@ const HOUR_COLUMNS_JS = [
 
 async function syncHourlyCsv() {
   if (!hourlyParsed) return;
-  const manualSelect = document.getElementById('hourly-platform-manual');
-  const platform = hourlyParsed.detectedPlatform || (manualSelect && manualSelect.value);
+  const platform = (document.getElementById('hourly-platform-pick') || {}).value || '';
+  const dateLabel = ((document.getElementById('hourly-date-pick') || {}).value || '').trim();
   const btn = document.getElementById('hourly-sync-btn');
   const resultEl = document.getElementById('hourly-csv-result');
-  if (!platform) {
-    resultEl.textContent = 'กรุณาเลือก platform ก่อน sync';
+  if (!platform || !dateLabel) {
+    resultEl.textContent = 'ต้องเลือก Platform และใส่ Date ก่อน sync';
     return;
   }
   btn.disabled = true;
@@ -296,7 +352,7 @@ async function syncHourlyCsv() {
     const res = await fetch('/api/tvn/error-sessions-hourly/record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform, values: hourlyParsed.hourValues, dateLabel: hourlyParsed.earliestDateLabel }),
+      body: JSON.stringify({ platform, values: hourlyParsed.hourValues, dateLabel }),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -305,8 +361,37 @@ async function syncHourlyCsv() {
   } catch (err) {
     resultEl.textContent = 'Error: ' + err.message;
   } finally {
-    btn.disabled = false;
+    updateHourlySyncState();
   }
+}
+
+// The two views are the whole page - only one is ever in the DOM flow, which
+// is what keeps each of them inside a viewport without scrolling.
+function switchTvnView(view) {
+  const isInput = view === 'input';
+  document.getElementById('view-input').hidden = !isInput;
+  document.getElementById('view-dash').hidden = isInput;
+  document.getElementById('tab-input').classList.toggle('active', isInput);
+  document.getElementById('tab-dash').classList.toggle('active', !isInput);
+}
+
+// Same platform->filter reference as the Top Error Codes page, but sourced
+// from the matcher this page actually uses, so the instructions can't drift
+// from the detection.
+function renderHourlyFilterRef() {
+  const el = document.getElementById('hourly-filter-ref');
+  if (!el) return;
+  // The matcher lowercases everything; these are the labels Bitmovin shows.
+  const LABEL = {
+    ipados: 'iPadOS', ios: 'iOS', tvos: 'tvOS', android: 'Android',
+    tizen: 'Tizen', web0s: 'Web0S', vidaa: 'VIDAA', androidtv: 'androidTV',
+  };
+  const show = (v) => LABEL[v] || v;
+  el.innerHTML = HOURLY_PLATFORM_FILTERS.map(def => {
+    const os = escapeHtml(def.os.map(show).join(', '));
+    const pv = def.platformValue ? `<code>Platform: ${escapeHtml(show(def.platformValue))}</code>` : '';
+    return `<tr><th>${escapeHtml(def.platform)}</th><td><code>Operating System (OS): ${os}</code></td><td>${pv}</td></tr>`;
+  }).join('');
 }
 
 // ---- Error Sessions รายชั่วโมง: heatmap view of the current hourly sheet
@@ -450,6 +535,7 @@ const HOUR_LABEL_EVERY = 3; // show an hour label every N columns
 const HOUR_LABEL_OFFSET = 2;
 
 setupPasteArea('paste-area-sessions');
+renderHourlyFilterRef();
 loadHourlyTable();
 </script>
 </body>

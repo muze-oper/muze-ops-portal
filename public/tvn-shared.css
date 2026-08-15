@@ -207,6 +207,39 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
   .tec-paste-row, .tec-table-row { grid-template-columns: 1fr; }
 }
 
+/* ---------- Two-view toggle (BitMovin Error Sessions) ----------
+   A pill segmented control - small enough to sit above the content without
+   taking a section header's worth of height, since both views have to fit a
+   viewport without scrolling. */
+.view-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.view-toggle { display: inline-flex; gap: 3px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+.view-toggle button {
+  border: none; background: none; cursor: pointer; padding: 6px 16px; border-radius: 999px;
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; color: var(--ink-dim);
+  transition: background .15s ease, color .15s ease;
+}
+.view-toggle button:hover:not(.active) { color: var(--accent-ink); }
+.view-toggle button.active { background: var(--accent); color: var(--bg); }
+
+/* 24 hours as one strip instead of a 24-row table - the import view has to
+   fit without scrolling, and the day's shape reads faster this way. */
+.hour-strip { display: flex; gap: 1px; border-radius: 4px; overflow: hidden; }
+.strip-cell { flex: 1; height: 26px; }
+.strip-scale { display: flex; justify-content: space-between; margin-top: 3px; font-family: var(--font-mono); font-size: 9px; color: var(--ink-faint); }
+
+/* Platform / Date confirmation rows shown before sync unlocks. */
+.validate-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.validate-label { flex: none; width: 74px; font-size: 11.5px; font-weight: 600; color: var(--ink-dim); }
+.validate-value { font-size: 11px; color: var(--ink-dim); }
+.validate-ok { font-size: 10.5px; font-weight: 600; color: var(--good); }
+.validate-warn { font-size: 10.5px; font-weight: 600; color: var(--warn); }
+
+/* Reference material kept on the page but folded away, so it costs no height
+   until it's actually wanted. */
+.extras { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.extras summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--ink-dim); }
+.extras summary:hover { color: var(--accent-ink); }
+
 /* Step list: a badge, the instruction, and that step's button on the same
    line, so the walkthrough scans as rows rather than one block of prose. */
 .steps { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
