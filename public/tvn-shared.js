@@ -14,6 +14,21 @@ function prettyDate(label) {
   return String(label || '').replace(/-/g, ' ');
 }
 
+// "Thu-13-Aug" -> "Thu.13.Aug". Dots bind the parts into one token, so the
+// date reads as a single unit in a narrow column where spaces would let it
+// look like three separate words. Display only - never written back.
+function compactDate(label) {
+  return String(label || '').replace(/-/g, '.');
+}
+
+// Every percentage in these tables prints as "12.34%", whatever shape the
+// sheet stored it in ("12.34", "12.34%", 12.3). Returns '' for anything
+// non-numeric so callers can fall back to a dash.
+function formatPct(value) {
+  const n = parseFloat(String(value == null ? '' : value).replace('%', '').trim());
+  return isNaN(n) ? '' : `${n.toFixed(2)}%`;
+}
+
 function slug(platform) {
   return platform.toLowerCase().replace(/\s+/g, '-');
 }

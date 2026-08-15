@@ -108,7 +108,7 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 /* Compact 24-hour heatmap (BitMovin Error Sessions, hourly) - narrow fixed
    columns so Platform+Date+24 hours+Average fits the page width without a
    horizontal scrollbar on a normal desktop viewport. */
-.hourly-heatmap { table-layout: fixed; font-size: 10.5px; }
+.hourly-heatmap { table-layout: fixed; font-size: 10px; }
 /* table.data th/td (line 103/105 above) set text-align via 2 type selectors +
    1 class, which beats this rule's 1 type + 1 class on specificity alone -
    !important is the only way this centering actually wins. */
@@ -116,14 +116,20 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .hourly-heatmap td { font-variant-numeric: tabular-nums; border-top: 1px solid var(--border); }
 /* Label columns hold real words, so they get enough room to not collide with
    the first hour column - fixed layout clips rather than wraps otherwise. */
-.hourly-heatmap .col-platform { text-align: left !important; width: 104px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hourly-heatmap .col-date { width: 92px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Hour cells are colour-only except each row's peak, so they can stay narrow -
-   the header label ("10"/":00") is split onto two lines via <br> in the JS,
-   not relied on to overflow into blank neighbour columns. */
-.hourly-heatmap .col-hour { width: 28px; }
-.hourly-heatmap .col-stat { width: 54px; }
+.hourly-heatmap .col-platform { text-align: left !important; width: 86px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hourly-heatmap .col-date { width: 66px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Every printed number is a percentage ("8.21%"). The hour column carries it
+   at its own smaller size so both the peak value and the "12.00" header fit
+   wholly inside one cell - nothing overflows into a neighbour, which is what
+   previously got clipped when the table was exported as an image. Widths sum
+   to 86 + 66 + 3x44 + 24x30 = 1004px, inside the ~1012px a full-width card
+   gives, so the table never needs to scroll at this page's max width. */
+.hourly-heatmap .col-hour { width: 30px; padding-left: 1px; padding-right: 1px; font-size: 8px; }
+.hourly-heatmap .col-stat { width: 44px; }
 .hourly-heatmap td.col-stat { white-space: nowrap; }
+/* Peak is the day's maximum - a fixed critical colour, not a point on the
+   ramp, so it never reads as "just another value". */
+.hourly-heatmap td.col-peak { color: var(--critical); font-weight: 700; }
 /* Avg is coloured on the same scale as the hours, so without a break it reads
    as just another hour cell - this gap separates the summary block. */
 .hourly-heatmap .col-avg { border-right: 6px solid var(--surface); }
@@ -241,7 +247,10 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .bars .bar-label { font-size: 11px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bars .bar-track { height: 14px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
 .bars .bar-fill { height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; }
-.bars .bar-value { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; color: var(--ink); text-align: right; min-width: 46px; }
+.bars .bar-value { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; color: var(--ink); text-align: right; min-width: 96px; white-space: nowrap; }
+/* The unit is recessive - it repeats on every row, so it shouldn't compete
+   with the number it labels. */
+.bars .bar-unit { font-weight: 400; color: var(--ink-faint); font-size: 10px; }
 
 /* Platform -> filter reference, rendered from the sheet's own Filters column.
    Filter lines stack one per line, the way Bitmovin's Filters panel shows

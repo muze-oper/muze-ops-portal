@@ -359,8 +359,8 @@ function renderHourlyTable() {
   const heatCell = (raw, hour, isPeak) => {
     const num = raw ? parseFloat(raw) : NaN;
     const color = heatColorForValue(num);
-    const title = raw ? ` title="${escapeHtml(hour)} = ${escapeHtml(raw)}"` : '';
-    const text = isPeak && raw ? escapeHtml(raw) : '';
+    const title = raw ? ` title="${escapeHtml(hour)} = ${formatPct(raw)}"` : '';
+    const text = isPeak ? formatPct(raw) : '';
     if (!color) return `<td class="col-hour"${title}>${text}</td>`;
     return `<td class="col-hour" style="background:${color};color:${heatTextColorFor(color)};"${title}>${text}</td>`;
   };
@@ -378,7 +378,19 @@ function renderHourlyTable() {
     return bestHour;
   };
 
-  const statCell = (v) => `<td class="col-stat">${v ? escapeHtml(v) : '<span style="color:var(--ink-faint)">—</span>'}</td>`;
+  const dash = '<span style="color:var(--ink-faint)">—</span>';
+
+  // Peak Time is a clock reading, not a percentage - it keeps the sheet's own
+  // "16.00" form rather than being run through formatPct.
+  const timeCell = (v) => `<td class="col-stat">${v ? escapeHtml(v) : dash}</td>`;
+
+  // Peak is the day's worst hour, so it gets the critical colour outright -
+  // a fixed colour rather than Avg's scaled one, since "this is the maximum"
+  // is a fact about the row, not a magnitude to be read off a ramp.
+  const peakCell = (raw) => {
+    const text = formatPct(raw);
+    return `<td class="col-stat col-peak">${text || dash}</td>`;
+  };
 
   // Average shares the hour cells' colour scale (green->yellow up to 2.00,
   // then light->dark red), so a platform's overall day still reads at a
@@ -386,9 +398,9 @@ function renderHourlyTable() {
   // a filled background, so it doesn't get mistaken for another hour cell.
   const avgCell = (raw) => {
     const color = heatColorForValue(raw ? parseFloat(raw) : NaN);
-    const inner = raw ? escapeHtml(raw) : '<span style="color:var(--ink-faint)">—</span>';
-    const style = color ? ` style="color:${color};font-weight:700;"` : '';
-    return `<td class="col-stat col-avg"${style}>${inner}</td>`;
+    const text = formatPct(raw);
+    const style = color && text ? ` style="color:${color};font-weight:700;"` : '';
+    return `<td class="col-stat col-avg"${style}>${text || dash}</td>`;
   };
 
   const rowsHtml = platforms.map(p => {
@@ -396,21 +408,22 @@ function renderHourlyTable() {
     return `
     <tr>
       <td class="col-platform">${escapeHtml(p.platform)}</td>
-      <td class="col-date">${escapeHtml(prettyDate(p.date))}</td>
-      ${statCell(p.peak)}
-      ${statCell(p.peakTime)}
+      <td class="col-date">${escapeHtml(compactDate(p.date))}</td>
+      ${peakCell(p.peak)}
+      ${timeCell(p.peakTime)}
       ${avgCell(p.average)}
       ${hourlyTableColumns.map(h => heatCell(p.values[h], h, h === peakHour)).join('')}
     </tr>`;
   }).join('');
 
-  // Label every 3rd hour only - 24 labels don't fit without colliding. Split
-  // onto two explicit lines ("10" / ":00") via <br> rather than relying on
-  // the column overflowing into its blank neighbours - that overflow gets
-  // silently clipped when the table is captured as an export image, cutting
-  // "10.00" down to "10.".
+  // Label every 3rd hour only - 24 labels don't fit without colliding. The
+  // offset lands them on 12.00/15.00/18.00/21.00/24.00/3.00/6.00/9.00, and
+  // the hour column is now wide enough (at its own smaller font) for "12.00"
+  // to sit on one line entirely inside its own cell. That matters beyond
+  // looks: a label that overflowed into neighbouring columns got clipped when
+  // the table was captured as an export image.
   const headHours = hourlyTableColumns
-    .map((h, i) => `<th class="col-hour">${i % HOUR_LABEL_EVERY === 0 ? formatHourLabel(h) : ''}</th>`)
+    .map((h, i) => `<th class="col-hour">${i % HOUR_LABEL_EVERY === HOUR_LABEL_OFFSET ? escapeHtml(h) : ''}</th>`)
     .join('');
 
   body.innerHTML = `
@@ -418,7 +431,7 @@ function renderHourlyTable() {
     <div id="hourly-export-panel" style="overflow-x:auto;background:var(--surface);">
       <div class="export-head"><span class="export-title">BITMOVIN Error Session in 24 hours</span></div>
       <table class="data hourly-heatmap">
-        <thead><tr><th class="col-platform">Platform</th><th class="col-date">Date</th><th class="col-stat">Peak</th><th class="col-stat">Peak<br>Time</th><th class="col-stat col-avg">Avg</th>${headHours}</tr></thead>
+        <thead><tr><th class="col-platform">Platform</th><th class="col-date">Date</th><th class="col-stat col-peak">Peak</th><th class="col-stat">Time</th><th class="col-stat col-avg">Avg</th>${headHours}</tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
     </div>
@@ -428,12 +441,11 @@ function renderHourlyTable() {
 // Sheet stores hours as "10.00" (dot, not colon) - reformat to "10:00" for
 // display, split as "10" / ":00" so it always fits the narrow column on two
 // lines instead of getting clipped on one.
-function formatHourLabel(h) {
-  const m = /^(\d{1,2})\./.exec(h || '');
-  return m ? `${m[1]}<br>:00` : escapeHtml(h || '');
-}
 
 const HOUR_LABEL_EVERY = 3; // show an hour label every N columns
+// Which column within each group of 3 carries the label. HOUR_COLUMNS starts
+// at 10.00, so an offset of 2 lands the labels on the round 12/15/18/21 hours.
+const HOUR_LABEL_OFFSET = 2;
 
 setupPasteArea('paste-area-sessions');
 loadHourlyTable();
