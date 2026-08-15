@@ -196,7 +196,7 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 
 /* The table only needs about two thirds of the width, so the action buttons
    live in the space beside it instead of stacking below. */
-.tec-table-row { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 16px; align-items: start; }
+.tec-table-row { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 16px; align-items: start; }
 .tec-btn-col { display: flex; flex-direction: column; gap: 8px; }
 .tec-btn-col button { width: 100%; }
 .tec-btn-col .result-text { margin-top: 4px; }
