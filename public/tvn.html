@@ -33,8 +33,7 @@
   <div class="view-switch-row">
     <div class="view-toggle" role="tablist" aria-label="สลับหน้า">
       <button id="tab-input" class="active" onclick="switchTvnView('input')">✍️ ใส่ข้อมูลใหม่</button>
-      <button id="tab-dash" onclick="switchTvnView('dash')">📊 Error Sessions</button>
-      <button id="tab-codes" onclick="switchTvnView('codes')">📊 Top Error Codes</button>
+      <button id="tab-dash" onclick="switchTvnView('dash')">📊 Dashboard</button>
     </div>
     <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1338052572#gid=1338052572" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
   </div>
@@ -172,6 +171,7 @@
   </dialog>
 
   <section class="block" id="view-dash" hidden>
+    <div class="block-head"><h2 class="h">BITMOVIN Error Sessions ต่อชั่วโมง</h2><div class="rule"></div></div>
     <div class="card">
       <div class="toolbar">
         <button class="btn-ghost" id="hourly-refresh-btn" onclick="loadHourlyTable()">🔄 รีเฟรชข้อมูล</button>
@@ -182,9 +182,7 @@
       <div id="hourly-table-body"><div id="hourly-table-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
       <div id="hourly-table-result" class="result-text"></div>
     </div>
-  </section>
 
-  <section class="block" id="view-codes" hidden>
     <div class="block-head"><h2 class="h">BITMOVIN Top Error in 24 Hours</h2><div class="rule"></div></div>
     <div class="card">
       <div id="tec-dash-empty" class="hint">กำลังโหลดข้อมูลจากชีต...</div>
@@ -233,6 +231,7 @@
       </div>
     </div>
   </section>
+
 
 </div>
 
@@ -497,10 +496,9 @@ async function syncHourlyCsv() {
 // The two views are the whole page - only one is ever in the DOM flow, which
 // is what keeps each of them inside a viewport without scrolling.
 function switchTvnView(view) {
-  ['input', 'dash', 'codes'].forEach(v => {
+  ['input', 'dash'].forEach(v => {
     document.getElementById('view-' + v).hidden = v !== view;
-    document.getElementById('tab-' + (v === 'input' ? 'input' : v === 'dash' ? 'dash' : 'codes'))
-      .classList.toggle('active', v === view);
+    document.getElementById('tab-' + v).classList.toggle('active', v === view);
   });
 }
 
