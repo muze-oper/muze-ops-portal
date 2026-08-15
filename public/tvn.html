@@ -1028,9 +1028,12 @@ function toggleTecViewMore() {
   renderTecDashboard();
 }
 
+// Defaults to the newest date on both ends rather than the full span: the
+// sheet keeps every past day now, and a range that quietly widens as history
+// piles up would turn "top 10 today" into "top 10 of all time".
 function resetTecFilters() {
   const dates = tecAvailableDates();
-  document.getElementById('tec-f-date-from').value = dates[0] || '';
+  document.getElementById('tec-f-date-from').value = dates[dates.length - 1] || '';
   document.getElementById('tec-f-date-to').value = dates[dates.length - 1] || '';
   document.getElementById('tec-f-platform').value = '';
   document.getElementById('tec-f-code').value = '';
@@ -1056,7 +1059,7 @@ function populateTecFilters() {
   const dateOpts = dates.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(prettyDate(d))}</option>`).join('');
   from.innerHTML = dateOpts;
   to.innerHTML = dateOpts;
-  from.value = dates.includes(keep.from) ? keep.from : (dates[0] || '');
+  from.value = dates.includes(keep.from) ? keep.from : (dates[dates.length - 1] || '');
   to.value = dates.includes(keep.to) ? keep.to : (dates[dates.length - 1] || '');
 
   const platforms = tecBlocks.filter(b => tecFilledEntries(b).length).map(b => b.platform);

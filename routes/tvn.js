@@ -1,6 +1,9 @@
 const router = require('express').Router();
 const path = require('path');
-const { fetchSheetRows, resolveSheetTitleByGid, updateSheetRow, updateSheetGrid } = require('../storage/googleSheets');
+const {
+  fetchSheetRows, resolveSheetTitleByGid, updateSheetRow, updateSheetGrid,
+  insertSheetRows, deleteSheetRows,
+} = require('../storage/googleSheets');
 const { readValueFromScreenshot } = require('../lib/anthropicVision');
 
 const SHEET_ID = process.env.TVN_SHEET_ID;
@@ -289,8 +292,9 @@ router.post('/api/tvn/record', async (req, res) => {
 // hour-of-day columns (Bangkok time, "10.00".."24.00","1.00".."9.00" - a
 // full day starting at 10:00, midnight written as "24.00" not "0.00"),
 // then a trailing "Average" column that's a sheet formula - never write to
-// it. The Date label gets overwritten with today's date on every sync,
-// since this tab is a live intraday snapshot, not a dated history.
+// it. Each sync inserts a new row on top of the platform's existing rows,
+// so the tab is a dated history - the newest row per platform is what the
+// dashboard shows, and older days stay untouched below it.
 const HOURLY_SHEET_GID = 1338052572;
 const HOUR_COLUMNS = [
   '10.00', '11.00', '12.00', '13.00', '14.00', '15.00', '16.00', '17.00', '18.00', '19.00', '20.00',
@@ -308,7 +312,7 @@ const HOURLY_PEAK_TIME_COL_IDX = 29; // column AD
 
 async function fetchHourlyTitleAndRows() {
   const title = await resolveSheetTitleByGid(SHEET_ID, HOURLY_SHEET_GID);
-  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:AD20`);
+  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:AD2000`);
   return { title, rows };
 }
 
@@ -341,7 +345,19 @@ router.get('/api/tvn/error-sessions-hourly', async (req, res) => {
         };
       })
       .filter(p => p.platform);
-    res.json({ platforms, hourColumns: HOUR_COLUMNS });
+
+    // Rows are newest-first within each platform (sync inserts on top), so
+    // the first one seen wins - the heatmap shows one row per platform and
+    // must stay scroll-free however much history piles up below.
+    const latest = [];
+    const seen = new Set();
+    platforms.forEach(p => {
+      const key = p.platform.trim().toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      latest.push(p);
+    });
+    res.json({ platforms: latest, hourColumns: HOUR_COLUMNS, historyRows: platforms.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -368,7 +384,24 @@ router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
       return res.status(400).json({ error: `ไม่รู้จัก platform "${platform}" ในแท็บ hourly` });
     }
 
-    const currentRow = rows[rowIdx] || [];
+    const topRow = rows[rowIdx] || [];
+    const rowNum = rowIdx + 1;
+    const date = String(dateLabel || '').trim() || formatBangkokWeekdayLabel();
+    const topDate = (topRow[HOURLY_DATE_COL_IDX] || '').trim();
+
+    // A different date means a new day's snapshot: push the platform's rows
+    // down and take the freed top row, so yesterday's hours survive. The same
+    // date is the same snapshot being re-synced (a partial CSV topped up, or
+    // a correction), so that row is updated in place instead - which is what
+    // keeps a mid-day re-sync from leaving two rows for one day.
+    const isNewDay = Boolean(topDate) && topDate !== date;
+    if (isNewDay) {
+      await insertSheetRows(SHEET_ID, HOURLY_SHEET_GID, rowNum, 1, [HOURLY_AVERAGE_COL_IDX, HOURLY_PEAK_TIME_COL_IDX + 1]);
+    }
+
+    // An inserted row starts empty, so there is nothing to merge into - only
+    // an in-place update keeps the hours the CSV didn't cover.
+    const currentRow = isNewDay ? [] : topRow;
     let updatedCount = 0;
     const merged = HOUR_COLUMNS.map((label, i) => {
       const provided = values ? values[label] : undefined;
@@ -380,14 +413,25 @@ router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
       return existing === undefined ? '' : existing;
     });
 
-    const rowNum = rowIdx + 1;
+    const filtersColLetter = colLetter(HOURLY_FILTERS_COL_IDX);
     const dateColLetter = colLetter(HOURLY_DATE_COL_IDX);
     const firstColLetter = colLetter(HOURLY_FIRST_HOUR_COL_IDX);
     const lastColLetter = colLetter(HOURLY_FIRST_HOUR_COL_IDX + HOUR_COLUMNS.length - 1);
-    await updateSheetRow(SHEET_ID, `'${title}'!${dateColLetter}${rowNum}:${dateColLetter}${rowNum}`, [dateLabel || formatBangkokWeekdayLabel()]);
+    // A fresh row needs Filters and Platform written too - they're what makes
+    // it part of this platform's run, which is how the next sync finds it.
+    if (isNewDay) {
+      await updateSheetRow(SHEET_ID, `'${title}'!${filtersColLetter}${rowNum}:${dateColLetter}${rowNum}`, [
+        topRow[HOURLY_FILTERS_COL_IDX] || '',
+        topRow[HOURLY_PLATFORM_COL_IDX] || '',
+        date,
+      ]);
+    } else {
+      await updateSheetRow(SHEET_ID, `'${title}'!${dateColLetter}${rowNum}:${dateColLetter}${rowNum}`, [date]);
+    }
     await updateSheetRow(SHEET_ID, `'${title}'!${firstColLetter}${rowNum}:${lastColLetter}${rowNum}`, merged);
 
-    res.json({ result: `${platform}: อัปเดต ${updatedCount} ช่วงเวลา` });
+    const how = isNewDay ? `แถวใหม่ ${date} (ของเดิมเลื่อนลง)` : `อัปเดตแถว ${date}`;
+    res.json({ result: `${platform}: ${how} — ${updatedCount} ช่วงเวลา` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -405,7 +449,7 @@ const TEC_WRITE_COLS = 4; // Date, Player Version, Error Code, Approx Session
 
 async function fetchTopErrorCodesTitleAndRows() {
   const title = await resolveSheetTitleByGid(SHEET_ID, TOP_ERROR_CODES_SHEET_GID);
-  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:F200`);
+  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:F5000`);
   return { title, rows };
 }
 
@@ -456,9 +500,14 @@ router.get('/api/tvn/top-error-codes', async (req, res) => {
   }
 });
 
-// Replaces one platform's whole block, since the entries are a ranked
-// snapshot - a code that dropped out of the top N has to disappear, so
-// unused rows in the block are deliberately blanked rather than left behind.
+// Inserts the new snapshot at the top of the platform's block and pushes the
+// existing rows down, so earlier days accumulate below instead of being
+// overwritten. The one exception is a re-sync of a date that's already at the
+// top of the block - that's the same snapshot corrected, so those rows are
+// resized and rewritten in place rather than duplicated. Older dates further
+// down are never touched.
+const TEC_MAX_ROWS_PER_SYNC = 50;
+
 router.post('/api/tvn/top-error-codes/record', async (req, res) => {
   if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
   const { platform, entries, dateLabel } = req.body || {};
@@ -470,28 +519,45 @@ router.post('/api/tvn/top-error-codes/record', async (req, res) => {
       return res.status(400).json({ error: `ไม่รู้จัก platform "${platform}" ในแท็บ Top Error Codes` });
     }
 
-    const capacity = block.endRow - block.startRow + 1;
     const list = (Array.isArray(entries) ? entries : []).filter(
       e => e && (String(e.playerVersion || '').trim() || String(e.errorCode || '').trim() || String(e.approxSession || '').trim())
     );
-    if (list.length > capacity) {
-      return res.status(400).json({ error: `${platform} รับได้สูงสุด ${capacity} แถว (ส่งมา ${list.length})` });
+    if (!list.length) {
+      return res.status(400).json({ error: `${platform}: ไม่มีข้อมูลให้บันทึก` });
+    }
+    if (list.length > TEC_MAX_ROWS_PER_SYNC) {
+      return res.status(400).json({ error: `${platform}: รับได้สูงสุด ${TEC_MAX_ROWS_PER_SYNC} แถวต่อครั้ง (ส่งมา ${list.length})` });
     }
 
     const date = String(dateLabel || '').trim() || formatBangkokWeekdayLabel();
-    const grid = [];
-    for (let i = 0; i < capacity; i++) {
-      const e = list[i];
-      grid.push(e
-        ? [date, String(e.playerVersion || '').trim(), String(e.errorCode || '').trim(), String(e.approxSession || '').trim()]
-        : new Array(TEC_WRITE_COLS).fill(''));
+
+    // How many rows at the top of the block already carry this date - i.e. a
+    // previous sync of the same snapshot, which this one supersedes.
+    let sameDate = 0;
+    while (sameDate < block.entries.length && (block.entries[sameDate].date || '').trim() === date) sameDate++;
+
+    if (list.length > sameDate) {
+      await insertSheetRows(SHEET_ID, TOP_ERROR_CODES_SHEET_GID, block.startRow, list.length - sameDate);
+    } else if (list.length < sameDate) {
+      await deleteSheetRows(SHEET_ID, TOP_ERROR_CODES_SHEET_GID, block.startRow, sameDate - list.length);
     }
 
-    const firstCol = colLetter(TEC_DATE_COL_IDX);
+    // Filters and Platform go on every row - they're what groups the rows
+    // into a block, so a row missing them would split the platform's run.
+    const grid = list.map(e => [
+      block.filters,
+      block.platform,
+      date,
+      String(e.playerVersion || '').trim(),
+      String(e.errorCode || '').trim(),
+      String(e.approxSession || '').trim(),
+    ]);
     const lastCol = colLetter(TEC_DATE_COL_IDX + TEC_WRITE_COLS - 1);
-    await updateSheetGrid(SHEET_ID, `'${title}'!${firstCol}${block.startRow}:${lastCol}${block.endRow}`, grid);
+    const endRow = block.startRow + list.length - 1;
+    await updateSheetGrid(SHEET_ID, `'${title}'!A${block.startRow}:${lastCol}${endRow}`, grid);
 
-    res.json({ result: `${platform}: บันทึก ${list.length} error code (แถว ${block.startRow}-${block.endRow}) วันที่ ${date}` });
+    const how = sameDate ? `เขียนทับรอบเดิมของวันเดียวกัน` : `แถวใหม่ (ของเดิมเลื่อนลง)`;
+    res.json({ result: `${platform}: บันทึก ${list.length} error code วันที่ ${date} — ${how} (แถว ${block.startRow}-${endRow})` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
