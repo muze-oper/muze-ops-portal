@@ -22,7 +22,7 @@ const GIT_BACKED_CARDS = {
   // the card showing a stale date.
   'tvn-dashboard': [
     'routes/tvn.js', 'public/tvn.html',
-    'public/tvn-top-error-codes.html', 'public/tvn-crashlytics.html',
+    'public/tvn-crashlytics.html',
     'public/tvn-shared.css', 'public/tvn-shared.js',
   ],
   'ktc-chat': ['routes/ktcChat.js', 'public/ktc-chat.html', 'services/jiraKtc.js', 'services/ktcHandoverSearch.js', 'data/ktc-handover.md'],

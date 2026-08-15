@@ -163,8 +163,10 @@ router.get('/tvn', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'tvn.html'));
 });
 
+// Top Error Codes is now a view inside /tvn rather than its own page - keep
+// the old URL working for anyone who bookmarked it.
 router.get('/tvn/top-error-codes', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'tvn-top-error-codes.html'));
+  res.redirect('/tvn');
 });
 
 router.get('/tvn/crashlytics', (req, res) => {
