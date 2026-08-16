@@ -2,6 +2,8 @@ const router = require('express').Router();
 const path = require('path');
 const { fetchSheetRows, resolveSheetTitleByGid } = require('../storage/googleSheets');
 
+// Read-only - this sheet is edited by hand elsewhere, this page only ever
+// displays it, never writes back.
 const SHEET_ID = process.env.APP_RELEASES_SHEET_ID;
 const SHEET_GID = 0;
 
@@ -45,9 +47,9 @@ function parseSheetDate(value) {
 // row rather than trying to merge historical name variants.
 async function loadLatestPerPlatform() {
   const { rows, col } = await fetchTitleAndRows();
-  const latest = new Map(); // platform (lowercased) -> {entry, sortKey, rowIndex}
+  const latest = new Map(); // platform (lowercased) -> {entry, sortKey}
 
-  rows.slice(1).forEach((row, i) => {
+  rows.slice(1).forEach(row => {
     const platform = (row[col.platform] || '').toString().trim();
     if (!platform) return;
 
@@ -63,7 +65,6 @@ async function loadLatestPerPlatform() {
 
     latest.set(key, {
       sortKey,
-      rowIndex: i,
       entry: {
         platform,
         version: (row[col.version] || '').toString().trim(),
