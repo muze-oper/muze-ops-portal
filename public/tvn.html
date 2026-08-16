@@ -694,29 +694,18 @@ function currentTecBlock() {
 // that block currently holds so a sync starts from the existing snapshot.
 // `byHand` is true when a human moved the dropdown, which drops the
 // auto-filled highlight - the value is no longer Claude's suggestion.
-// A block now spans every day ever synced, so only the rows carrying its
-// newest date are one snapshot - prefilling the whole block would stack
-// several days' top-10s into a single form.
-function tecLatestEntries(block) {
-  const filled = (block.entries || []).filter(e => e.playerVersion || e.errorCode || e.approxSession);
-  if (!filled.length) return [];
-  const newest = (filled[0].date || '').trim();
-  return filled.filter(e => (e.date || '').trim() === newest);
-}
-
+// The table starts empty on every platform change. It used to prefill with
+// whatever the sheet held, from back when a sync overwrote that block - now
+// that syncing only ever inserts, a prefilled table one stray click away from
+// Sync would append a duplicate of the previous snapshot. Past data belongs
+// on the Dashboard tab, not in the entry form.
 function onTecPlatformChange(byHand) {
   if (byHand) setPlatformAutofilled(false, '');
   const block = currentTecBlock();
   const preview = document.getElementById('tec-filters-preview');
-  if (!block) {
-    preview.textContent = '';
-    renderTecRows([], TEC_DEFAULT_ROWS);
-    return;
-  }
-
-  const latest = tecLatestEntries(block);
+  renderTecRows([], TEC_DEFAULT_ROWS);
+  if (!block) { preview.textContent = ''; return; }
   preview.innerHTML = `Filters ในชีต: <code>${escapeHtml(block.filters.replace(/\n/g, '  ·  '))}</code> — แทรกที่แถว ${block.startRow} (ของเดิมเลื่อนลง)`;
-  renderTecRows(latest, Math.max(TEC_DEFAULT_ROWS, latest.length));
 }
 
 // "Thu-14-Aug" - matches the label format the other tabs in this sheet use.

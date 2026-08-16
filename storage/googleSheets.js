@@ -55,8 +55,8 @@ async function updateSheetGrid(spreadsheetId, range, rows) {
 }
 
 // Inserts `count` blank rows above `startRow` (1-based), pushing everything
-// below it down - used by the TVN sync paths so a new day's data lands on top
-// of the previous day's instead of overwriting it.
+// below it down - the TVN sync paths only ever add rows this way, so nothing
+// already in the sheet is rewritten or removed.
 //
 // inheritFromBefore is false so the new rows take their formatting from the
 // row currently at `startRow` (the one being pushed down), not from the row
@@ -91,23 +91,6 @@ async function insertSheetRows(spreadsheetId, gid, startRow, count, formulaCols)
     });
   }
   await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
-}
-
-// Removes `count` rows starting at `startRow` (1-based), pulling everything
-// below back up. The TVN sync paths only ever call this to shrink a re-synced
-// snapshot of the same date - never to drop an older record.
-async function deleteSheetRows(spreadsheetId, gid, startRow, count) {
-  const sheets = google.sheets({ version: 'v4', auth: getAuth() });
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [{
-        deleteDimension: {
-          range: { sheetId: gid, dimension: 'ROWS', startIndex: startRow - 1, endIndex: startRow - 1 + count },
-        },
-      }],
-    },
-  });
 }
 
 // Cell background colors for a range - effectiveFormat (not userEnteredFormat)
@@ -149,6 +132,6 @@ function rowsToObjects(rows) {
 
 module.exports = {
   fetchSheetRows, rowsToObjects, updateSheetRow, updateSheetGrid,
-  insertSheetRows, deleteSheetRows,
+  insertSheetRows,
   fetchSheetFormatting, colorToHex, resolveSheetTitleByGid,
 };

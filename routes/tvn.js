@@ -2,7 +2,7 @@ const router = require('express').Router();
 const path = require('path');
 const {
   fetchSheetRows, resolveSheetTitleByGid, updateSheetRow, updateSheetGrid,
-  insertSheetRows, deleteSheetRows,
+  insertSheetRows,
 } = require('../storage/googleSheets');
 const { readValueFromScreenshot } = require('../lib/anthropicVision');
 
@@ -387,51 +387,40 @@ router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
     const topRow = rows[rowIdx] || [];
     const rowNum = rowIdx + 1;
     const date = String(dateLabel || '').trim() || formatBangkokWeekdayLabel();
-    const topDate = (topRow[HOURLY_DATE_COL_IDX] || '').trim();
 
-    // A different date means a new day's snapshot: push the platform's rows
-    // down and take the freed top row, so yesterday's hours survive. The same
-    // date is the same snapshot being re-synced (a partial CSV topped up, or
-    // a correction), so that row is updated in place instead - which is what
-    // keeps a mid-day re-sync from leaving two rows for one day.
-    const isNewDay = Boolean(topDate) && topDate !== date;
-    if (isNewDay) {
-      await insertSheetRows(SHEET_ID, HOURLY_SHEET_GID, rowNum, 1, [HOURLY_AVERAGE_COL_IDX, HOURLY_PEAK_TIME_COL_IDX + 1]);
-    }
+    // Every sync pushes the platform's existing rows down and takes the freed
+    // top row. No case updates a row in place - re-syncing a date it already
+    // has leaves both attempts in the sheet, newest on top, rather than
+    // rewriting the earlier one.
+    await insertSheetRows(SHEET_ID, HOURLY_SHEET_GID, rowNum, 1, [HOURLY_AVERAGE_COL_IDX, HOURLY_PEAK_TIME_COL_IDX + 1]);
 
-    // An inserted row starts empty, so there is nothing to merge into - only
-    // an in-place update keeps the hours the CSV didn't cover.
-    const currentRow = isNewDay ? [] : topRow;
+    // The row is brand new, so hours the CSV didn't cover stay blank - there
+    // is no previous value on this row to preserve.
     let updatedCount = 0;
-    const merged = HOUR_COLUMNS.map((label, i) => {
+    const merged = HOUR_COLUMNS.map(label => {
       const provided = values ? values[label] : undefined;
       if (provided !== undefined && provided !== '') {
         updatedCount++;
         return String(provided);
       }
-      const existing = currentRow[HOURLY_FIRST_HOUR_COL_IDX + i];
-      return existing === undefined ? '' : existing;
+      return '';
     });
 
     const filtersColLetter = colLetter(HOURLY_FILTERS_COL_IDX);
     const dateColLetter = colLetter(HOURLY_DATE_COL_IDX);
     const firstColLetter = colLetter(HOURLY_FIRST_HOUR_COL_IDX);
     const lastColLetter = colLetter(HOURLY_FIRST_HOUR_COL_IDX + HOUR_COLUMNS.length - 1);
-    // A fresh row needs Filters and Platform written too - they're what makes
-    // it part of this platform's run, which is how the next sync finds it.
-    if (isNewDay) {
-      await updateSheetRow(SHEET_ID, `'${title}'!${filtersColLetter}${rowNum}:${dateColLetter}${rowNum}`, [
-        topRow[HOURLY_FILTERS_COL_IDX] || '',
-        topRow[HOURLY_PLATFORM_COL_IDX] || '',
-        date,
-      ]);
-    } else {
-      await updateSheetRow(SHEET_ID, `'${title}'!${dateColLetter}${rowNum}:${dateColLetter}${rowNum}`, [date]);
-    }
+    // Filters and Platform are copied from the row that got pushed down -
+    // they're what keeps the new row part of this platform's run, which is
+    // how the next sync finds where to insert.
+    await updateSheetRow(SHEET_ID, `'${title}'!${filtersColLetter}${rowNum}:${dateColLetter}${rowNum}`, [
+      topRow[HOURLY_FILTERS_COL_IDX] || '',
+      topRow[HOURLY_PLATFORM_COL_IDX] || '',
+      date,
+    ]);
     await updateSheetRow(SHEET_ID, `'${title}'!${firstColLetter}${rowNum}:${lastColLetter}${rowNum}`, merged);
 
-    const how = isNewDay ? `แถวใหม่ ${date} (ของเดิมเลื่อนลง)` : `อัปเดตแถว ${date}`;
-    res.json({ result: `${platform}: ${how} — ${updatedCount} ช่วงเวลา` });
+    res.json({ result: `${platform}: แทรกแถวใหม่ ${date} ที่แถว ${rowNum} (ของเดิมเลื่อนลง) — ${updatedCount} ช่วงเวลา` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -501,11 +490,9 @@ router.get('/api/tvn/top-error-codes', async (req, res) => {
 });
 
 // Inserts the new snapshot at the top of the platform's block and pushes the
-// existing rows down, so earlier days accumulate below instead of being
-// overwritten. The one exception is a re-sync of a date that's already at the
-// top of the block - that's the same snapshot corrected, so those rows are
-// resized and rewritten in place rather than duplicated. Older dates further
-// down are never touched.
+// existing rows down. Nothing already in the sheet is ever rewritten or
+// removed, including a re-sync of a date the block already holds - both
+// attempts stay, newest first.
 const TEC_MAX_ROWS_PER_SYNC = 50;
 
 router.post('/api/tvn/top-error-codes/record', async (req, res) => {
@@ -531,16 +518,7 @@ router.post('/api/tvn/top-error-codes/record', async (req, res) => {
 
     const date = String(dateLabel || '').trim() || formatBangkokWeekdayLabel();
 
-    // How many rows at the top of the block already carry this date - i.e. a
-    // previous sync of the same snapshot, which this one supersedes.
-    let sameDate = 0;
-    while (sameDate < block.entries.length && (block.entries[sameDate].date || '').trim() === date) sameDate++;
-
-    if (list.length > sameDate) {
-      await insertSheetRows(SHEET_ID, TOP_ERROR_CODES_SHEET_GID, block.startRow, list.length - sameDate);
-    } else if (list.length < sameDate) {
-      await deleteSheetRows(SHEET_ID, TOP_ERROR_CODES_SHEET_GID, block.startRow, sameDate - list.length);
-    }
+    await insertSheetRows(SHEET_ID, TOP_ERROR_CODES_SHEET_GID, block.startRow, list.length);
 
     // Filters and Platform go on every row - they're what groups the rows
     // into a block, so a row missing them would split the platform's run.
@@ -556,8 +534,7 @@ router.post('/api/tvn/top-error-codes/record', async (req, res) => {
     const endRow = block.startRow + list.length - 1;
     await updateSheetGrid(SHEET_ID, `'${title}'!A${block.startRow}:${lastCol}${endRow}`, grid);
 
-    const how = sameDate ? `เขียนทับรอบเดิมของวันเดียวกัน` : `แถวใหม่ (ของเดิมเลื่อนลง)`;
-    res.json({ result: `${platform}: บันทึก ${list.length} error code วันที่ ${date} — ${how} (แถว ${block.startRow}-${endRow})` });
+    res.json({ result: `${platform}: แทรก ${list.length} error code วันที่ ${date} ที่แถว ${block.startRow}-${endRow} (ของเดิมเลื่อนลง)` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
