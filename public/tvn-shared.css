@@ -258,6 +258,24 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .step strong { color: var(--ink); }
 .step button { flex: none; }
 
+/* ---------- Daily / cumulative summary under the heatmap ----------
+   Fills the gap left under the 24-hour grid. Two cards, two lines each, so
+   it stays a glance-read rather than turning into a second table. */
+.sum-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.sum-card { border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 9px 12px 10px; background: var(--surface-2); }
+.sum-head { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: var(--ink); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sum-when { font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: var(--info); }
+.sum-list { margin: 0; padding-left: 16px; }
+.sum-list li { font-size: 11.5px; line-height: 1.6; color: var(--ink-dim); }
+.sum-list li + li { margin-top: 3px; }
+.sum-list b { color: var(--ink); }
+.sum-up { color: var(--critical); font-weight: 700; }
+.sum-down { color: var(--good); font-weight: 700; }
+.sum-source { margin: 9px 0 0; font-size: 10.5px; line-height: 1.65; color: var(--ink-faint); }
+.sum-source b { color: var(--ink-dim); }
+.sum-source code { font-family: var(--font-mono); font-size: 10px; color: var(--accent); }
+@media (max-width: 900px) { .sum-grid { grid-template-columns: 1fr; } }
+
 /* ---------- Two data-entry tracks sharing one Step 1 ----------
    Both forms live on the same page now, so each gets its own frame and tint
    (green = CSV export, blue = screenshot + paste). Without that they read as
@@ -313,6 +331,17 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .chart figcaption { margin-bottom: 10px; }
 .chart-title { display: block; font-size: 12.5px; font-weight: 700; color: var(--ink); }
 .chart-sub { display: block; font-size: 11px; color: var(--ink-faint); margin-top: 1px; }
+
+/* Right-hand column: the platform chart tops out at 7 bars while the code
+   chart runs 10+, so the summary lives in the leftover space instead of
+   adding a full-width band nobody has room for. */
+.chart-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+/* Reuses the .sum-card vocabulary the hourly heatmap summary already defines
+   (see above) so both panels read as the same component. Only the layout
+   differs: stacked, because this one lives in a half-width column. */
+.sum-grid.sum-stack { grid-template-columns: 1fr; margin-top: 0; }
+.dash-summary:empty { display: none; }
 
 /* 2px row gap keeps adjacent fills from reading as one block. */
 .bars { display: flex; flex-direction: column; gap: 2px; }

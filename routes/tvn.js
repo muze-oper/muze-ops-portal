@@ -348,7 +348,9 @@ router.get('/api/tvn/error-sessions-hourly', async (req, res) => {
 
     // Rows are newest-first within each platform (sync inserts on top), so
     // the first one seen wins - the heatmap shows one row per platform and
-    // must stay scroll-free however much history piles up below.
+    // must stay scroll-free however much history piles up below. Every row
+    // still goes out as `history`, which is what the cumulative summary
+    // needs to look back across days.
     const latest = [];
     const seen = new Set();
     platforms.forEach(p => {
@@ -357,7 +359,7 @@ router.get('/api/tvn/error-sessions-hourly', async (req, res) => {
       seen.add(key);
       latest.push(p);
     });
-    res.json({ platforms: latest, hourColumns: HOUR_COLUMNS, historyRows: platforms.length });
+    res.json({ platforms: latest, history: platforms, hourColumns: HOUR_COLUMNS });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

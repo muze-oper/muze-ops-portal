@@ -209,13 +209,19 @@
               <div class="bars" id="tec-chart-code"></div>
               <button class="btn-ghost view-more-btn" id="tec-view-more" onclick="toggleTecViewMore()" hidden></button>
             </figure>
-            <figure class="chart">
-              <figcaption>
-                <span class="chart-title">Approx sessions แยกตาม Platform</span>
-                <span class="chart-sub">รวมทุก error code ที่บันทึกไว้ของแต่ละ platform</span>
-              </figcaption>
-              <div class="bars" id="tec-chart-platform"></div>
-            </figure>
+            <div class="chart-col">
+              <figure class="chart">
+                <figcaption>
+                  <span class="chart-title">Approx sessions แยกตาม Platform</span>
+                  <span class="chart-sub">รวมทุก error code ที่บันทึกไว้ของแต่ละ platform</span>
+                </figcaption>
+                <div class="bars" id="tec-chart-platform"></div>
+              </figure>
+              <!-- Sits in the gap under the shorter platform chart: at most two
+                   lines per heading, so it stays compact even when the code
+                   chart is expanded to all rows. -->
+              <section class="dash-summary" id="tec-summary"></section>
+            </div>
           </div>
           <div class="dash-note" id="tec-dash-note"></div>
         </div>
@@ -517,12 +523,14 @@ function renderSharedFilterRef() {
 
 let hourlyTableData = []; // last-fetched platforms, so the date filter can re-render without a fetch
 let hourlyTableColumns = [];
+let hourlyHistory = [];
 
 async function loadHourlyTable() {
   const body = document.getElementById('hourly-table-body');
   try {
     const data = await fetchJson('/api/tvn/error-sessions-hourly');
     hourlyTableData = data.platforms;
+    hourlyHistory = data.history || data.platforms;
     hourlyTableColumns = data.hourColumns;
     populateHourlyDateFilter();
     renderHourlyTable();
@@ -635,8 +643,107 @@ function renderHourlyTable() {
         <thead><tr><th class="col-id"><span class="id-platform">Platform</span><span class="id-date">Date</span></th><th class="col-stat col-avg">Avg</th><th class="col-stat col-peak">Peak</th><th class="col-stat col-time">Time</th>${headHours}</tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
+      ${hourlySummaryHtml(platforms)}
     </div>
   `;
+}
+
+const pctOf = (v) => { const n = parseFloat(String(v == null ? '' : v).replace('%', '').trim()); return isNaN(n) ? null : n; };
+
+// Mean of a platform row's own Avg column (a formula in the sheet), skipping
+// rows that never got an Average - a partially filled day would otherwise
+// drag a platform's standing down for a reason that isn't about errors.
+function meanAvg(rows) {
+  const nums = rows.map(r => pctOf(r.average)).filter(n => n !== null);
+  return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
+}
+
+// Averages every platform's value for each hour column, so "the worst hour of
+// the day" means worst across the whole service, not worst on one platform.
+function worstHourAcross(rows) {
+  let worst = null;
+  hourlyTableColumns.forEach(hour => {
+    const nums = rows.map(r => pctOf(r.values[hour])).filter(n => n !== null);
+    if (!nums.length) return;
+    const mean = nums.reduce((a, b) => a + b, 0) / nums.length;
+    if (!worst || mean > worst.mean) worst = { hour, mean };
+  });
+  return worst;
+}
+
+// Two lines per heading, no more - the panel fills the gap under the heatmap
+// and is meant to be readable at a glance, not another table.
+function hourlySummaryHtml(shown) {
+  if (!shown.length) return '';
+
+  const day = shown[0].date || '';
+  const worstPlatform = shown.reduce((a, b) => ((pctOf(b.average) ?? -1) > (pctOf(a.average) ?? -1) ? b : a));
+  const peakRow = shown.reduce((a, b) => ((pctOf(b.peak) ?? -1) > (pctOf(a.peak) ?? -1) ? b : a));
+  const worstHour = worstHourAcross(shown);
+  const dayMean = meanAvg(shown);
+
+  // History spans several days; group by date to compare today with the day
+  // before and to rank platforms over the whole collection period.
+  const byDate = new Map();
+  hourlyHistory.forEach(r => {
+    if (!r.date) return;
+    if (!byDate.has(r.date)) byDate.set(r.date, []);
+    byDate.get(r.date).push(r);
+  });
+  // Newest first. Row order already happens to be newest-first, but sorting
+  // on the parsed label means a hand-edited sheet can't quietly flip
+  // "yesterday" into some other day.
+  const dates = [...byDate.keys()].sort((a, b) => tecDateKey(b) - tecDateKey(a));
+  const prevDate = dates.find(d => d !== day);
+  const prevMean = prevDate ? meanAvg(byDate.get(prevDate)) : null;
+
+  const byPlatform = new Map();
+  hourlyHistory.forEach(r => {
+    const key = (r.platform || '').trim();
+    if (!key) return;
+    if (!byPlatform.has(key)) byPlatform.set(key, []);
+    byPlatform.get(key).push(r);
+  });
+  const ranked = [...byPlatform.entries()]
+    .map(([platform, rows]) => ({ platform, mean: meanAvg(rows), days: rows.length }))
+    .filter(x => x.mean !== null)
+    .sort((a, b) => b.mean - a.mean);
+  const allTimePeak = hourlyHistory.reduce(
+    (a, b) => ((pctOf(b.peak) ?? -1) > (pctOf(a?.peak) ?? -1) ? b : a), null);
+
+  const pct = (n) => (n === null || n === undefined ? '—' : `${n.toFixed(2)}%`);
+  const hh = (h) => String(h || '').replace('.00', ':00');
+  let trend = 'ยังไม่มีวันก่อนหน้าให้เทียบ';
+  if (prevMean !== null && dayMean !== null) {
+    const diff = dayMean - prevMean;
+    const dir = diff > 0 ? 'สูงขึ้น' : diff < 0 ? 'ลดลง' : 'เท่ากับ';
+    const cls = diff > 0 ? 'sum-up' : 'sum-down';
+    trend = `เฉลี่ยรวมวันนี้ <b>${pct(dayMean)}</b> <span class="${cls}">${dir} ${pct(Math.abs(diff))}</span> จาก ${escapeHtml(prettyDate(prevDate))} (${pct(prevMean)})`;
+  }
+
+  return `
+    <div class="sum-grid">
+      <section class="sum-card">
+        <h3 class="sum-head">สรุปข้อมูลประจำวัน<span class="sum-when">${escapeHtml(prettyDate(day))}</span></h3>
+        <ol class="sum-list">
+          <li><b>${escapeHtml(worstPlatform.platform)}</b> เฉลี่ยสูงสุด <b>${pct(pctOf(worstPlatform.average))}</b> — ทั้งวันเฉลี่ย ${pct(dayMean)} จาก ${shown.length} platform</li>
+          <li>Peak หนักสุด <b>${pct(pctOf(peakRow.peak))}</b> ที่ ${escapeHtml(peakRow.platform)} เวลา ${escapeHtml(hh(peakRow.peakTime))}${worstHour ? ` · ชั่วโมงที่แย่ที่สุดข้ามทุก platform คือ ${escapeHtml(hh(worstHour.hour))} (${pct(worstHour.mean)})` : ''}</li>
+        </ol>
+      </section>
+      <section class="sum-card">
+        <h3 class="sum-head">สรุปตั้งแต่เริ่มเก็บข้อมูล<span class="sum-when">${dates.length} วัน · ${escapeHtml(prettyDate(dates[dates.length - 1] || day))} – ${escapeHtml(prettyDate(dates[0] || day))}</span></h3>
+        <ol class="sum-list">
+          <li>${ranked.length ? `<b>${escapeHtml(ranked[0].platform)}</b> แย่ที่สุดสะสม เฉลี่ย <b>${pct(ranked[0].mean)}</b>${ranked[1] ? ` · รองลงมา ${escapeHtml(ranked[1].platform)} ${pct(ranked[1].mean)}` : ''}` : 'ยังไม่มีข้อมูลสะสม'}${allTimePeak ? ` — peak สูงสุดที่เคยเจอ <b>${pct(pctOf(allTimePeak.peak))}</b> (${escapeHtml(allTimePeak.platform)} ${escapeHtml(prettyDate(allTimePeak.date))} ${escapeHtml(hh(allTimePeak.peakTime))})` : ''}</li>
+          <li>${trend}</li>
+        </ol>
+      </section>
+    </div>
+    <p class="sum-source">
+      <b>ที่มา:</b> ตัวเลขทั้งหมดมาจากไฟล์ CSV ที่ export จาก Bitmovin (metric <i>Error Sessions</i>, Last 24 hours, กรองทีละ platform)
+      แล้ว sync เข้าแท็บ <i>BitMovin Error</i> ในชีต TVN-Operation Monitoring — เป็นค่าจากไฟล์โดยตรง ไม่ได้อ่านจากกราฟ
+      ส่วนแท็บ Top Error Codes อ่านจาก screenshot ด้วย skill <code>tvn-dashboard-reading</code> (<code>.claude/skills/</code> ใน repo <code>muze-ops-portal</code>)
+      ซึ่งบังคับให้เช็ค Filters ในภาพก่อนอ่านค่าทุกครั้ง
+    </p>`;
 }
 
 // Sheet stores hours as "10.00" (dot, not colon) - reformat to "10:00" for
@@ -1003,7 +1110,10 @@ function populateTecFilters() {
 
 // Flattens the blocks to one row per error code, then applies the filters -
 // doing it in this order keeps each filter independent of the others.
-function tecFilteredRows() {
+// `ignoreDate` powers the cumulative summary, which has to span every day on
+// record while still honouring the platform/code filters the person is looking
+// at - otherwise the two summary blocks would describe different slices.
+function tecFilteredRows({ ignoreDate = false } = {}) {
   const fromKey = tecDateKey(document.getElementById('tec-f-date-from').value);
   const toKey = tecDateKey(document.getElementById('tec-f-date-to').value);
   const platformPick = document.getElementById('tec-f-platform').value;
@@ -1022,6 +1132,7 @@ function tecFilteredRows() {
   return rows.filter(r => {
     if (platformPick && r.platform !== platformPick) return false;
     if (codeQuery && !r.label.toLowerCase().includes(codeQuery)) return false;
+    if (ignoreDate) return true;
     const k = tecDateKey(r.date);
     if (fromKey >= 0 && k >= 0 && k < fromKey) return false;
     if (toKey >= 0 && k >= 0 && k > toKey) return false;
