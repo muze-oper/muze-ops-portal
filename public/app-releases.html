@@ -43,36 +43,52 @@
 </div>
 
 <script>
+// "17.08.2026 14:35" - matches the sheet's own DD.MM.YYYY date style, with
+// the time appended since this marks the exact moment of a live check, not
+// just a day.
+function formatBangkokDateCheck(iso) {
+  const d = new Date(iso);
+  const day = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', day: '2-digit' }).format(d);
+  const month = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', month: '2-digit' }).format(d);
+  const year = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', year: 'numeric' }).format(d);
+  const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+  return `${day}.${month}.${year} ${time}`;
+}
+
 async function loadAppReleases() {
   const body = document.getElementById('app-releases-body');
   const updated = document.getElementById('app-releases-updated');
   try {
     const data = await fetchJson('/api/app-releases');
-    renderAppReleases(data.platforms);
+    renderAppReleases(data.platforms, data.lastUpdated);
     updated.textContent = 'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH');
   } catch (err) {
     body.innerHTML = `<div id="app-releases-empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
   }
 }
 
-function renderAppReleases(platforms) {
+function renderAppReleases(platforms, lastUpdated) {
   const body = document.getElementById('app-releases-body');
   if (!platforms || !platforms.length) {
     body.innerHTML = `<div id="app-releases-empty"><div class="icon">📭</div>ไม่พบข้อมูล platform ในชีต</div>`;
     return;
   }
+  // Every row shares the same Date Check - the sheet is scanned live in one
+  // request, so all platforms were confirmed at the exact same moment.
+  const dateCheck = formatBangkokDateCheck(lastUpdated);
   const rowsHtml = platforms.map(p => `
     <tr>
       <td>${escapeHtml(p.platform)}</td>
       <td style="text-align:left;">${escapeHtml(p.version || '—')}</td>
       <td style="text-align:left;">${escapeHtml(p.releaseDate || '—')}</td>
       <td style="text-align:left;">${escapeHtml(p.submitDate || '—')}</td>
+      <td style="text-align:left;">${escapeHtml(dateCheck)}</td>
     </tr>
   `).join('');
 
   body.innerHTML = `
     <table class="data">
-      <thead><tr><th>Platform</th><th>Version ล่าสุด</th><th>Release Date</th><th>Submit Date</th></tr></thead>
+      <thead><tr><th>Platform</th><th>Version ล่าสุด</th><th>Release Date</th><th>Submit Date</th><th>Date Check</th></tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table>
   `;
