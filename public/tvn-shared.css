@@ -55,27 +55,52 @@ body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: v
 a { color: var(--accent-ink); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* ---------- Console header ---------- */
-.console { background: #0A0F0D; color: var(--bg); padding: 26px 24px 22px; }
-.console-inner { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
-.console-main { min-width: 0; }
-.eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
-.eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(79, 217, 198, 0.25); flex: none; }
-h1.title { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 6px; color: #F3F5F3; }
-.subtitle { margin: 0; color: #AEBDB6; font-size: 13.5px; max-width: 60ch; }
-.header-actions { display: flex; gap: 8px; flex-wrap: wrap; flex: none; }
-.ghost-link { font-family: var(--font-sans); font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.16); color: #D3DED9; background: rgba(255,255,255,0.04); }
-.ghost-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; background: rgba(255,255,255,0.08); }
+/* ---------- Console header ----------
+   Sticky, so the page identity and the nav stay reachable on views that
+   scroll (both the merged entry form and the merged dashboard do). That only
+   works if it's short: one row, no description paragraph, title and nav on
+   the same line - it costs about 60px instead of the ~150px the stacked
+   version did. */
+.console {
+  position: sticky; top: 0; z-index: 50;
+  background: #0A0F0D; color: var(--bg); padding: 11px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+.console-inner {
+  max-width: 1100px; margin: 0 auto;
+  display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap;
+}
+.console-main { min-width: 0; margin-right: auto; }
+/* Was 11px uppercase mono in accent teal with wide tracking - technically
+   legible, actually squinted at. Neutral grey at normal tracking reads as
+   the label it is and stops competing with the title. */
+.eyebrow {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #7E8D86;
+  display: flex; align-items: center; gap: 7px; margin: 0 0 2px;
+}
+.eyebrow::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; }
+h1.title { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 0; color: #F3F5F3; line-height: 1.25; }
+.header-actions { display: flex; gap: 7px; flex-wrap: wrap; flex: none; }
+.ghost-link {
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; padding: 5px 11px;
+  border-radius: 7px; border: 1px solid rgba(255,255,255,0.16); color: #E2EAE6; background: rgba(255,255,255,0.05);
+}
+.ghost-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; background: rgba(255,255,255,0.09); }
 
-/* Page nav - real <a> links between the 3 separate /tvn pages, not a JS tab
-   switcher. .active marks the page currently loaded. */
-.page-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; }
-.page-nav-link { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; padding: 7px 12px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.14); color: #B9C6C0; background: rgba(255,255,255,0.03); }
+/* Page nav - real <a> links between the two /tvn pages, not a JS tab
+   switcher. .active marks the page currently loaded. Sans, not mono: at this
+   size mono cost more legibility than the console look was worth. */
+.page-nav { display: flex; gap: 6px; flex-wrap: wrap; flex: none; }
+.page-nav-link {
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; padding: 5px 11px;
+  border-radius: 7px; border: 1px solid rgba(255,255,255,0.14); color: #C9D6D0; background: rgba(255,255,255,0.03);
+}
 .page-nav-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
 .page-nav-link.active { background: var(--accent); border-color: var(--accent); color: #0A0F0D; }
 
 /* ---------- Body layout ---------- */
-.wrap { max-width: 1100px; margin: 0 auto; padding: 28px 24px 72px; }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 22px 24px 72px; }
 section.block { margin: 0 0 40px; }
 .block-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
 h2.h { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); margin: 0; white-space: nowrap; }
