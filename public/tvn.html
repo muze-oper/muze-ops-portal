@@ -161,15 +161,6 @@
     </div>
   </section>
 
-  <dialog id="tec-confirm" class="confirm-dialog">
-    <div class="confirm-title">ตรวจข้อมูลเรียบร้อยแล้วใช่ไหม?</div>
-    <div class="confirm-body" id="tec-confirm-body"></div>
-    <div class="confirm-actions">
-      <button class="btn-ghost" onclick="closeTecConfirm(false)">Review Again</button>
-      <button class="btn-primary" onclick="closeTecConfirm(true)">Yes, sync now</button>
-    </div>
-  </dialog>
-
   <section class="block" id="view-dash" hidden>
     <div class="block-head"><h2 class="h">BITMOVIN Error Sessions ต่อชั่วโมง</h2><div class="rule"></div></div>
     <div class="card">
@@ -893,31 +884,6 @@ function readTecRows() {
   }));
 }
 
-// Sync writes straight to the sheet, so it goes through an explicit review gate -
-// resolves true only when "Yes, sync now" is pressed. Esc / backdrop dismissal
-// counts as "Review Again".
-let tecConfirmResolve = null;
-
-function askTecConfirm(bodyHtml) {
-  const dlg = document.getElementById('tec-confirm');
-  document.getElementById('tec-confirm-body').innerHTML = bodyHtml;
-  return new Promise(resolve => {
-    tecConfirmResolve = resolve;
-    dlg.showModal();
-  });
-}
-
-function closeTecConfirm(confirmed) {
-  // Claim the resolver before close(), so the 'close' event handler below
-  // can't re-enter and settle the same promise with `false` first.
-  const resolve = tecConfirmResolve;
-  tecConfirmResolve = null;
-  document.getElementById('tec-confirm').close();
-  if (resolve) resolve(confirmed);
-}
-
-document.getElementById('tec-confirm').addEventListener('close', () => closeTecConfirm(false));
-
 async function syncTopErrorCodes() {
   const btn = document.getElementById('tec-sync-btn');
   const resultEl = document.getElementById('error-codes-result');
@@ -932,21 +898,6 @@ async function syncTopErrorCodes() {
   }
 
   const date = document.getElementById('tec-date').value.trim() || todayBangkokLabel();
-  const latestDate = (tecLatestEntries(block)[0] || {}).date || '';
-  const isResync = latestDate.trim() === date;
-  const confirmed = await askTecConfirm(`
-    Platform: <strong>${escapeHtml(block.platform)}</strong><br>
-    Date: <strong>${escapeHtml(date)}</strong><br>
-    จำนวน: <strong>${filled.length}</strong> อันดับ<br><br>
-    ${isResync
-      ? `วันที่นี้ sync ไปแล้ว — จะ<strong>เขียนทับรอบเดิมของวันเดียวกัน</strong> (วันก่อนหน้าไม่ถูกแตะ)<br><br>`
-      : `จะ<strong>แทรกที่แถว ${block.startRow}</strong> แล้วดันข้อมูลเดิมลงข้างล่าง — ไม่มีอะไรถูกลบ<br><br>`}
-    ตรวจค่าในตารางเรียบร้อยแล้วใช่ไหม?
-  `);
-  if (!confirmed) {
-    resultEl.textContent = 'ยกเลิกแล้ว - กลับไปตรวจข้อมูลอีกครั้ง';
-    return;
-  }
 
   btn.disabled = true;
   resultEl.textContent = 'กำลัง sync...';
