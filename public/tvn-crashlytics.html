@@ -81,9 +81,7 @@
 async function loadCrashlytics() {
   const body = document.getElementById('crashlytics-body');
   try {
-    const res = await fetch('/api/tvn/crashlytics');
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    const data = await fetchJson('/api/tvn/crashlytics');
     renderCrashlytics(data.platforms);
   } catch (err) {
     body.innerHTML = `<div id="crashlytics-empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
@@ -128,13 +126,11 @@ async function saveCrashlyticsRow(platform) {
   }
   statusEl.textContent = 'กำลังบันทึก...';
   try {
-    const res = await fetch('/api/tvn/crashlytics/record', {
+    const data = await fetchJson('/api/tvn/crashlytics/record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ platform, value, filter }),
     });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
     statusEl.textContent = '✓ ' + data.result;
     loadCrashlytics();
   } catch (err) {

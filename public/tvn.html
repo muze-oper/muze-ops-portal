@@ -468,13 +468,11 @@ async function syncHourlyCsv() {
   btn.disabled = true;
   resultEl.textContent = 'กำลัง sync...';
   try {
-    const res = await fetch('/api/tvn/error-sessions-hourly/record', {
+    const data = await fetchJson('/api/tvn/error-sessions-hourly/record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ platform, values: hourlyParsed.hourValues, dateLabel }),
     });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
     resultEl.textContent = '✓ ' + data.result;
     await loadHourlyTable(); // reflect the just-written row immediately
   } catch (err) {
@@ -523,9 +521,7 @@ let hourlyTableColumns = [];
 async function loadHourlyTable() {
   const body = document.getElementById('hourly-table-body');
   try {
-    const res = await fetch('/api/tvn/error-sessions-hourly');
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    const data = await fetchJson('/api/tvn/error-sessions-hourly');
     hourlyTableData = data.platforms;
     hourlyTableColumns = data.hourColumns;
     populateHourlyDateFilter();
@@ -660,9 +656,7 @@ async function loadTopErrorCodes() {
   const select = document.getElementById('tec-platform');
   const previous = select.value;
   try {
-    const res = await fetch('/api/tvn/top-error-codes');
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    const data = await fetchJson('/api/tvn/top-error-codes');
     tecBlocks = data.blocks || [];
     populateTecFilters();
     renderTecDashboard();
@@ -902,13 +896,11 @@ async function syncTopErrorCodes() {
   btn.disabled = true;
   resultEl.textContent = 'กำลัง sync...';
   try {
-    const res = await fetch('/api/tvn/top-error-codes/record', {
+    const data = await fetchJson('/api/tvn/top-error-codes/record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ platform: block.platform, entries, dateLabel: date }),
     });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
     await loadTopErrorCodes(); // pull back what the sheet now holds
     resetTecInput();
     resultEl.textContent = data.result;

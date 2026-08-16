@@ -1,3 +1,21 @@
+// The portal session is a 12h JWT, so an API call can come back 401 with
+// {error:'unauthenticated'} in the middle of a form the user already filled
+// in. Raw, that string tells them nothing and the obvious reaction - reload -
+// throws away the CSV they picked and the table they just checked. So the
+// message says what happened and points at a second tab, which keeps this
+// page's state intact while they log back in.
+async function fetchJson(url, options) {
+  const res = await fetch(url, options);
+  let data = {};
+  try { data = await res.json(); } catch { /* non-JSON body, handled below */ }
+  if (res.status === 401 || data.error === 'unauthenticated') {
+    throw new Error('เซสชันหมดอายุแล้ว — เปิด /login ในแท็บใหม่ เข้าสู่ระบบ แล้วกลับมากดอีกครั้ง (ข้อมูลในหน้านี้จะไม่หาย)');
+  }
+  if (data.error) throw new Error(data.error);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return data;
+}
+
 // Shared across the three /tvn pages (Error Sessions, Top Error Codes,
 // Crashlytics): generic helpers + the screenshot-insert box + the
 // copy-table-as-image helper. Page-specific data/rendering logic stays in
