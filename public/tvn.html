@@ -208,6 +208,7 @@
               </figcaption>
               <div class="bars" id="tec-chart-code"></div>
               <button class="btn-ghost view-more-btn" id="tec-view-more" onclick="toggleTecViewMore()" hidden></button>
+              <div class="dash-note" id="tec-dash-note"></div>
             </figure>
             <div class="chart-col">
               <figure class="chart">
@@ -223,7 +224,6 @@
               <section class="dash-summary" id="tec-summary"></section>
             </div>
           </div>
-          <div class="dash-note" id="tec-dash-note"></div>
         </div>
       </div>
     </div>
@@ -1140,6 +1140,73 @@ function tecFilteredRows({ ignoreDate = false } = {}) {
   });
 }
 
+// Two headings, two lines each, in the gap under the platform chart. Built on
+// the same .sum-card markup as the hourly heatmap's summary so the page has one
+// summary component rather than two that merely resemble each other.
+function renderTecSummary({ perPlatform, allCodes, total, dates }) {
+  const share = (v) => (total > 0 ? Math.round((v / total) * 100) : 0);
+  const worst = allCodes[0];
+  const topPlatform = perPlatform[0];
+
+  const dayLines = [];
+  if (worst) {
+    dayLines.push(`<b>${escapeHtml(worst.label)}</b> นำที่ <b>${worst.value.toLocaleString()}</b> sessions (${share(worst.value)}% ของทั้งหมด) — พบใน ${worst.platforms.length} platform`);
+  }
+  if (topPlatform) {
+    dayLines.push(`<b>${escapeHtml(topPlatform.label)}</b> รับหนักสุด <b>${topPlatform.value.toLocaleString()}</b> sessions (${share(topPlatform.value)}%) จาก ${perPlatform.length} platform ที่มีข้อมูล`);
+  }
+  if (!dayLines.length) dayLines.push('ไม่มีข้อมูลตรงกับฟิลเตอร์ที่เลือก');
+
+  // Spans every recorded day, but keeps the platform/code filters - otherwise
+  // the two cards would silently describe different slices of the sheet.
+  const allRows = tecFilteredRows({ ignoreDate: true });
+  const allDates = [...new Set(allRows.map(r => r.date).filter(Boolean))].sort((a, b) => tecDateKey(a) - tecDateKey(b));
+  const grand = allRows.reduce((s, r) => s + r.sessions, 0);
+
+  // How often each code took the #1 spot: a code that leads every single day is
+  // a standing problem, one that leads once was a spike - the totals alone
+  // can't tell those apart.
+  const wins = new Map();
+  allDates.forEach(d => {
+    const byCode = new Map();
+    allRows.forEach(r => { if (r.date === d) byCode.set(r.label, (byCode.get(r.label) || 0) + r.sessions); });
+    const top = [...byCode.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (top) wins.set(top[0], (wins.get(top[0]) || 0) + 1);
+  });
+  const champion = [...wins.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  const allLines = [
+    `บันทึกแล้ว <b>${allDates.length}</b> วัน · รวม <b>${grand.toLocaleString()}</b> sessions${allDates.length ? ` · เฉลี่ย ${Math.round(grand / allDates.length).toLocaleString()} ต่อวัน` : ''}`,
+    allDates.length > 1 && champion
+      ? `<b>${escapeHtml(champion[0])}</b> ขึ้นอันดับ 1 บ่อยที่สุด <b>${champion[1]}</b> จาก ${allDates.length} วัน`
+      : 'มีข้อมูลวันเดียว — ต้องบันทึกอย่างน้อย 2 วันถึงจะเทียบแนวโน้มได้',
+  ];
+
+  const dayWhen = dates.length === 1
+    ? prettyDate(dates[0])
+    : (dates.length ? `${prettyDate(dates[0])} – ${prettyDate(dates[dates.length - 1])}` : '—');
+  const allWhen = allDates.length
+    ? `${allDates.length} วัน · ${prettyDate(allDates[0])} – ${prettyDate(allDates[allDates.length - 1])}`
+    : '—';
+
+  document.getElementById('tec-summary').innerHTML = `
+    <div class="sum-grid sum-stack">
+      <section class="sum-card">
+        <h3 class="sum-head">สรุปจากข้อมูลประจำวัน<span class="sum-when">${escapeHtml(dayWhen)}</span></h3>
+        <ol class="sum-list">${dayLines.map(l => `<li>${l}</li>`).join('')}</ol>
+      </section>
+      <section class="sum-card">
+        <h3 class="sum-head">สรุปตั้งแต่เริ่มเก็บข้อมูล<span class="sum-when">${escapeHtml(allWhen)}</span></h3>
+        <ol class="sum-list">${allLines.map(l => `<li>${l}</li>`).join('')}</ol>
+      </section>
+    </div>
+    <p class="sum-source">
+      <b>ที่มา:</b> อ่านจาก screenshot กราฟ Bitmovin <i>Top Error Codes</i> (Last 24 hours) ทีละ platform วันละ 7 รูป
+      ด้วย skill <code>tvn-dashboard-reading</code> + <code>read-dashboard-charts</code> แล้ว sync เข้าชีต TVN-Operation Monitoring —
+      ตัวเลขเป็น<b>ค่าประมาณจากความยาวแท่ง</b> ไม่ใช่ตัวเลขที่ dashboard พิมพ์ออกมา
+    </p>`;
+}
+
 function renderTecDashboard() {
   const dash = document.getElementById('tec-dash');
   const empty = document.getElementById('tec-dash-empty');
@@ -1230,6 +1297,8 @@ function renderTecDashboard() {
     note.push(`<div>⚠️ ข้อมูลมาจากหลายวัน (${dates.map(prettyDate).join(', ')}) ตัวเลขรวมจึงเทียบกันตรง ๆ ไม่ได้</div>`);
   }
   document.getElementById('tec-dash-note').innerHTML = note.join('');
+
+  renderTecSummary({ perPlatform, allCodes, total, dates });
 }
 
 
