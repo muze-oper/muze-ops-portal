@@ -150,7 +150,7 @@
           <div class="step"><span class="step-no">Step 2</span><span class="step-text">เลือก Platform + ตรวจค่าที่แยกได้ในตาราง แก้ไขได้ก่อน sync</span></div>
           <div class="field-row" style="margin:8px 0;">
             <label class="field-label" for="cr-backfill-platform">Platform</label>
-            <select id="cr-backfill-platform" onchange="onCrBackfillPlatformChange()"><option value="">— เลือก platform —</option></select>
+            <select id="cr-backfill-platform" onchange="onCrBackfillPlatformChange(true)"><option value="">— เลือก platform —</option></select>
           </div>
           <div class="field-row" style="margin-bottom:8px;">
             <label class="field-label" for="cr-backfill-filter">Filter</label>
@@ -306,9 +306,14 @@ async function loadCrashlyticsForm() {
   }
 }
 
+// Fixed list, not derived from the sheet's own blocks - the dropdown should
+// always offer exactly these 4 regardless of which platforms currently have
+// rows/history in the Crashlytics tab.
+const CR_PLATFORM_OPTIONS = ['iOS Mobile', 'Apple TV', 'Android Mobile', 'Android TV'];
+
 function populateCrTargetSelect() {
-  const options = '<option value="">— เลือก platform —</option>' + crPlatforms
-    .map(p => `<option value="${escapeHtml(p.platform)}">${escapeHtml(p.platform)}</option>`)
+  const options = '<option value="">— เลือก platform —</option>' + CR_PLATFORM_OPTIONS
+    .map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`)
     .join('');
   document.getElementById('cr-target-platform').innerHTML = options;
   document.getElementById('cr-backfill-platform').innerHTML = options;
@@ -472,20 +477,59 @@ function parseCrBackfillLine(line) {
   return dateLabel ? { dateLabel, value } : null;
 }
 
+// "Platform: Apple TV" - same shape as the quick-entry track's reads and
+// the BitMovin Top Error Codes paste box use for the same purpose.
+function parseCrPlatformLine(line) {
+  const m = /^platform\s*[:=]\s*(.+)$/i.exec(String(line).trim());
+  return m ? m[1].trim() : null;
+}
+
+function setCrBackfillPlatformAutofilled(on) {
+  document.getElementById('cr-backfill-platform').classList.toggle('autofilled', !!on);
+}
+
+// Reads a "Platform:" line (if present, from anywhere in the pasted text)
+// and selects it in the dropdown, marked blue to show it came from the
+// paste rather than a manual pick. That line is consumed here - it's never
+// passed to parseCrBackfillLine, so it doesn't show up as an "unreadable"
+// row in the parse note.
+function applyCrBackfillPlatformHint(lines) {
+  const hinted = lines.map(parseCrPlatformLine).find(Boolean);
+  if (!hinted) return null;
+  const match = CR_PLATFORM_OPTIONS.find(p => p.toLowerCase() === hinted.toLowerCase());
+  const select = document.getElementById('cr-backfill-platform');
+  if (match) {
+    select.value = match;
+    setCrBackfillPlatformAutofilled(true);
+    onCrBackfillPlatformChange(false);
+  }
+  return hinted;
+}
+
 function parseCrBackfillPasted() {
   const text = document.getElementById('cr-backfill-paste').value;
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const platformHint = applyCrBackfillPlatformHint(lines);
+
   const entries = [];
   const skipped = [];
   lines.forEach(line => {
+    if (parseCrPlatformLine(line)) return; // consumed by applyCrBackfillPlatformHint above
     const parsed = parseCrBackfillLine(line);
     if (parsed) entries.push(parsed); else skipped.push(line);
   });
   renderCrBackfillTable(entries);
   const note = document.getElementById('cr-backfill-parse-note');
-  if (!lines.length) note.textContent = '';
-  else if (!entries.length) note.textContent = 'อ่านค่าไม่ได้สักบรรทัด - รูปแบบที่รองรับคือ "Aug 11  99.92"';
-  else note.textContent = `แยกได้ ${entries.length} วัน` + (skipped.length ? ` (ข้าม ${skipped.length} บรรทัดที่อ่านไม่ออก: ${skipped.join(' | ')})` : '');
+  const notes = [];
+  if (platformHint) {
+    notes.push(CR_PLATFORM_OPTIONS.some(p => p.toLowerCase() === platformHint.toLowerCase())
+      ? `เลือก Platform เป็น "${platformHint}" จากบรรทัดแรก`
+      : `บรรทัดแรกระบุ Platform "${platformHint}" ซึ่งไม่ตรงกับตัวเลือกใด - เลือกเองด้านล่าง`);
+  }
+  if (!lines.length) { note.textContent = ''; return; }
+  if (!entries.length) notes.push('อ่านค่าวันไม่ได้สักบรรทัด - รูปแบบที่รองรับคือ "Aug 11  99.92"');
+  else notes.push(`แยกได้ ${entries.length} วัน` + (skipped.length ? ` (ข้าม ${skipped.length} บรรทัดที่อ่านไม่ออก: ${skipped.join(' | ')})` : ''));
+  note.textContent = notes.join(' · ');
 }
 
 function renderCrBackfillTable(entries) {
@@ -516,17 +560,31 @@ function readCrBackfillRows() {
     .filter(e => e.date && e.value && !isNaN(parseFloat(e.value)));
 }
 
-function onCrBackfillPlatformChange() {
+// `byHand` is true when a human moved the dropdown themselves, which drops
+// the autofill highlight - the value is no longer the paste's suggestion.
+// Filter always comes from Step 0's Version to Monitor data (current builds
+// still receiving traffic), never from whatever this platform's most recent
+// sheet row happened to record - the sheet's old filter can be stale.
+function onCrBackfillPlatformChange(byHand) {
+  if (byHand) setCrBackfillPlatformAutofilled(false);
   const name = document.getElementById('cr-backfill-platform').value;
-  const filterInput = document.getElementById('cr-backfill-filter');
-  const entry = crPlatforms.find(p => p.platform === name);
-  filterInput.value = entry ? (entry.filter || suggestedFilterFor(entry.platform)) : '';
+  document.getElementById('cr-backfill-filter').value = suggestedFilterFor(name);
 }
 
 function clearCrBackfillPaste() {
   document.getElementById('cr-backfill-paste').value = '';
   document.getElementById('cr-backfill-parse-note').textContent = '';
   renderCrBackfillTable([]);
+}
+
+// Blank slate after a successful sync - platform, filter and the autofill
+// highlight all reset too, not just the paste box/table, so a stray click of
+// Sync a second time can't silently resend the platform just written.
+function resetCrBackfillInput() {
+  clearCrBackfillPaste();
+  document.getElementById('cr-backfill-platform').value = '';
+  document.getElementById('cr-backfill-filter').value = '';
+  setCrBackfillPlatformAutofilled(false);
 }
 
 async function syncCrBackfill() {
@@ -548,7 +606,7 @@ async function syncCrBackfill() {
       body: JSON.stringify({ platform, entries, filter }),
     });
     resultEl.textContent = '✓ ' + data.result;
-    clearCrBackfillPaste();
+    resetCrBackfillInput();
     await loadCrashlyticsForm(); // refreshes "ล่าสุดที่บันทึกไว้" on the quick-entry table too
   } catch (err) {
     resultEl.textContent = 'Error: ' + err.message;
