@@ -151,11 +151,17 @@ function renderStep0(platforms) {
 
 // Step 1 narrows Step 0's platform list down to whichever ones relate to the
 // filter being set up (Android or iOS), matched by a plain substring on the
-// platform name - "Android App" and "Android TV" both count as Android,
-// "iOS App" counts as iOS. "Version to Monitor" is the 3 most recent
-// versions (current + the two before it), newest first.
-function platformsMatching(platforms, keyword) {
-  return platforms.filter(p => p.platform.toLowerCase().includes(keyword));
+// platform name - "Android TV" and "Android Mobile" both count as Android;
+// "iOS Mobile" counts as iOS, and so does "Apple TV" even though its name
+// doesn't contain "ios" - it's still built on the iOS/tvOS Firebase project,
+// so it gets its own explicit keyword rather than a substring match.
+// "Version to Monitor" is the 3 most recent versions (current + the two
+// before it), newest first.
+function platformsMatching(platforms, keywords) {
+  return platforms.filter(p => {
+    const name = p.platform.toLowerCase();
+    return keywords.some(k => name.includes(k));
+  });
 }
 
 function versionToMonitorTable(rows) {
@@ -175,8 +181,8 @@ function versionToMonitorTable(rows) {
 }
 
 function renderStep1(platforms) {
-  document.getElementById('step1-android-body').innerHTML = versionToMonitorTable(platformsMatching(platforms, 'android'));
-  document.getElementById('step1-ios-body').innerHTML = versionToMonitorTable(platformsMatching(platforms, 'ios'));
+  document.getElementById('step1-android-body').innerHTML = versionToMonitorTable(platformsMatching(platforms, ['android']));
+  document.getElementById('step1-ios-body').innerHTML = versionToMonitorTable(platformsMatching(platforms, ['ios', 'apple tv']));
 }
 
 loadStep0();
