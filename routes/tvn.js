@@ -636,12 +636,25 @@ router.post('/api/tvn/crashlytics/record', async (req, res) => {
   if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
   const { platform, value, entries, filter } = req.body || {};
   try {
+    const platformName = String(platform || '').trim();
+    if (!platformName) {
+      return res.status(400).json({ error: 'ไม่ได้ระบุ platform' });
+    }
     const { title, rows } = await fetchCrashlyticsTitleAndRows();
     let block = groupCrashlyticsBlocks(rows).find(
-      b => b.platform.toLowerCase() === String(platform || '').trim().toLowerCase()
+      b => b.platform.toLowerCase() === platformName.toLowerCase()
     );
     if (!block) {
-      return res.status(400).json({ error: `ไม่รู้จัก platform "${platform}" ในแท็บ Firebase Crashlytics` });
+      // The app's own platform list (Apple TV / Android TV / iOS Mobile /
+      // Android Mobile) is fixed, independent of whichever rows happen to
+      // exist in the sheet right now - a platform's placeholder row can go
+      // missing (seen in practice: hand-edited out of the sheet), so a
+      // fresh block is created at the bottom rather than failing outright.
+      // The single empty-placeholder history entry makes the write loop
+      // below fill this brand-new row in place, same as any other
+      // not-yet-recorded platform.
+      const newRow = rows.length + 1;
+      block = { platform: platformName, startRow: newRow, endRow: newRow, history: [{ filters: '', dateCheck: '', value: '' }] };
     }
 
     const list = Array.isArray(entries) && entries.length
