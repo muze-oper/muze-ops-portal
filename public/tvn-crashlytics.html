@@ -14,6 +14,9 @@
     .step0-info .sheet-link-row { margin-top: 10px; }
     .step0-table-wrap { flex: 1; min-width: 0; overflow-x: auto; }
     .step0-table-wrap table.data th, .step0-table-wrap table.data td { padding: 4px 8px; font-size: 11.5px; }
+    .step1-group + .step1-group { margin-top: 14px; }
+    .step1-group table.data th, .step1-group table.data td { padding: 4px 8px; font-size: 11.5px; }
+    .step1-group table.data td:nth-child(2) { white-space: normal; }
   </style>
 </head>
 <body>
@@ -57,32 +60,54 @@
   </section>
 
   <section class="block">
-    <div class="block-head"><h2 class="h">Crash-free Users</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">Step 1</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">กรอกค่า Crash-free Users % และ Filter (version) ของแต่ละแถวตามที่อ่านได้จาก Firebase Console แล้วกด บันทึก ทีละแถว</div>
-      <div class="sheet-link-row">
-        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit#gid=0" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง (แท็บ Firebase Crashlytics)</a>
+      <div class="steps">
+        <div class="step">
+          <span class="step-no">1</span>
+          <span class="step-text">Screenshot หน้า Firebase Crashlytics — เลือก filter หลัก <strong>(1)</strong> เป็น project <code>tdm-tvs-now-app-prod</code> ให้ชัดเจนก่อน</span>
+        </div>
       </div>
-      <div id="crashlytics-body" style="margin-top:14px;"><div id="crashlytics-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
+      <div class="sheet-link-row">
+        <a class="sheet-link" href="https://console.firebase.google.com/u/0/project/tdm-tvs-now-app-prod/crashlytics/app/android:com.truevisions.android/issues?time=7d&state=open&types=crash&tag=all&sort=eventCount" target="_blank" rel="noopener">🔥 เปิด Firebase Crashlytics (tdm-tvs-now-app-prod)</a>
+      </div>
+
+      <div class="track track--csv step1-group">
+        <div class="track-head">
+          <span class="track-name">1.1 · [PROD] Android</span>
+          <span class="track-sub">Filter: <code>[Andriod][PROD][TVS] TrueVision N...</code></span>
+        </div>
+        <div id="step1-android-body"><div class="hint">กำลังโหลดข้อมูล...</div></div>
+      </div>
+
+      <div class="track track--paste step1-group">
+        <div class="track-head">
+          <span class="track-name">1.2 · [PROD] iOS</span>
+          <span class="track-sub">Filter: <code>[iOS][PROD][TVS] TrueVision N...</code></span>
+        </div>
+        <div id="step1-ios-body"><div class="hint">กำลังโหลดข้อมูล...</div></div>
+      </div>
     </div>
   </section>
 
 </div>
 
 <script>
-// Step 0 - unique platforms (column D) + their latest version (column C)
-// from the Apps Releases sheet, read live on every load - reference info to
-// have on hand before checking Crash-free Users % below, not something this
-// page writes back to.
+// Step 0 (all platforms + latest version) and Step 1 (Android/iOS-only,
+// with version history) both read the same Apps Releases data, so one fetch
+// feeds both renderers instead of hitting the API twice on load/refresh.
 async function loadStep0() {
   const body = document.getElementById('step0-body');
   const updated = document.getElementById('step0-updated');
   try {
     const data = await fetchJson('/api/app-releases');
     renderStep0(data.platforms);
+    renderStep1(data.platforms);
     updated.textContent = 'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH');
   } catch (err) {
     body.innerHTML = `<div id="step0-empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
+    document.getElementById('step1-android-body').innerHTML = `<div class="hint">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
+    document.getElementById('step1-ios-body').innerHTML = `<div class="hint">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -109,68 +134,37 @@ function renderStep0(platforms) {
   `;
 }
 
-async function loadCrashlytics() {
-  const body = document.getElementById('crashlytics-body');
-  try {
-    const data = await fetchJson('/api/tvn/crashlytics');
-    renderCrashlytics(data.platforms);
-  } catch (err) {
-    body.innerHTML = `<div id="crashlytics-empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
-  }
+// Step 1 narrows Step 0's platform list down to whichever ones relate to the
+// filter being set up (Android or iOS), matched by a plain substring on the
+// platform name - "Android App" and "Android TV" both count as Android,
+// "iOS App" counts as iOS. "Version to Monitor" is the 3 most recent
+// versions (current + the two before it), newest first.
+function platformsMatching(platforms, keyword) {
+  return platforms.filter(p => p.platform.toLowerCase().includes(keyword));
 }
 
-function renderCrashlytics(platforms) {
-  const body = document.getElementById('crashlytics-body');
-  const rowsHtml = platforms.map(p => {
-    const s = slug(p.platform);
-    return `
-      <tr data-platform="${escapeHtml(p.platform)}">
-        <td>${escapeHtml(p.platform)}</td>
-        <td><input class="cl-filter" id="cl-filter-${s}" value="${escapeHtml(p.filter).replace(/\n/g, ', ')}"></td>
-        <td>${escapeHtml(p.actionDate)}</td>
-        <td>${escapeHtml(p.dateCheck)}</td>
-        <td><input class="cl-value" id="cl-value-${s}" type="number" step="0.01" value="${escapeHtml(p.value)}"></td>
-        <td>
-          <button class="btn-primary" onclick="saveCrashlyticsRow('${escapeHtml(p.platform)}')">💾 บันทึก</button>
-        </td>
-      </tr>
-      <tr class="cl-status-row"><td colspan="6" id="cl-status-${s}"></td></tr>
-    `;
-  }).join('');
-
-  body.innerHTML = `
-    <table class="cl-table">
-      <thead><tr><th>Platform</th><th>Filter (versions)</th><th>Action Date</th><th>Date Check</th><th>Crash Free User %</th><th>บันทึก</th></tr></thead>
+function versionToMonitorTable(rows) {
+  if (!rows.length) return '<div class="hint">ไม่พบ platform ที่เกี่ยวข้องใน Step 0</div>';
+  const rowsHtml = rows.map(p => `
+    <tr>
+      <td style="text-align:left;">${escapeHtml(p.platform)}</td>
+      <td style="text-align:left;">${p.recentVersions && p.recentVersions.length ? p.recentVersions.map(escapeHtml).join('<br>') : '—'}</td>
+    </tr>
+  `).join('');
+  return `
+    <table class="data">
+      <thead><tr><th style="text-align:left;">Platform</th><th style="text-align:left;">Version to Monitor</th></tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table>
   `;
 }
 
-async function saveCrashlyticsRow(platform) {
-  const s = slug(platform);
-  const statusEl = document.getElementById('cl-status-' + s);
-  const value = document.getElementById('cl-value-' + s).value.trim();
-  const filter = document.getElementById('cl-filter-' + s).value.trim();
-  if (!value) {
-    statusEl.textContent = 'กรุณากรอกค่า % ก่อนบันทึก';
-    return;
-  }
-  statusEl.textContent = 'กำลังบันทึก...';
-  try {
-    const data = await fetchJson('/api/tvn/crashlytics/record', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform, value, filter }),
-    });
-    statusEl.textContent = '✓ ' + data.result;
-    loadCrashlytics();
-  } catch (err) {
-    statusEl.textContent = 'Error: ' + err.message;
-  }
+function renderStep1(platforms) {
+  document.getElementById('step1-android-body').innerHTML = versionToMonitorTable(platformsMatching(platforms, 'android'));
+  document.getElementById('step1-ios-body').innerHTML = versionToMonitorTable(platformsMatching(platforms, 'ios'));
 }
 
 loadStep0();
-loadCrashlytics();
 </script>
 </body>
 </html>

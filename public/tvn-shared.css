@@ -178,12 +178,12 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
    as just another hour cell - this gap separates the summary block. */
 .hourly-heatmap .col-avg { border-right: 6px solid var(--surface); }
 
-.cell-input, .date-cell-input, .cl-filter, .cl-value {
+.cell-input, .date-cell-input {
   font-family: var(--font-mono); font-size: 12.5px; padding: 5px 7px; border: 1px solid var(--border);
   border-radius: 6px; background: var(--surface); color: var(--ink); box-sizing: border-box;
 }
 .cell-input { width: 84px; text-align: right; font-weight: 600; }
-.cell-input:focus, .date-cell-input:focus, .cl-filter:focus, .cl-value:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.cell-input:focus, .date-cell-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .date-cell-input { width: 110px; font-family: var(--font-sans); }
 .new-row td { background: var(--accent-soft); }
 
@@ -399,14 +399,6 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 select.autofilled { color: var(--info); font-weight: 700; }
 .platform-source { font-size: 11.5px; color: var(--info); font-weight: 600; }
 
-
-/* ---------- Crashlytics table ---------- */
-.cl-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.cl-table th { text-align: left; background: var(--surface-2); color: var(--ink-faint); font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; font-family: var(--font-mono); border-bottom: 1px solid var(--border); }
-.cl-table td { padding: 8px 10px; border-top: 1px solid var(--border); vertical-align: middle; }
-.cl-table input.cl-value { width: 80px; font-weight: 700; }
-.cl-table input.cl-filter { width: 100%; min-width: 160px; }
-.cl-status-row td { padding: 2px 10px 10px; border-top: none; font-size: 11px; color: var(--ink-dim); white-space: pre-wrap; font-family: var(--font-mono); }
 
 /* ---------- Screenshot-insert (paste-area) - purely visual reference,
    nothing reads or analyzes it. Same box on all 3 pages. ---------- */

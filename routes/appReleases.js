@@ -45,36 +45,41 @@ function parseSheetDate(value) {
 // Platform names aren't normalized in the sheet (e.g. "LG/VIDAA" later became
 // "LG/VIDAA/SAMS"), so this reports whatever exact string is on the winning
 // row rather than trying to merge historical name variants.
+//
+// Also collects each platform's `recentVersions` (newest first, up to 3) -
+// the Crashlytics page's Step 1 needs "current + the two before it" to know
+// which builds are still worth monitoring, not just the single latest one.
 async function loadLatestPerPlatform() {
   const { rows, col } = await fetchTitleAndRows();
-  const latest = new Map(); // platform (lowercased) -> {entry, sortKey}
+  const byPlatform = new Map(); // platform (lowercased) -> entries[], in row order
 
-  rows.slice(1).forEach(row => {
+  rows.slice(1).forEach((row, idx) => {
     const platform = (row[col.platform] || '').toString().trim();
     if (!platform) return;
 
     const releaseDate = (row[col.releaseDate] || '').toString().trim();
     const submitDate = (row[col.submitDate] || '').toString().trim();
     const sortKey = Math.max(parseSheetDate(releaseDate), parseSheetDate(submitDate));
+    const version = (row[col.version] || '').toString().trim();
 
     const key = platform.toLowerCase();
-    const existing = latest.get(key);
-    // Later row wins ties (equal or unparseable dates), same direction the
-    // sheet's own append order already goes in.
-    if (existing && existing.sortKey > sortKey) return;
-
-    latest.set(key, {
-      sortKey,
-      entry: {
-        platform,
-        version: (row[col.version] || '').toString().trim(),
-        releaseDate,
-        submitDate,
-      },
-    });
+    if (!byPlatform.has(key)) byPlatform.set(key, []);
+    byPlatform.get(key).push({ platform, version, releaseDate, submitDate, sortKey, idx });
   });
 
-  return Array.from(latest.values()).map(v => v.entry);
+  return Array.from(byPlatform.values()).map(entries => {
+    // Descending by date; a later row wins ties (equal or unparseable
+    // dates), same direction the sheet's own append order already goes in.
+    const sorted = [...entries].sort((a, b) => b.sortKey - a.sortKey || b.idx - a.idx);
+    const latest = sorted[0];
+    return {
+      platform: latest.platform,
+      version: latest.version,
+      releaseDate: latest.releaseDate,
+      submitDate: latest.submitDate,
+      recentVersions: sorted.slice(0, 3).map(e => e.version).filter(Boolean),
+    };
+  });
 }
 
 router.get('/api/app-releases', async (req, res) => {

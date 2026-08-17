@@ -47,10 +47,6 @@ function formatPct(value) {
   return isNaN(n) ? '' : `${n.toFixed(2)}%`;
 }
 
-function slug(platform) {
-  return platform.toLowerCase().replace(/\s+/g, '-');
-}
-
 // "17.08.2026 14:35" - matches the sheet's own DD.MM.YYYY date style, with
 // the time appended since this marks the exact moment of a live check, not
 // just a day. Shared by App Releases and the Crashlytics page's Step 0.
