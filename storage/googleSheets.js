@@ -29,6 +29,20 @@ async function resolveSheetTitleByGid(spreadsheetId, gid) {
   return match.properties.title;
 }
 
+// Metadata only (no cell values) - every tab's title, gid and hidden state,
+// in the sheet's own tab order. Lets a caller iterate all worksheets without
+// hardcoding a gid per tab, e.g. a CAB tracker that gets a new dated tab
+// added every report cycle.
+async function listSheetTitles(spreadsheetId) {
+  const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+  const res = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties' });
+  return (res.data.sheets || []).map(s => ({
+    title: s.properties.title,
+    sheetId: s.properties.sheetId,
+    hidden: !!s.properties.hidden,
+  }));
+}
+
 // Overwrites a single row range (e.g. "Daily Shortnote!B371:H371") with the
 // given cell values, left-to-right matching the range's columns.
 async function updateSheetRow(spreadsheetId, range, values) {
@@ -133,5 +147,5 @@ function rowsToObjects(rows) {
 module.exports = {
   fetchSheetRows, rowsToObjects, updateSheetRow, updateSheetGrid,
   insertSheetRows,
-  fetchSheetFormatting, colorToHex, resolveSheetTitleByGid,
+  fetchSheetFormatting, colorToHex, resolveSheetTitleByGid, listSheetTitles,
 };
