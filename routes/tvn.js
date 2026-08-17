@@ -187,6 +187,12 @@ router.get('/tvn-shared.js', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'tvn-shared.js'));
 });
 
+// Reference screenshot for the Crashlytics page's Step 1 (which project +
+// filter to select in the Firebase console before reading any values).
+router.get('/assets/crashlytics-filter-guide.png', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'assets', 'crashlytics-filter-guide.png'));
+});
+
 // Same paste-in-lines format as tvn-dashboard/Code.gs's Quick Record tool
 // (which this replaces as the primary entry point - that Apps Script is
 // still deployable standalone, just no longer linked from the portal).

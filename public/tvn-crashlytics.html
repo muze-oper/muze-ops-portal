@@ -14,7 +14,9 @@
     .step0-info .sheet-link-row { margin-top: 10px; }
     .step0-table-wrap { flex: 1; min-width: 0; overflow-x: auto; }
     .step0-table-wrap table.data th, .step0-table-wrap table.data td { padding: 4px 8px; font-size: 11.5px; }
-    .step1-group + .step1-group { margin-top: 14px; }
+    .step1-filter-guide { display: block; max-width: 100%; margin: 12px 0 16px; border: 1px solid var(--border); border-radius: 8px; }
+    .step1-groups { display: flex; gap: 14px; flex-wrap: wrap; }
+    .step1-group { flex: 1 1 260px; min-width: 0; margin-top: 0 !important; }
     .step1-group table.data th, .step1-group table.data td { padding: 4px 8px; font-size: 11.5px; }
     .step1-group table.data td:nth-child(2) { white-space: normal; }
   </style>
@@ -72,20 +74,24 @@
         <a class="sheet-link" href="https://console.firebase.google.com/u/0/project/tdm-tvs-now-app-prod/crashlytics/app/android:com.truevisions.android/issues?time=7d&state=open&types=crash&tag=all&sort=eventCount" target="_blank" rel="noopener">🔥 เปิด Firebase Crashlytics (tdm-tvs-now-app-prod)</a>
       </div>
 
-      <div class="track track--csv step1-group">
-        <div class="track-head">
-          <span class="track-name">1.1 · [PROD] Android</span>
-          <span class="track-sub">Filter: <code>[Andriod][PROD][TVS] TrueVision N...</code></span>
-        </div>
-        <div id="step1-android-body"><div class="hint">กำลังโหลดข้อมูล...</div></div>
-      </div>
+      <img class="step1-filter-guide" src="/assets/crashlytics-filter-guide.png" alt="ตัวอย่างการเลือก filter หลัก (1) เป็น tdm-tvs-now-app-prod และ filter ย่อยของแต่ละ platform ในหน้า Firebase Crashlytics">
 
-      <div class="track track--paste step1-group">
-        <div class="track-head">
-          <span class="track-name">1.2 · [PROD] iOS</span>
-          <span class="track-sub">Filter: <code>[iOS][PROD][TVS] TrueVision N...</code></span>
+      <div class="step1-groups">
+        <div class="track track--csv step1-group">
+          <div class="track-head">
+            <span class="track-name">1.1 · [PROD] Android</span>
+            <span class="track-sub">Filter: <code>[Andriod][PROD][TVS] TrueVision N...</code></span>
+          </div>
+          <div id="step1-android-body"><div class="hint">กำลังโหลดข้อมูล...</div></div>
         </div>
-        <div id="step1-ios-body"><div class="hint">กำลังโหลดข้อมูล...</div></div>
+
+        <div class="track track--paste step1-group">
+          <div class="track-head">
+            <span class="track-name">1.2 · [PROD] iOS</span>
+            <span class="track-sub">Filter: <code>[iOS][PROD][TVS] TrueVision N...</code></span>
+          </div>
+          <div id="step1-ios-body"><div class="hint">กำลังโหลดข้อมูล...</div></div>
+        </div>
       </div>
     </div>
   </section>
