@@ -43,18 +43,6 @@
 </div>
 
 <script>
-// "17.08.2026 14:35" - matches the sheet's own DD.MM.YYYY date style, with
-// the time appended since this marks the exact moment of a live check, not
-// just a day.
-function formatBangkokDateCheck(iso) {
-  const d = new Date(iso);
-  const day = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', day: '2-digit' }).format(d);
-  const month = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', month: '2-digit' }).format(d);
-  const year = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', year: 'numeric' }).format(d);
-  const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
-  return `${day}.${month}.${year} ${time}`;
-}
-
 async function loadAppReleases() {
   const body = document.getElementById('app-releases-body');
   const updated = document.getElementById('app-releases-updated');

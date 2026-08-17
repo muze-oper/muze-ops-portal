@@ -51,6 +51,18 @@ function slug(platform) {
   return platform.toLowerCase().replace(/\s+/g, '-');
 }
 
+// "17.08.2026 14:35" - matches the sheet's own DD.MM.YYYY date style, with
+// the time appended since this marks the exact moment of a live check, not
+// just a day. Shared by App Releases and the Crashlytics page's Step 0.
+function formatBangkokDateCheck(iso) {
+  const d = new Date(iso);
+  const day = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', day: '2-digit' }).format(d);
+  const month = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', month: '2-digit' }).format(d);
+  const year = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', year: 'numeric' }).format(d);
+  const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+  return `${day}.${month}.${year} ${time}`;
+}
+
 // --- Heatmap: two-part scale, split at 2.00% -----------------------------
 // <=2.00%: green (0%) -> yellow (2.00%). >2.00%: light red (just over
 // 2.00%) -> dark red (>=6.00%, the same ceiling the old single-gradient
