@@ -69,12 +69,19 @@
     .today-ops-rows { display: flex; flex-direction: column; gap: 6px; }
     .today-ops-row { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 9px; background: #fff; border: 1px solid #eceef8; }
     .today-ops-time { flex: none; width: 62px; font-size: 10.5px; font-weight: 700; color: #4b5170; white-space: nowrap; }
-    .today-ops-status { flex: none; padding: 2px 8px; border-radius: 20px; font-size: 9px; font-weight: 700; white-space: nowrap; }
-    .today-ops-status--todo { background: #eceef4; color: #6b7396; }
-    .today-ops-status--scoping { background: #dce6ff; color: #3457d5; }
-    .today-ops-status--processing { background: #fff2d6; color: #b9820b; }
-    .today-ops-status--done { background: #d8f7ec; color: #128a6b; }
-    .today-ops-status--ignore { background: #f1f1f6; color: #a7acc4; text-decoration: line-through; }
+    .today-ops-status {
+      flex: none; padding: 2px 17px 2px 8px; border-radius: 20px; font-size: 9px; font-weight: 700; white-space: nowrap;
+      border: none; cursor: pointer; font-family: inherit;
+      -webkit-appearance: none; -moz-appearance: none; appearance: none;
+      background-repeat: no-repeat; background-position: right 6px center; background-size: 7px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath d='M1 2l3 3 3-3' stroke='%238891b0' stroke-width='1.3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+    .today-ops-status:disabled { opacity: .6; cursor: default; }
+    .today-ops-status--todo { background-color: #eceef4; color: #6b7396; }
+    .today-ops-status--scoping { background-color: #dce6ff; color: #3457d5; }
+    .today-ops-status--processing { background-color: #fff2d6; color: #b9820b; }
+    .today-ops-status--done { background-color: #d8f7ec; color: #128a6b; }
+    .today-ops-status--ignore { background-color: #f1f1f6; color: #a7acc4; text-decoration: line-through; }
     .today-ops-project { flex: none; padding: 2px 9px; border-radius: 20px; font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
     .today-ops-project--tvn { background: rgba(34,195,221,.15); color: #159ab0; }
     .today-ops-project--ktc { background: rgba(91,95,239,.13); color: #4b4fe0; }
@@ -448,6 +455,14 @@
 
     const STATUS_CLASS = { 'To Do': 'todo', 'Scoping': 'scoping', 'Processing': 'processing', 'Done': 'done', 'Ignore': 'ignore' };
     const PROJECT_CLASS = { TVN: 'tvn', KTC: 'ktc', MTS: 'mts', Nissan: 'nissan' };
+    const STATUS_OPTIONS = ['To Do', 'Scoping', 'Processing', 'Ignore', 'Done'];
+
+    // If the sheet already has a value outside this list, keep it as an
+    // extra option instead of silently dropping/overwriting it on load.
+    function statusOptionsHtml(current) {
+      const options = STATUS_OPTIONS.includes(current) || !current ? STATUS_OPTIONS : [current, ...STATUS_OPTIONS];
+      return options.map(v => `<option value="${escapeHtml(v)}"${v === current ? ' selected' : ''}>${escapeHtml(v)}</option>`).join('');
+    }
 
     function todayOpsRowHtml(item) {
       const time = [item.startTime, item.endTime].filter(Boolean).join('–');
@@ -458,13 +473,48 @@
         ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener" class="today-ops-topic">${topic}</a>`
         : `<span class="today-ops-topic">${topic}</span>`;
       return `
-        <div class="today-ops-row">
+        <div class="today-ops-row" data-row="${item.rowNumber}" data-start="${escapeHtml(item.startTime)}" data-end="${escapeHtml(item.endTime)}" data-project="${escapeHtml(item.project)}" data-pic="${escapeHtml(item.pic)}" data-topic="${escapeHtml(item.topic)}" data-doing="${escapeHtml(item.doing || '')}">
           <span class="today-ops-time">${escapeHtml(time || '-')}</span>
-          <span class="today-ops-status today-ops-status--${statusClass}">${escapeHtml(item.status || '-')}</span>
+          <select class="today-ops-status today-ops-status--${statusClass}" data-prev-status="${escapeHtml(item.status || '')}" onchange="updateTodayOpsStatus(this)">${statusOptionsHtml(item.status)}</select>
           <span class="today-ops-project today-ops-project--${projectClass}">${escapeHtml(item.project || '-')}</span>
           <span class="today-ops-pic">${escapeHtml(item.pic || '')}</span>
           ${topicHtml}
         </div>`;
+    }
+
+    // Only status is edited from this card - the other fields are sent back
+    // unchanged so the write (which overwrites the whole B:H range) doesn't
+    // blank them out.
+    function updateTodayOpsStatus(select) {
+      const row = select.closest('.today-ops-row');
+      const newStatus = select.value;
+      const prevStatus = select.dataset.prevStatus;
+      const payload = {
+        startTime: row.dataset.start || '',
+        endTime: row.dataset.end || '',
+        status: newStatus,
+        project: row.dataset.project || '',
+        pic: row.dataset.pic || '',
+        topic: row.dataset.topic || '',
+        doing: row.dataset.doing || '',
+      };
+      select.disabled = true;
+      fetch(`/api/resource-planning/row/${row.dataset.row}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+        .then(r => r.json().then(data => ({ ok: r.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) throw new Error(data.error || 'save failed');
+          select.className = `today-ops-status today-ops-status--${STATUS_CLASS[newStatus] || 'todo'}`;
+          select.dataset.prevStatus = newStatus;
+        })
+        .catch(() => {
+          select.value = prevStatus;
+          select.className = `today-ops-status today-ops-status--${STATUS_CLASS[prevStatus] || 'todo'}`;
+        })
+        .finally(() => { select.disabled = false; });
     }
 
     fetch('/api/resource-planning/today')
