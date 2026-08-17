@@ -26,15 +26,14 @@
     .step1-group table.data th, .step1-group table.data td { padding: 4px 8px; font-size: 11.5px; }
     .step1-group table.data td:nth-child(2) { white-space: normal; }
 
-    .cr-form-card { max-width: 420px; }
-    .cr-field + .cr-field { margin-top: 10px; }
-    .cr-field .field-label { display: block; margin-bottom: 4px; }
     .cr-value-row { display: flex; align-items: center; gap: 6px; }
-    .cr-value-row .cell-input { width: 100px; }
+    .cr-value-row .cell-input { width: 90px; }
     .cr-value-row .cr-pct-sign { font-size: 13px; font-weight: 700; color: var(--ink-dim); }
-    #cr-platform { min-width: 200px; }
-    #cr-filter { width: 100%; box-sizing: border-box; }
-    .cr-last { margin-top: 10px; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; font-size: 11.5px; color: var(--ink-dim); }
+    .cr-filter-input { width: 100%; box-sizing: border-box; }
+    #cr-table td, #cr-table th { text-align: center; }
+    #cr-table td:first-child, #cr-table th:first-child { text-align: left; }
+    #cr-table td:nth-child(3), #cr-table th:nth-child(3) { text-align: left; }
+    #cr-table td:last-child, #cr-table th:last-child { text-align: left; font-size: 11.5px; color: var(--ink-dim); }
   </style>
 </head>
 <body>
@@ -102,29 +101,30 @@
     </div>
 
     <div class="block-head"><h2 class="h">บันทึก Crash-free Users %</h2><div class="rule"></div></div>
-    <div class="card cr-form-card">
-      <div class="hint">เช็คค่า Crash-free users % ตาม filter ด้านบน (7 วันล่าสุด) แล้วกรอกที่นี่ — วันที่บันทึกใส่ให้อัตโนมัติ</div>
+    <div class="card">
+      <div class="hint">เช็คค่า Crash-free users % ตาม filter ด้านบน (7 วันล่าสุด) ของแต่ละ platform แล้ววาง (หรือพิมพ์) ผลอ่านค่าลงช่องด้านล่าง — ระบบแยกลงตารางให้อัตโนมัติ วันที่บันทึกใส่ให้เอง</div>
 
-      <div class="cr-field">
-        <label class="field-label" for="cr-platform">Platform</label>
-        <select id="cr-platform" onchange="onCrPlatformChange()"><option value="">กำลังโหลด...</option></select>
-      </div>
-      <div class="cr-field">
-        <label class="field-label" for="cr-value">Crash-free Users</label>
-        <div class="cr-value-row">
-          <input class="cell-input" id="cr-value" placeholder="99.85" inputmode="decimal">
-          <span class="cr-pct-sign">%</span>
+      <div class="tec-paste-row" style="margin-top:12px;">
+        <div class="tec-paste-col">
+          <label class="field-label" for="cr-paste-input">วางผลอ่านค่าจากกราฟ</label>
+          <textarea id="cr-paste-input" class="paste-input paste-input-half" placeholder="Platform: Apple TV&#10;99.85&#10;&#10;หรือวางหลาย platform พร้อมกัน:&#10;iOS Mobile: 99.85&#10;Android Mobile: 99.72&#10;Apple TV: 99.90&#10;Android TV: 99.65"></textarea>
+          <div class="table-actions" style="margin-top:6px;">
+            <button class="btn-ghost" onclick="parseCrPasted()">✂️ แยกลงตาราง</button>
+            <button class="btn-ghost" onclick="clearCrPasteInput()">🧹 ล้างข้อความที่วาง</button>
+          </div>
+        </div>
+        <div class="tec-paste-col">
+          <div id="cr-parse-result" class="result-text"></div>
         </div>
       </div>
-      <div class="cr-field">
-        <label class="field-label" for="cr-filter">Filter (versions ที่กำลัง monitor)</label>
-        <input class="date-cell-input" id="cr-filter" placeholder="เช่น 4.0.27,4.0.26,4.0.25">
-      </div>
 
-      <div id="cr-last-recorded" class="cr-last"></div>
+      <table class="data" id="cr-table" style="margin-top:14px;">
+        <thead><tr><th>Platform</th><th>Crash-free Users %</th><th>Filter (versions ที่กำลัง monitor)</th><th>ล่าสุดที่บันทึกไว้</th></tr></thead>
+        <tbody id="cr-table-body"><tr><td colspan="4" class="hint">กำลังโหลดข้อมูล...</td></tr></tbody>
+      </table>
 
       <div class="toolbar" style="margin-top:12px;">
-        <button class="btn-primary" id="cr-record-btn" onclick="recordCrashlytics()">💾 บันทึก</button>
+        <button class="btn-primary" id="cr-sync-btn" onclick="syncCrashlytics()">🔄 Sync เข้าชีต</button>
         <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=0#gid=0" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
       </div>
       <div id="cr-record-result" class="result-text"></div>
@@ -241,29 +241,23 @@ function renderStep1(platforms) {
   document.getElementById('step1-ios-body').innerHTML = versionToMonitorTable(platformsMatching(platforms, ['ios', 'apple tv']));
 }
 
-// ---- Crash-free Users % record form ----
+// ---- Crash-free Users % record table ----
+// One row per platform (from the sheet's own Crashlytics blocks), each with
+// an editable Value + Filter cell. A paste box fills the Value cells from
+// text like "Platform: Apple TV" + "99.85", or several "Platform: value"
+// lines at once - same paste-then-parse shape as the Top Error Codes track
+// above, but the sheet already has a fixed set of platform rows so this
+// fills into existing table rows rather than growing new ones.
 let crPlatforms = [];
 
 async function loadCrashlyticsForm() {
-  const select = document.getElementById('cr-platform');
-  const previous = select.value;
   try {
     const data = await fetchJson('/api/tvn/crashlytics');
     crPlatforms = data.platforms || [];
-    select.innerHTML = '<option value="">— เลือก platform —</option>' + crPlatforms
-      .map(p => `<option value="${escapeHtml(p.platform)}">${escapeHtml(p.platform)}</option>`)
-      .join('');
-    if (previous && crPlatforms.some(p => p.platform === previous)) select.value = previous;
-    onCrPlatformChange();
+    renderCrTable();
   } catch (err) {
-    select.innerHTML = '<option value="">โหลด platform ไม่สำเร็จ</option>';
-    document.getElementById('cr-record-result').textContent = 'Error: ' + err.message;
+    document.getElementById('cr-table-body').innerHTML = `<tr><td colspan="4" class="hint">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</td></tr>`;
   }
-}
-
-function currentCrPlatform() {
-  const name = document.getElementById('cr-platform').value;
-  return crPlatforms.find(p => p.platform === name) || null;
 }
 
 // Best-effort match against the App Releases platform names (which spell
@@ -276,49 +270,139 @@ function suggestedFilterFor(platformName) {
   return match && match.recentVersions && match.recentVersions.length ? match.recentVersions.join(',') : '';
 }
 
-function onCrPlatformChange() {
-  const entry = currentCrPlatform();
-  const lastEl = document.getElementById('cr-last-recorded');
-  const filterInput = document.getElementById('cr-filter');
-  document.getElementById('cr-value').value = '';
-  document.getElementById('cr-record-result').textContent = '';
-
-  if (!entry) {
-    lastEl.textContent = '';
-    filterInput.value = '';
+// Value cells always start blank - the table is a scratch pad for "what am I
+// about to write", not a mirror of what the sheet already holds (that's what
+// the "ล่าสุดที่บันทึกไว้" column is for). Re-rendering after a sync is what
+// clears it back to blank.
+function renderCrTable() {
+  const tbody = document.getElementById('cr-table-body');
+  if (!crPlatforms.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="hint">ไม่พบ platform ในแท็บ Firebase Crashlytics</td></tr>';
     return;
   }
-
-  filterInput.value = entry.filter || suggestedFilterFor(entry.platform);
-  lastEl.textContent = entry.value
-    ? `ล่าสุดบันทึกไว้ ${entry.value}% เมื่อ ${entry.dateCheck}`
-    : 'ยังไม่เคยบันทึกค่าให้ platform นี้';
+  tbody.innerHTML = crPlatforms.map((p, i) => `
+    <tr data-platform="${escapeHtml(p.platform)}">
+      <td style="font-weight:600;">${escapeHtml(p.platform)}</td>
+      <td>
+        <div class="cr-value-row" style="justify-content:center;">
+          <input class="cell-input cr-value" data-idx="${i}" placeholder="99.85" inputmode="decimal">
+          <span class="cr-pct-sign">%</span>
+        </div>
+      </td>
+      <td><input class="date-cell-input cr-filter-input" data-idx="${i}" value="${escapeHtml(p.filter || suggestedFilterFor(p.platform))}"></td>
+      <td>${p.value ? `${escapeHtml(p.value)}% (${escapeHtml(p.dateCheck)})` : '—'}</td>
+    </tr>
+  `).join('');
 }
 
-async function recordCrashlytics() {
-  const btn = document.getElementById('cr-record-btn');
-  const resultEl = document.getElementById('cr-record-result');
-  const platform = document.getElementById('cr-platform').value;
-  const value = document.getElementById('cr-value').value.trim();
-  const filter = document.getElementById('cr-filter').value.trim();
+// Same "Platform: X" line the Top Error Codes paste box recognizes.
+function parseCrPlatformLine(line) {
+  const m = /^platform\s*[:=]\s*(.+)$/i.exec(String(line).trim());
+  return m ? m[1].trim() : null;
+}
 
-  if (!platform) { resultEl.textContent = 'ยังไม่ได้เลือก platform'; return; }
-  if (!value || isNaN(parseFloat(value))) { resultEl.textContent = 'กรอกค่า Crash-free Users % เป็นตัวเลขก่อน'; return; }
+function findCrPlatformIndex(name) {
+  const norm = String(name || '').trim().toLowerCase();
+  let idx = crPlatforms.findIndex(p => p.platform.trim().toLowerCase() === norm);
+  if (idx === -1) idx = crPlatforms.findIndex(p => p.platform.trim().toLowerCase().replace(/\s+/g, '') === norm.replace(/\s+/g, ''));
+  return idx;
+}
+
+// Accepts either a two-line "Platform: X" + bare value (one platform at a
+// time, following the reading straight off one graph), or several
+// "PlatformName: value" lines pasted together in one go (a whole batch of
+// platforms read in the same sitting). Both shapes fill the same table.
+function parseCrPasted() {
+  const resultEl = document.getElementById('cr-parse-result');
+  const raw = document.getElementById('cr-paste-input').value;
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+
+  let currentPlatform = null;
+  const applied = [];
+  const skipped = [];
+
+  lines.forEach(line => {
+    const platformHint = parseCrPlatformLine(line);
+    if (platformHint) { currentPlatform = platformHint; return; }
+
+    let name, value;
+    const m = /^(.+?)[,:\t]\s*(-?[\d.]+)\s*%?$/.exec(line);
+    if (m) {
+      name = m[1].trim();
+      value = m[2];
+    } else if (currentPlatform && /^-?[\d.]+\s*%?$/.test(line)) {
+      name = currentPlatform;
+      value = line.replace('%', '').trim();
+    } else {
+      skipped.push(line);
+      return;
+    }
+
+    const idx = findCrPlatformIndex(name);
+    if (idx === -1) { skipped.push(`${line} (ไม่รู้จัก platform "${name}")`); return; }
+    const numeric = parseFloat(value);
+    if (isNaN(numeric)) { skipped.push(`${line} (ค่าไม่ใช่ตัวเลข)`); return; }
+
+    const input = document.querySelector(`.cr-value[data-idx="${idx}"]`);
+    if (input) input.value = numeric;
+    applied.push(`${crPlatforms[idx].platform} = ${numeric}%`);
+  });
+
+  resultEl.textContent = (applied.length ? `เติมค่าให้แล้ว: ${applied.join(' · ')}` : 'ไม่พบค่าที่อ่านได้จากข้อความที่วาง') +
+    (skipped.length ? `\nข้าม: ${skipped.join(' | ')}` : '');
+}
+
+function clearCrPasteInput() {
+  document.getElementById('cr-paste-input').value = '';
+  document.getElementById('cr-parse-result').textContent = '';
+}
+
+// Writes one platform per POST, sequentially - same convention /tvn's Sync
+// button uses, since each write does its own read-then-write against the
+// sheet and running them in parallel would race. Only rows with a value
+// typed/pasted in get sent. On full success the table is reloaded fresh from
+// the sheet, which is what clears the Value cells back to blank; on a
+// partial failure nothing is reloaded so the failed row(s) can be fixed and
+// re-synced without losing whichever rows already succeeded.
+async function syncCrashlytics() {
+  const btn = document.getElementById('cr-sync-btn');
+  const resultEl = document.getElementById('cr-record-result');
+
+  const toSync = [...document.querySelectorAll('#cr-table-body tr[data-platform]')]
+    .map(tr => ({
+      platform: tr.dataset.platform,
+      value: (tr.querySelector('.cr-value') || {}).value || '',
+      filter: (tr.querySelector('.cr-filter-input') || {}).value || '',
+    }))
+    .map(r => ({ ...r, value: r.value.trim(), filter: r.filter.trim() }))
+    .filter(r => r.value && !isNaN(parseFloat(r.value)));
+
+  if (!toSync.length) { resultEl.textContent = 'ยังไม่มีค่าที่กรอก/วางไว้ให้ sync'; return; }
 
   btn.disabled = true;
-  resultEl.textContent = 'กำลังบันทึก...';
-  try {
-    const data = await fetchJson('/api/tvn/crashlytics/record', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform, value, filter }),
-    });
-    resultEl.textContent = '✓ ' + data.result;
-    await loadCrashlyticsForm(); // pulls back what the sheet now holds, refreshes "ล่าสุดบันทึกไว้"
-  } catch (err) {
-    resultEl.textContent = 'Error: ' + err.message;
-  } finally {
-    btn.disabled = false;
+  resultEl.textContent = 'กำลัง sync...';
+  const results = [];
+  let hadError = false;
+  for (const row of toSync) {
+    try {
+      const data = await fetchJson('/api/tvn/crashlytics/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(row),
+      });
+      results.push('✓ ' + data.result);
+    } catch (err) {
+      hadError = true;
+      results.push(`✗ ${row.platform}: ${err.message}`);
+    }
+  }
+  resultEl.textContent = results.join('\n');
+  btn.disabled = false;
+
+  if (!hadError) {
+    await loadCrashlyticsForm();
+    document.getElementById('cr-paste-input').value = '';
+    document.getElementById('cr-parse-result').textContent = '';
   }
 }
 
