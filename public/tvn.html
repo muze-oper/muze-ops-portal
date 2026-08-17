@@ -589,7 +589,7 @@ function renderHourlyTable() {
 
   // Peak Time is a clock reading, not a percentage - it keeps the sheet's own
   // "16.00" form rather than being run through formatPct.
-  const timeCell = (v) => `<td class="col-stat col-time">${v ? escapeHtml(v) : dash}</td>`;
+  const timeCell = (v, date) => `<td class="col-stat col-time">${v ? `<span class="time-value">${escapeHtml(v)}</span><span class="time-date">${escapeHtml(compactDate(date))}</span>` : dash}</td>`;
 
   // Peak is the day's worst hour, so it gets the critical colour outright -
   // a fixed colour rather than Avg's scaled one, since "this is the maximum"
@@ -620,7 +620,7 @@ function renderHourlyTable() {
       </td>
       ${avgCell(p.average)}
       ${peakCell(p.peak)}
-      ${timeCell(p.peakTime)}
+      ${timeCell(p.peakTime, p.date)}
       ${hourlyTableColumns.map(h => heatCell(p.values[h], h, h === peakHour)).join('')}
     </tr>`;
   }).join('');
@@ -737,13 +737,7 @@ function hourlySummaryHtml(shown) {
           <li>${trend}</li>
         </ol>
       </section>
-    </div>
-    <p class="sum-source">
-      <b>ที่มา:</b> ตัวเลขทั้งหมดมาจากไฟล์ CSV ที่ export จาก Bitmovin (metric <i>Error Sessions</i>, Last 24 hours, กรองทีละ platform)
-      แล้ว sync เข้าแท็บ <i>BitMovin Error</i> ในชีต TVN-Operation Monitoring — เป็นค่าจากไฟล์โดยตรง ไม่ได้อ่านจากกราฟ
-      ส่วนแท็บ Top Error Codes อ่านจาก screenshot ด้วย skill <code>tvn-dashboard-reading</code> (<code>.claude/skills/</code> ใน repo <code>muze-ops-portal</code>)
-      ซึ่งบังคับให้เช็ค Filters ในภาพก่อนอ่านค่าทุกครั้ง
-    </p>`;
+    </div>`;
 }
 
 // Sheet stores hours as "10.00" (dot, not colon) - reformat to "10:00" for
@@ -1199,12 +1193,7 @@ function renderTecSummary({ perPlatform, allCodes, total, dates }) {
         <h3 class="sum-head">สรุปตั้งแต่เริ่มเก็บข้อมูล<span class="sum-when">${escapeHtml(allWhen)}</span></h3>
         <ol class="sum-list">${allLines.map(l => `<li>${l}</li>`).join('')}</ol>
       </section>
-    </div>
-    <p class="sum-source">
-      <b>ที่มา:</b> อ่านจาก screenshot กราฟ Bitmovin <i>Top Error Codes</i> (Last 24 hours) ทีละ platform วันละ 7 รูป
-      ด้วย skill <code>tvn-dashboard-reading</code> + <code>read-dashboard-charts</code> แล้ว sync เข้าชีต TVN-Operation Monitoring —
-      ตัวเลขเป็น<b>ค่าประมาณจากความยาวแท่ง</b> ไม่ใช่ตัวเลขที่ dashboard พิมพ์ออกมา
-    </p>`;
+    </div>`;
 }
 
 function renderTecDashboard() {
