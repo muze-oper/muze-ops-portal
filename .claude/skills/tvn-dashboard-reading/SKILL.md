@@ -74,6 +74,36 @@ Report:
   (Crashlytics) filter was actually active, so the person entering it can
   double check it matches what they intended to check
 
+**Trend read (Crashlytics "last 7 days" graph) - a distinct mode, only when
+asked for the graph/week, not the day's single value:** the headline tile
+rule above is for the one number that gets recorded into today's row - it
+does not apply here. When asked to read the trend chart itself, read every
+plotted day directly off the line (never substitute the headline number for
+any of them) and answer in exactly this shape:
+
+```
+Platform: Apple TV
+Aug 11	99.92
+Aug 12	99.90
+Aug 13	99.85
+```
+
+- Line 1 is `Platform: <name>`, from the filter (Step 1) - **not** read off
+  the graph.
+- Every line after that is one plotted day, tab-separated `<date>` and
+  `<value>`, read from the chart line only.
+- This axis is usually 95-100% (or similar) while the real values often sit
+  in the top ~0.5 of that range - a verified read-vs-actual comparison on
+  exactly this chart type found every point read low, worst (−0.08 to
+  −0.15) on days sitting flat at a round ceiling like 100%, best (−0.03 to
+  −0.04) on the days that visibly dipped - flag this as a real visual
+  estimate, not a precise read, and say so plainly rather than presenting
+  it as exact.
+- If the same chart has already been read and verified against real
+  tooltip/API values earlier in the conversation, reuse those verified
+  numbers instead of re-estimating from the image - don't discard known
+  ground truth in favor of a fresh guess.
+
 **List read (Bitmovin Top Error Codes):** Answer in exactly the shape the
 `/tvn/top-error-codes` page parses, so it can be pasted in with no editing -
 a `Platform:` line first, then one line per row, ranked highest first, and
