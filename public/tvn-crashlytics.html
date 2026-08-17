@@ -102,18 +102,20 @@
 
     <div class="block-head"><h2 class="h">บันทึก Crash-free Users %</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">เช็คค่า Crash-free users % ตาม filter ด้านบน (7 วันล่าสุด) ของแต่ละ platform แล้ววาง (หรือพิมพ์) ผลอ่านค่าลงช่องด้านล่าง — ระบบแยกลงตารางให้อัตโนมัติ วันที่บันทึกใส่ให้เอง</div>
+      <div class="hint">เช็คค่า Crash-free users % ตาม filter ด้านบน (7 วันล่าสุด) ทีละ platform — เลือก platform จาก dropdown แล้ววาง (หรือพิมพ์) ค่าที่อ่านได้ กด "ลงตาราง" แล้วทำซ้ำทีละ platform ก่อนกด Sync ครั้งเดียวตอนท้าย</div>
 
-      <div class="tec-paste-row" style="margin-top:12px;">
-        <div class="tec-paste-col">
-          <label class="field-label" for="cr-paste-input">วางผลอ่านค่าจากกราฟ</label>
-          <textarea id="cr-paste-input" class="paste-input paste-input-half" placeholder="Platform: Apple TV&#10;99.85&#10;&#10;หรือวางหลาย platform พร้อมกัน:&#10;iOS Mobile: 99.85&#10;Android Mobile: 99.72&#10;Apple TV: 99.90&#10;Android TV: 99.65"></textarea>
-          <div class="table-actions" style="margin-top:6px;">
-            <button class="btn-ghost" onclick="parseCrPasted()">✂️ แยกลงตาราง</button>
-            <button class="btn-ghost" onclick="clearCrPasteInput()">🧹 ล้างข้อความที่วาง</button>
-          </div>
+      <div class="tec-paste-row" style="margin-top:12px;align-items:flex-end;">
+        <div class="tec-paste-col" style="flex:0 0 220px;">
+          <label class="field-label" for="cr-target-platform">Platform</label>
+          <select id="cr-target-platform"><option value="">— เลือก platform —</option></select>
         </div>
         <div class="tec-paste-col">
+          <label class="field-label" for="cr-paste-input">ค่า Crash-free Users ที่อ่านได้</label>
+          <div class="cr-value-row">
+            <input class="cell-input" id="cr-paste-input" placeholder="99.85" inputmode="decimal" onkeydown="if(event.key==='Enter'){applyCrValue();}">
+            <span class="cr-pct-sign">%</span>
+            <button class="btn-ghost" onclick="applyCrValue()">⬇ ลงตาราง</button>
+          </div>
           <div id="cr-parse-result" class="result-text"></div>
         </div>
       </div>
@@ -243,11 +245,12 @@ function renderStep1(platforms) {
 
 // ---- Crash-free Users % record table ----
 // One row per platform (from the sheet's own Crashlytics blocks), each with
-// an editable Value + Filter cell. A paste box fills the Value cells from
-// text like "Platform: Apple TV" + "99.85", or several "Platform: value"
-// lines at once - same paste-then-parse shape as the Top Error Codes track
-// above, but the sheet already has a fixed set of platform rows so this
-// fills into existing table rows rather than growing new ones.
+// an editable Value + Filter cell. The Crashlytics screenshot itself never
+// shows which platform it's filtered to (Firebase's own filter bar sits
+// above the crop that gets shared), so platform is picked by hand from a
+// dropdown rather than parsed out of pasted text - one platform at a time,
+// "⬇ ลงตาราง" drops the typed/pasted value into that platform's row, repeat
+// for each platform, then one Sync at the end.
 let crPlatforms = [];
 
 async function loadCrashlyticsForm() {
@@ -255,9 +258,17 @@ async function loadCrashlyticsForm() {
     const data = await fetchJson('/api/tvn/crashlytics');
     crPlatforms = data.platforms || [];
     renderCrTable();
+    populateCrTargetSelect();
   } catch (err) {
     document.getElementById('cr-table-body').innerHTML = `<tr><td colspan="4" class="hint">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</td></tr>`;
   }
+}
+
+function populateCrTargetSelect() {
+  const select = document.getElementById('cr-target-platform');
+  select.innerHTML = '<option value="">— เลือก platform —</option>' + crPlatforms
+    .map(p => `<option value="${escapeHtml(p.platform)}">${escapeHtml(p.platform)}</option>`)
+    .join('');
 }
 
 // Best-effort match against the App Releases platform names (which spell
@@ -295,66 +306,35 @@ function renderCrTable() {
   `).join('');
 }
 
-// Same "Platform: X" line the Top Error Codes paste box recognizes.
-function parseCrPlatformLine(line) {
-  const m = /^platform\s*[:=]\s*(.+)$/i.exec(String(line).trim());
-  return m ? m[1].trim() : null;
-}
-
 function findCrPlatformIndex(name) {
   const norm = String(name || '').trim().toLowerCase();
-  let idx = crPlatforms.findIndex(p => p.platform.trim().toLowerCase() === norm);
-  if (idx === -1) idx = crPlatforms.findIndex(p => p.platform.trim().toLowerCase().replace(/\s+/g, '') === norm.replace(/\s+/g, ''));
-  return idx;
+  return crPlatforms.findIndex(p => p.platform.trim().toLowerCase() === norm);
 }
 
-// Accepts either a two-line "Platform: X" + bare value (one platform at a
-// time, following the reading straight off one graph), or several
-// "PlatformName: value" lines pasted together in one go (a whole batch of
-// platforms read in the same sitting). Both shapes fill the same table.
-function parseCrPasted() {
+// Drops the value field into whichever platform's row is picked in the
+// dropdown, then resets both back to blank - the dropdown is reset (not left
+// on the same platform) so the next entry needs a deliberate pick rather than
+// accidentally landing on the platform just filled.
+function applyCrValue() {
   const resultEl = document.getElementById('cr-parse-result');
-  const raw = document.getElementById('cr-paste-input').value;
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const platform = document.getElementById('cr-target-platform').value;
+  const valueInput = document.getElementById('cr-paste-input');
+  const raw = valueInput.value;
 
-  let currentPlatform = null;
-  const applied = [];
-  const skipped = [];
+  if (!platform) { resultEl.textContent = 'ยังไม่ได้เลือก platform'; return; }
+  const numeric = parseFloat(String(raw).replace('%', '').trim());
+  if (isNaN(numeric)) { resultEl.textContent = 'ค่าที่กรอกไม่ใช่ตัวเลข'; return; }
 
-  lines.forEach(line => {
-    const platformHint = parseCrPlatformLine(line);
-    if (platformHint) { currentPlatform = platformHint; return; }
+  const idx = findCrPlatformIndex(platform);
+  if (idx === -1) { resultEl.textContent = `ไม่พบแถวของ platform "${platform}" ในตาราง`; return; }
 
-    let name, value;
-    const m = /^(.+?)[,:\t]\s*(-?[\d.]+)\s*%?$/.exec(line);
-    if (m) {
-      name = m[1].trim();
-      value = m[2];
-    } else if (currentPlatform && /^-?[\d.]+\s*%?$/.test(line)) {
-      name = currentPlatform;
-      value = line.replace('%', '').trim();
-    } else {
-      skipped.push(line);
-      return;
-    }
+  const rowInput = document.querySelector(`.cr-value[data-idx="${idx}"]`);
+  if (rowInput) rowInput.value = numeric;
+  resultEl.textContent = `เติม ${crPlatforms[idx].platform} = ${numeric}% ลงตารางแล้ว`;
 
-    const idx = findCrPlatformIndex(name);
-    if (idx === -1) { skipped.push(`${line} (ไม่รู้จัก platform "${name}")`); return; }
-    const numeric = parseFloat(value);
-    if (isNaN(numeric)) { skipped.push(`${line} (ค่าไม่ใช่ตัวเลข)`); return; }
-
-    const input = document.querySelector(`.cr-value[data-idx="${idx}"]`);
-    if (input) input.value = numeric;
-    applied.push(`${crPlatforms[idx].platform} = ${numeric}%`);
-  });
-
-  resultEl.textContent = (applied.length ? `เติมค่าให้แล้ว: ${applied.join(' · ')}` : 'ไม่พบค่าที่อ่านได้จากข้อความที่วาง') +
-    (skipped.length ? `\nข้าม: ${skipped.join(' | ')}` : '');
-}
-
-function clearCrPasteInput() {
-  document.getElementById('cr-paste-input').value = '';
-  document.getElementById('cr-parse-result').textContent = '';
+  valueInput.value = '';
+  document.getElementById('cr-target-platform').value = '';
+  valueInput.focus();
 }
 
 // Writes one platform per POST, sequentially - same convention /tvn's Sync
