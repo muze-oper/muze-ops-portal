@@ -131,6 +131,48 @@
       </div>
       <div id="cr-record-result" class="result-text"></div>
     </div>
+
+    <div class="block-head"><h2 class="h">Backfill ย้อนหลัง</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="hint">สำหรับใส่ข้อมูลหลายวันย้อนหลังทีเดียว (เช่น export/summary ที่มีหลายวันในหน้าเดียว) — เลือก platform เดียวต่อครั้ง วางข้อความ 1 บรรทัดต่อ 1 วัน รูปแบบ <code>เดือน วันที่  ค่า%</code> เช่น <code>Aug 11  99.92</code></div>
+
+      <div class="tec-paste-row" style="margin-top:12px;">
+        <div class="tec-paste-col">
+          <div class="step"><span class="step-no">Step 1</span><span class="step-text">วางข้อความ 1 บรรทัดต่อ 1 วัน</span></div>
+          <textarea id="cr-backfill-paste" class="paste-input" oninput="parseCrBackfillPasted()" placeholder="Aug 11  99.92&#10;Aug 12  99.90&#10;Aug 13  99.85&#10;Aug 14  99.78&#10;Aug 15  99.85&#10;Aug 16  99.90&#10;Aug 17  99.89"></textarea>
+          <div id="cr-backfill-parse-note" class="result-text"></div>
+          <div class="table-actions">
+            <button class="btn-ghost" onclick="clearCrBackfillPaste()">🧹 ล้างข้อความที่วาง</button>
+          </div>
+        </div>
+
+        <div class="tec-paste-col">
+          <div class="step"><span class="step-no">Step 2</span><span class="step-text">เลือก Platform + ตรวจค่าที่แยกได้ในตาราง แก้ไขได้ก่อน sync</span></div>
+          <div class="field-row" style="margin:8px 0;">
+            <label class="field-label" for="cr-backfill-platform">Platform</label>
+            <select id="cr-backfill-platform" onchange="onCrBackfillPlatformChange()"><option value="">— เลือก platform —</option></select>
+          </div>
+          <div class="field-row" style="margin-bottom:8px;">
+            <label class="field-label" for="cr-backfill-filter">Filter</label>
+            <input class="date-cell-input" id="cr-backfill-filter" style="flex:1;min-width:160px;" placeholder="เช่น 4.0.27,4.0.26,4.0.25">
+          </div>
+          <table class="data" id="cr-backfill-table">
+            <thead><tr><th style="text-align:left;">Date</th><th style="text-align:left;">Crash-free Users %</th></tr></thead>
+            <tbody id="cr-backfill-table-body"><tr><td colspan="2" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="step" style="margin-bottom:8px;">
+        <span class="step-no">Step 3</span>
+        <span class="step-text">กด Sync — เขียนทีละวันต่อท้ายประวัติเดิมของ platform นั้น ไม่ทับของเก่า</span>
+      </div>
+      <div class="toolbar">
+        <button class="btn-primary" id="cr-backfill-sync-btn" onclick="syncCrBackfill()">🔄 Sync ย้อนหลังเข้าชีต</button>
+        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=0#gid=0" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
+      </div>
+      <div id="cr-backfill-result" class="result-text"></div>
+    </div>
   </section>
 
   <section class="block" id="cr-view-dash" hidden>
@@ -265,10 +307,11 @@ async function loadCrashlyticsForm() {
 }
 
 function populateCrTargetSelect() {
-  const select = document.getElementById('cr-target-platform');
-  select.innerHTML = '<option value="">— เลือก platform —</option>' + crPlatforms
+  const options = '<option value="">— เลือก platform —</option>' + crPlatforms
     .map(p => `<option value="${escapeHtml(p.platform)}">${escapeHtml(p.platform)}</option>`)
     .join('');
+  document.getElementById('cr-target-platform').innerHTML = options;
+  document.getElementById('cr-backfill-platform').innerHTML = options;
 }
 
 // Best-effort match against the App Releases platform names (which spell
@@ -383,6 +426,134 @@ async function syncCrashlytics() {
     await loadCrashlyticsForm();
     document.getElementById('cr-paste-input').value = '';
     document.getElementById('cr-parse-result').textContent = '';
+  }
+}
+
+// ---- Backfill ย้อนหลัง: paste several days of Crash-free Users % for one
+// platform at once (e.g. a weekly export/summary), instead of the quick
+// table above which always writes today's date. ----
+
+const CR_MONTH_INDEX = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+
+function crTodayParts() {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(new Date()).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+  return { y: Number(parts.year), m: Number(parts.month) - 1, d: Number(parts.day) };
+}
+
+// "Aug 11" -> "11-Aug-26", matching this sheet's own Date Check format (see
+// formatBangkokShortDate in routes/tvn.js). No year in the pasted text, so
+// infer whichever of (this year, ±1) lands closest to today - same approach
+// routes/tvn.js's parseWeeklyLabel uses for its own year-less date labels.
+function crFormatDateLabel(monthName, day) {
+  const month = CR_MONTH_INDEX[monthName.slice(0, 3).toLowerCase()];
+  if (month === undefined) return null;
+  const today = crTodayParts();
+  const todayUtc = Date.UTC(today.y, today.m, today.d);
+  let year = today.y;
+  const diffDays = (Date.UTC(year, month, day) - todayUtc) / 86400000;
+  if (diffDays > 200) year -= 1;
+  else if (diffDays < -200) year += 1;
+  const mm = monthName.slice(0, 1).toUpperCase() + monthName.slice(1, 3).toLowerCase();
+  return `${String(day).padStart(2, '0')}-${mm}-${String(year).slice(-2)}`;
+}
+
+// "Aug 11  99.92 100.00" or "Aug 11  99.89" - month, day, then the first
+// number found (Crashlytics screenshots sometimes carry a second number
+// like Crash-free Sessions % alongside Crash-free Users %; only the first
+// gets synced, since that's the only one this sheet has a column for).
+function parseCrBackfillLine(line) {
+  const tokens = String(line).trim().split(/\s+/).filter(Boolean);
+  if (tokens.length < 3 || !/^[A-Za-z]{3,}$/.test(tokens[0])) return null;
+  const day = parseInt(tokens[1], 10);
+  const value = parseFloat(tokens[2]);
+  if (isNaN(day) || isNaN(value)) return null;
+  const dateLabel = crFormatDateLabel(tokens[0], day);
+  return dateLabel ? { dateLabel, value } : null;
+}
+
+function parseCrBackfillPasted() {
+  const text = document.getElementById('cr-backfill-paste').value;
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const entries = [];
+  const skipped = [];
+  lines.forEach(line => {
+    const parsed = parseCrBackfillLine(line);
+    if (parsed) entries.push(parsed); else skipped.push(line);
+  });
+  renderCrBackfillTable(entries);
+  const note = document.getElementById('cr-backfill-parse-note');
+  if (!lines.length) note.textContent = '';
+  else if (!entries.length) note.textContent = 'อ่านค่าไม่ได้สักบรรทัด - รูปแบบที่รองรับคือ "Aug 11  99.92"';
+  else note.textContent = `แยกได้ ${entries.length} วัน` + (skipped.length ? ` (ข้าม ${skipped.length} บรรทัดที่อ่านไม่ออก: ${skipped.join(' | ')})` : '');
+}
+
+function renderCrBackfillTable(entries) {
+  const tbody = document.getElementById('cr-backfill-table-body');
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="2" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr>';
+    return;
+  }
+  tbody.innerHTML = entries.map((e, i) => `
+    <tr>
+      <td><input class="date-cell-input cr-bf-date" data-idx="${i}" value="${escapeHtml(e.dateLabel)}"></td>
+      <td>
+        <div class="cr-value-row">
+          <input class="cell-input cr-bf-value" data-idx="${i}" value="${escapeHtml(e.value)}">
+          <span class="cr-pct-sign">%</span>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function readCrBackfillRows() {
+  return [...document.querySelectorAll('#cr-backfill-table-body tr')]
+    .map(tr => ({
+      date: ((tr.querySelector('.cr-bf-date') || {}).value || '').trim(),
+      value: ((tr.querySelector('.cr-bf-value') || {}).value || '').trim(),
+    }))
+    .filter(e => e.date && e.value && !isNaN(parseFloat(e.value)));
+}
+
+function onCrBackfillPlatformChange() {
+  const name = document.getElementById('cr-backfill-platform').value;
+  const filterInput = document.getElementById('cr-backfill-filter');
+  const entry = crPlatforms.find(p => p.platform === name);
+  filterInput.value = entry ? (entry.filter || suggestedFilterFor(entry.platform)) : '';
+}
+
+function clearCrBackfillPaste() {
+  document.getElementById('cr-backfill-paste').value = '';
+  document.getElementById('cr-backfill-parse-note').textContent = '';
+  renderCrBackfillTable([]);
+}
+
+async function syncCrBackfill() {
+  const btn = document.getElementById('cr-backfill-sync-btn');
+  const resultEl = document.getElementById('cr-backfill-result');
+  const platform = document.getElementById('cr-backfill-platform').value;
+  const filter = document.getElementById('cr-backfill-filter').value.trim();
+  const entries = readCrBackfillRows();
+
+  if (!platform) { resultEl.textContent = 'ยังไม่ได้เลือก platform'; return; }
+  if (!entries.length) { resultEl.textContent = 'ยังไม่มีข้อมูลในตารางให้ sync'; return; }
+
+  btn.disabled = true;
+  resultEl.textContent = 'กำลัง sync...';
+  try {
+    const data = await fetchJson('/api/tvn/crashlytics/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, entries, filter }),
+    });
+    resultEl.textContent = '✓ ' + data.result;
+    clearCrBackfillPaste();
+    await loadCrashlyticsForm(); // refreshes "ล่าสุดที่บันทึกไว้" on the quick-entry table too
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
   }
 }
 

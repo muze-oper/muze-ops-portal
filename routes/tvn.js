@@ -627,40 +627,63 @@ router.get('/api/tvn/crashlytics', async (req, res) => {
   }
 });
 
+// Two request shapes share this endpoint: the day-to-day dropdown+one-value
+// entry sends `value` alone (written under today's date), and the backfill
+// paste box sends `entries: [{date, value}, ...]` (each under its own
+// date) for catching up several days at once. Both end up as the same
+// per-entry write loop below.
 router.post('/api/tvn/crashlytics/record', async (req, res) => {
   if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
-  const { platform, value, filter } = req.body || {};
+  const { platform, value, entries, filter } = req.body || {};
   try {
     const { title, rows } = await fetchCrashlyticsTitleAndRows();
-    const block = groupCrashlyticsBlocks(rows).find(
+    let block = groupCrashlyticsBlocks(rows).find(
       b => b.platform.toLowerCase() === String(platform || '').trim().toLowerCase()
     );
     if (!block) {
       return res.status(400).json({ error: `ไม่รู้จัก platform "${platform}" ในแท็บ Firebase Crashlytics` });
     }
-    const numeric = parseFloat(String(value).replace('%', '').trim());
-    if (isNaN(numeric)) {
-      return res.status(400).json({ error: `ค่า "${value}" ไม่ใช่ตัวเลข` });
+
+    const list = Array.isArray(entries) && entries.length
+      ? entries
+          .map(e => ({ date: String(e.date || '').trim(), value: parseFloat(String(e.value).replace('%', '').trim()) }))
+          .filter(e => e.date && !isNaN(e.value))
+      : (isNaN(parseFloat(String(value).replace('%', '').trim()))
+          ? []
+          : [{ date: formatBangkokShortDate(), value: parseFloat(String(value).replace('%', '').trim()) }]);
+
+    if (!list.length) {
+      return res.status(400).json({ error: entries ? 'ไม่มีข้อมูลให้ sync' : `ค่า "${value}" ไม่ใช่ตัวเลข` });
     }
 
-    const dateLabel = formatBangkokShortDate();
-    const lastEntry = block.history[block.history.length - 1];
-    const filtersValue = filter || lastEntry.filters || '';
-    const rowValues = [filtersValue, block.platform, dateLabel, numeric];
+    const written = [];
+    for (const entry of list) {
+      const lastEntry = block.history[block.history.length - 1];
+      const filtersValue = filter || lastEntry.filters || '';
 
-    // The block's last row is still an untouched placeholder (a platform
-    // with no history yet) - fill it in place. Otherwise this platform
-    // already has a history, so a new row is inserted right after the
-    // block (pushing whatever comes after it - other platforms' blocks -
-    // down) instead of overwriting the previous reading.
-    const isPlaceholder = lastEntry.dateCheck === '' && lastEntry.value === '';
-    const rowNum = isPlaceholder ? block.endRow : block.endRow + 1;
-    if (!isPlaceholder) {
-      await insertSheetRows(SHEET_ID, CRASHLYTICS_SHEET_GID, rowNum, 1);
+      // The block's last row is still an untouched placeholder (a platform
+      // with no history yet) - fill it in place. Otherwise this platform
+      // already has a history, so a new row is inserted right after the
+      // block (pushing whatever comes after it - other platforms' blocks -
+      // down) instead of overwriting the previous reading.
+      const isPlaceholder = lastEntry.dateCheck === '' && lastEntry.value === '';
+      const rowNum = isPlaceholder ? block.endRow : block.endRow + 1;
+      if (!isPlaceholder) {
+        await insertSheetRows(SHEET_ID, CRASHLYTICS_SHEET_GID, rowNum, 1);
+      }
+      await updateSheetGrid(SHEET_ID, `'${title}'!A${rowNum}:D${rowNum}`, [[filtersValue, block.platform, entry.date, entry.value]]);
+
+      // Keep the in-memory block in sync with what was just written, so the
+      // next entry in this same batch sees the right "last row"/endRow -
+      // re-fetching the whole sheet on every entry would be needlessly slow.
+      block = { ...block, endRow: rowNum, history: [...block.history, { filters: filtersValue, dateCheck: entry.date, value: entry.value }] };
+      written.push(`${entry.date}: ${entry.value}%`);
     }
-    await updateSheetGrid(SHEET_ID, `'${title}'!A${rowNum}:D${rowNum}`, [rowValues]);
 
-    res.json({ result: `${block.platform}: บันทึก Crash Free Users = ${numeric}% (${dateLabel})` });
+    const summary = list.length > 1
+      ? `${block.platform}: บันทึกย้อนหลัง ${list.length} วัน (${written.join(', ')})`
+      : `${block.platform}: บันทึก Crash Free Users = ${list[0].value}% (${list[0].date})`;
+    res.json({ result: summary });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
