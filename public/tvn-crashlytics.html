@@ -6,6 +6,15 @@
   <title>Firebase Crashlytics — Muze Tech Ops Portal</title>
   <link rel="stylesheet" href="/tvn-shared.css">
   <script src="/tvn-shared.js"></script>
+  <style>
+    .step0-layout { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+    .step0-info { flex: 0 0 200px; min-width: 180px; }
+    .step0-info .toolbar { margin: 10px 0 0; }
+    .step0-info .last-updated { display: block; margin-top: 6px; }
+    .step0-info .sheet-link-row { margin-top: 10px; }
+    .step0-table-wrap { flex: 1; min-width: 0; overflow-x: auto; }
+    .step0-table-wrap table.data th, .step0-table-wrap table.data td { padding: 4px 8px; font-size: 11.5px; }
+  </style>
 </head>
 <body>
 
@@ -31,15 +40,19 @@
   <section class="block">
     <div class="block-head"><h2 class="h">Step 0</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">เวอร์ชันล่าสุดของแต่ละ platform จากชีต Apps Releases — ใช้เป็นข้อมูลอ้างอิงก่อนกรอก Crash-free Users % ด้านล่าง</div>
-      <div class="toolbar">
-        <button class="btn-ghost" onclick="loadStep0()">🔄 Refresh</button>
-        <span class="last-updated" id="step0-updated"></span>
+      <div class="step0-layout">
+        <div class="step0-info">
+          <div class="hint">เวอร์ชันล่าสุดของแต่ละ platform จากชีต Apps Releases</div>
+          <div class="toolbar">
+            <button class="btn-ghost" onclick="loadStep0()">🔄 Refresh</button>
+          </div>
+          <span class="last-updated" id="step0-updated"></span>
+          <div class="sheet-link-row">
+            <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1hy_feqXCXuL_IK8ogy81_AhMDExOmL3lo49dJtBVad0/edit?gid=0#gid=0" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง (แท็บ Apps Releases)</a>
+          </div>
+        </div>
+        <div class="step0-table-wrap" id="step0-body"><div id="step0-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
       </div>
-      <div class="sheet-link-row">
-        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1hy_feqXCXuL_IK8ogy81_AhMDExOmL3lo49dJtBVad0/edit?gid=0#gid=0" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง (แท็บ Apps Releases)</a>
-      </div>
-      <div id="step0-body" style="margin-top:14px;"><div id="step0-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
     </div>
   </section>
 
@@ -66,35 +79,31 @@ async function loadStep0() {
   const updated = document.getElementById('step0-updated');
   try {
     const data = await fetchJson('/api/app-releases');
-    renderStep0(data.platforms, data.lastUpdated);
+    renderStep0(data.platforms);
     updated.textContent = 'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH');
   } catch (err) {
     body.innerHTML = `<div id="step0-empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
   }
 }
 
-function renderStep0(platforms, lastUpdated) {
+function renderStep0(platforms) {
   const body = document.getElementById('step0-body');
   if (!platforms || !platforms.length) {
     body.innerHTML = `<div id="step0-empty"><div class="icon">📭</div>ไม่พบข้อมูล platform ในชีต</div>`;
     return;
   }
-  // Every row shares the same Date Check - the sheet is scanned live in one
-  // request, so all platforms were confirmed at the exact same moment.
-  const dateCheck = formatBangkokDateCheck(lastUpdated);
   const rowsHtml = platforms.map(p => `
     <tr>
-      <td>${escapeHtml(p.platform)}</td>
+      <td style="text-align:left;">${escapeHtml(p.platform)}</td>
       <td style="text-align:left;">${escapeHtml(p.version || '—')}</td>
       <td style="text-align:left;">${escapeHtml(p.releaseDate || '—')}</td>
       <td style="text-align:left;">${escapeHtml(p.submitDate || '—')}</td>
-      <td style="text-align:left;">${escapeHtml(dateCheck)}</td>
     </tr>
   `).join('');
 
   body.innerHTML = `
     <table class="data">
-      <thead><tr><th>Platform</th><th>Version ล่าสุด</th><th>Release Date</th><th>Submit Date</th><th>Date Check</th></tr></thead>
+      <thead><tr><th style="text-align:left;">Platform</th><th style="text-align:left;">Version ล่าสุด</th><th style="text-align:left;">Release Date</th><th style="text-align:left;">Submit Date</th></tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table>
   `;
