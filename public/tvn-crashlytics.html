@@ -14,7 +14,13 @@
     .step0-info .sheet-link-row { margin-top: 10px; }
     .step0-table-wrap { flex: 1; min-width: 0; overflow-x: auto; }
     .step0-table-wrap table.data th, .step0-table-wrap table.data td { padding: 4px 8px; font-size: 11.5px; }
-    .step1-filter-guide { display: block; max-width: 100%; margin: 12px 0 16px; border: 1px solid var(--border); border-radius: 8px; }
+    .step1-intro { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 16px; }
+    .step1-intro-image { flex: 0 0 220px; max-width: 220px; }
+    .step1-filter-guide { display: block; width: 100%; border: 1px solid var(--border); border-radius: 8px; }
+    .step1-intro-text { flex: 1; min-width: 220px; }
+    .step1-steps-list { margin: 0 0 12px; padding-left: 20px; font-size: 12.5px; line-height: 1.6; color: var(--ink-dim); }
+    .step1-steps-list li + li { margin-top: 4px; }
+    .step1-steps-list code { color: var(--ink); }
     .step1-groups { display: flex; gap: 14px; flex-wrap: wrap; }
     .step1-group { flex: 1 1 260px; min-width: 0; margin-top: 0 !important; }
     .step1-group table.data th, .step1-group table.data td { padding: 4px 8px; font-size: 11.5px; }
@@ -64,17 +70,20 @@
   <section class="block">
     <div class="block-head"><h2 class="h">Step 1</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="steps">
-        <div class="step">
-          <span class="step-no">1</span>
-          <span class="step-text">Screenshot หน้า Firebase Crashlytics — เลือก filter หลัก <strong>(1)</strong> เป็น project <code>tdm-tvs-now-app-prod</code> ให้ชัดเจนก่อน</span>
+      <div class="step1-intro">
+        <div class="step1-intro-image">
+          <img class="step1-filter-guide" src="/assets/crashlytics-filter-guide.png" alt="ตัวอย่างการเลือก filter หลัก (1) เป็น tdm-tvs-now-app-prod และ filter ย่อยของแต่ละ platform ในหน้า Firebase Crashlytics">
+        </div>
+        <div class="step1-intro-text">
+          <ol class="step1-steps-list">
+            <li>เลือก filter หลัก <strong>(1)</strong> เป็น project <code>tdm-tvs-now-app-prod</code></li>
+            <li>เลือก filter รอง (Android / หรือ iOS) เป็น <code>[PROD][TVS]</code> เท่านั้น</li>
+          </ol>
+          <div class="sheet-link-row">
+            <a class="sheet-link" href="https://console.firebase.google.com/u/0/project/tdm-tvs-now-app-prod/crashlytics/app/android:com.truevisions.android/issues?time=7d&state=open&types=crash&tag=all&sort=eventCount" target="_blank" rel="noopener">🔥 เปิด Firebase Crashlytics (tdm-tvs-now-app-prod)</a>
+          </div>
         </div>
       </div>
-      <div class="sheet-link-row">
-        <a class="sheet-link" href="https://console.firebase.google.com/u/0/project/tdm-tvs-now-app-prod/crashlytics/app/android:com.truevisions.android/issues?time=7d&state=open&types=crash&tag=all&sort=eventCount" target="_blank" rel="noopener">🔥 เปิด Firebase Crashlytics (tdm-tvs-now-app-prod)</a>
-      </div>
-
-      <img class="step1-filter-guide" src="/assets/crashlytics-filter-guide.png" alt="ตัวอย่างการเลือก filter หลัก (1) เป็น tdm-tvs-now-app-prod และ filter ย่อยของแต่ละ platform ในหน้า Firebase Crashlytics">
 
       <div class="step1-groups">
         <div class="track track--csv step1-group">
