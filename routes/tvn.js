@@ -548,45 +548,79 @@ router.post('/api/tvn/top-error-codes/record', async (req, res) => {
   }
 });
 
-// --- Firebase Crashlytics tab: one row per platform, gid is stable (0) but
-// resolve the title anyway in case it ever gets renamed like BitMovin Error did.
+// --- Firebase Crashlytics tab: a history log now (this used to be one
+// static row per platform - the sheet itself has since grown a Date Check
+// history per platform, most visibly on iOS Mobile which already carries
+// several dated rows, while the other 3 platforms still sit on a single
+// not-yet-filled placeholder row). Rows are grouped into one contiguous
+// block per platform, the same shape groupTopErrorCodeBlocks uses for the
+// BitMovin Top Error Codes tab. gid is stable (0) but resolve the title
+// anyway in case it's ever renamed like BitMovin Error was.
 const CRASHLYTICS_SHEET_GID = 0;
-const CRASHLYTICS_PLATFORM_COL_IDX = 0; // column A - "Andriod TV", "Apple TV", "Andriod", "iOS" (sheet's own spelling)
-const CRASHLYTICS_FILTER_COL_IDX = 1; // column B
-const CRASHLYTICS_ACTION_DATE_COL_IDX = 2; // column C
-const CRASHLYTICS_DATE_CHECK_COL_IDX = 3; // column D
-const CRASHLYTICS_VALUE_COL_IDX = 4; // column E - plain number, NOT percent-formatted (unlike BitMovin Error's columns)
+const CRASHLYTICS_FILTERS_COL_IDX = 0; // column A - versions being monitored, e.g. "4.0.27,4.0.26,4.0.25"
+const CRASHLYTICS_PLATFORM_COL_IDX = 1; // column B
+const CRASHLYTICS_DATE_CHECK_COL_IDX = 2; // column C
+const CRASHLYTICS_VALUE_COL_IDX = 3; // column D - plain number, NOT percent-formatted (unlike BitMovin Error's columns)
 
-// "13 Aug 26" style, matching the existing cells in this tab (different from
-// BitMovin Error's "Mon-3-Aug" weekly-label format).
+// "17-Aug-26" style, matching the existing cells in this tab (different from
+// BitMovin Error's "Mon-3-Aug" and the CAB tracker's "17 Aug 2026").
 function formatBangkokShortDate() {
   const now = new Date();
-  const day = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', day: 'numeric' }).format(now);
+  const day = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', day: '2-digit' }).format(now);
   const month = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', month: 'short' }).format(now);
   const year = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', year: '2-digit' }).format(now);
-  return `${day} ${month} ${year}`;
+  return `${day}-${month}-${year}`;
 }
 
 async function fetchCrashlyticsTitleAndRows() {
   const title = await resolveSheetTitleByGid(SHEET_ID, CRASHLYTICS_SHEET_GID);
-  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:G20`);
+  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:D2000`);
   return { title, rows };
+}
+
+// A run of consecutive rows carrying the same Platform value - same block
+// shape as groupTopErrorCodeBlocks, so a re-sized or reordered block in the
+// sheet needs no code change here.
+function groupCrashlyticsBlocks(rows) {
+  const blocks = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const platform = (row[CRASHLYTICS_PLATFORM_COL_IDX] || '').trim();
+    if (!platform) continue;
+    const rowNum = i + 1; // sheet rows are 1-based and row 1 is the header
+    const entry = {
+      filters: row[CRASHLYTICS_FILTERS_COL_IDX] || '',
+      dateCheck: row[CRASHLYTICS_DATE_CHECK_COL_IDX] || '',
+      value: row[CRASHLYTICS_VALUE_COL_IDX] || '',
+    };
+    const last = blocks[blocks.length - 1];
+    if (last && last.platform === platform && last.endRow === rowNum - 1) {
+      last.endRow = rowNum;
+      last.history.push(entry);
+    } else {
+      blocks.push({ platform, startRow: rowNum, endRow: rowNum, history: [entry] });
+    }
+  }
+  return blocks;
 }
 
 router.get('/api/tvn/crashlytics', async (req, res) => {
   if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
   try {
     const { rows } = await fetchCrashlyticsTitleAndRows();
-    const platforms = rows
-      .slice(1)
-      .map((row) => ({
-        platform: row[CRASHLYTICS_PLATFORM_COL_IDX] || '',
-        filter: row[CRASHLYTICS_FILTER_COL_IDX] || '',
-        actionDate: row[CRASHLYTICS_ACTION_DATE_COL_IDX] || '',
-        dateCheck: row[CRASHLYTICS_DATE_CHECK_COL_IDX] || '',
-        value: row[CRASHLYTICS_VALUE_COL_IDX] || '',
-      }))
-      .filter((p) => p.platform);
+    const platforms = groupCrashlyticsBlocks(rows).map(b => {
+      // Rows are chronological (oldest first, e.g. iOS Mobile's 11-16 Aug
+      // run) - a block's last filled entry is its most recent record. An
+      // untouched placeholder row (blank dateCheck/value) never counts.
+      const filled = b.history.filter(h => h.dateCheck !== '' || h.value !== '');
+      const latest = filled[filled.length - 1] || null;
+      return {
+        platform: b.platform,
+        filter: (latest || b.history[0]).filters || '',
+        dateCheck: latest ? latest.dateCheck : '',
+        value: latest ? latest.value : '',
+      };
+    });
     res.json({ platforms });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -598,10 +632,10 @@ router.post('/api/tvn/crashlytics/record', async (req, res) => {
   const { platform, value, filter } = req.body || {};
   try {
     const { title, rows } = await fetchCrashlyticsTitleAndRows();
-    const rowIdx = rows.findIndex(
-      (row, i) => i > 0 && (row[CRASHLYTICS_PLATFORM_COL_IDX] || '').trim().toLowerCase() === String(platform || '').trim().toLowerCase()
+    const block = groupCrashlyticsBlocks(rows).find(
+      b => b.platform.toLowerCase() === String(platform || '').trim().toLowerCase()
     );
-    if (rowIdx === -1) {
+    if (!block) {
       return res.status(400).json({ error: `ไม่รู้จัก platform "${platform}" ในแท็บ Firebase Crashlytics` });
     }
     const numeric = parseFloat(String(value).replace('%', '').trim());
@@ -609,21 +643,24 @@ router.post('/api/tvn/crashlytics/record', async (req, res) => {
       return res.status(400).json({ error: `ค่า "${value}" ไม่ใช่ตัวเลข` });
     }
 
-    const rowNum = rowIdx + 1; // rows[] is 0-indexed, sheet rows are 1-indexed - they line up directly
     const dateLabel = formatBangkokShortDate();
-    const valueColLetter = colLetter(CRASHLYTICS_VALUE_COL_IDX);
-    const actionDateColLetter = colLetter(CRASHLYTICS_ACTION_DATE_COL_IDX);
-    const dateCheckColLetter = colLetter(CRASHLYTICS_DATE_CHECK_COL_IDX);
+    const lastEntry = block.history[block.history.length - 1];
+    const filtersValue = filter || lastEntry.filters || '';
+    const rowValues = [filtersValue, block.platform, dateLabel, numeric];
 
-    await updateSheetRow(SHEET_ID, `'${title}'!${valueColLetter}${rowNum}:${valueColLetter}${rowNum}`, [numeric]);
-    await updateSheetRow(SHEET_ID, `'${title}'!${actionDateColLetter}${rowNum}:${actionDateColLetter}${rowNum}`, [dateLabel]);
-    await updateSheetRow(SHEET_ID, `'${title}'!${dateCheckColLetter}${rowNum}:${dateCheckColLetter}${rowNum}`, [dateLabel]);
-    if (filter) {
-      const filterColLetter = colLetter(CRASHLYTICS_FILTER_COL_IDX);
-      await updateSheetRow(SHEET_ID, `'${title}'!${filterColLetter}${rowNum}:${filterColLetter}${rowNum}`, [filter]);
+    // The block's last row is still an untouched placeholder (a platform
+    // with no history yet) - fill it in place. Otherwise this platform
+    // already has a history, so a new row is inserted right after the
+    // block (pushing whatever comes after it - other platforms' blocks -
+    // down) instead of overwriting the previous reading.
+    const isPlaceholder = lastEntry.dateCheck === '' && lastEntry.value === '';
+    const rowNum = isPlaceholder ? block.endRow : block.endRow + 1;
+    if (!isPlaceholder) {
+      await insertSheetRows(SHEET_ID, CRASHLYTICS_SHEET_GID, rowNum, 1);
     }
+    await updateSheetGrid(SHEET_ID, `'${title}'!A${rowNum}:D${rowNum}`, [rowValues]);
 
-    res.json({ result: `${platform}: อัปเดต Crash Free User = ${numeric}% (${dateLabel})` });
+    res.json({ result: `${block.platform}: บันทึก Crash Free Users = ${numeric}% (${dateLabel})` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -25,6 +25,16 @@
     .step1-group { flex: 1 1 260px; min-width: 0; margin-top: 0 !important; }
     .step1-group table.data th, .step1-group table.data td { padding: 4px 8px; font-size: 11.5px; }
     .step1-group table.data td:nth-child(2) { white-space: normal; }
+
+    .cr-form-card { max-width: 420px; }
+    .cr-field + .cr-field { margin-top: 10px; }
+    .cr-field .field-label { display: block; margin-bottom: 4px; }
+    .cr-value-row { display: flex; align-items: center; gap: 6px; }
+    .cr-value-row .cell-input { width: 100px; }
+    .cr-value-row .cr-pct-sign { font-size: 13px; font-weight: 700; color: var(--ink-dim); }
+    #cr-platform { min-width: 200px; }
+    #cr-filter { width: 100%; box-sizing: border-box; }
+    .cr-last { margin-top: 10px; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; font-size: 11.5px; color: var(--ink-dim); }
   </style>
 </head>
 <body>
@@ -48,27 +58,14 @@
 
 <div class="wrap">
 
-  <section class="block">
-    <div class="block-head"><h2 class="h">Step 0</h2><div class="rule"></div></div>
-    <div class="card">
-      <div class="step0-layout">
-        <div class="step0-info">
-          <div class="hint">เวอร์ชันล่าสุดของแต่ละ platform จาก Deploy Tag ในชีต CAB Deploy Tracker (ทุกแท็บ)</div>
-          <div class="toolbar">
-            <button class="btn-ghost" onclick="loadStep0()">🔄 Refresh</button>
-          </div>
-          <span class="last-updated" id="step0-updated"></span>
-          <div class="sheet-link-row">
-            <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1ULCi9sX4mK1pFC7xkSfAQgqSxNI_Fo2a_gIIETaQ0NE/edit" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง (CAB Deploy Tracker)</a>
-          </div>
-        </div>
-        <div class="step0-table-wrap" id="step0-body"><div id="step0-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
-      </div>
+  <div class="view-switch-row">
+    <div class="view-toggle" role="tablist" aria-label="สลับหน้า">
+      <button id="cr-tab-input" class="active" onclick="switchCrashView('input')">✍️ ใส่ข้อมูลใหม่</button>
+      <button id="cr-tab-dash" onclick="switchCrashView('dash')">📊 Dashboard</button>
     </div>
-  </section>
+  </div>
 
-  <section class="block">
-    <div class="block-head"><h2 class="h">Step 1</h2><div class="rule"></div></div>
+  <section class="block" id="cr-view-input">
     <div class="card">
       <div class="step1-intro">
         <div class="step1-intro-image">
@@ -103,19 +100,78 @@
         </div>
       </div>
     </div>
+
+    <div class="block-head"><h2 class="h">บันทึก Crash-free Users %</h2><div class="rule"></div></div>
+    <div class="card cr-form-card">
+      <div class="hint">เช็คค่า Crash-free users % ตาม filter ด้านบน (7 วันล่าสุด) แล้วกรอกที่นี่ — วันที่บันทึกใส่ให้อัตโนมัติ</div>
+
+      <div class="cr-field">
+        <label class="field-label" for="cr-platform">Platform</label>
+        <select id="cr-platform" onchange="onCrPlatformChange()"><option value="">กำลังโหลด...</option></select>
+      </div>
+      <div class="cr-field">
+        <label class="field-label" for="cr-value">Crash-free Users</label>
+        <div class="cr-value-row">
+          <input class="cell-input" id="cr-value" placeholder="99.85" inputmode="decimal">
+          <span class="cr-pct-sign">%</span>
+        </div>
+      </div>
+      <div class="cr-field">
+        <label class="field-label" for="cr-filter">Filter (versions ที่กำลัง monitor)</label>
+        <input class="date-cell-input" id="cr-filter" placeholder="เช่น 4.0.27,4.0.26,4.0.25">
+      </div>
+
+      <div id="cr-last-recorded" class="cr-last"></div>
+
+      <div class="toolbar" style="margin-top:12px;">
+        <button class="btn-primary" id="cr-record-btn" onclick="recordCrashlytics()">💾 บันทึก</button>
+        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=0#gid=0" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
+      </div>
+      <div id="cr-record-result" class="result-text"></div>
+    </div>
+  </section>
+
+  <section class="block" id="cr-view-dash" hidden>
+    <div class="block-head"><h2 class="h">Deploy Tag ล่าสุด</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="step0-layout">
+        <div class="step0-info">
+          <div class="hint">เวอร์ชันล่าสุดของแต่ละ platform จาก Deploy Tag ในชีต CAB Deploy Tracker (ทุกแท็บ)</div>
+          <div class="toolbar">
+            <button class="btn-ghost" onclick="loadStep0()">🔄 Refresh</button>
+          </div>
+          <span class="last-updated" id="step0-updated"></span>
+          <div class="sheet-link-row">
+            <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1ULCi9sX4mK1pFC7xkSfAQgqSxNI_Fo2a_gIIETaQ0NE/edit" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง (CAB Deploy Tracker)</a>
+          </div>
+        </div>
+        <div class="step0-table-wrap" id="step0-body"><div id="step0-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
+      </div>
+    </div>
   </section>
 
 </div>
 
 <script>
+// The two views are the whole page - only one is ever in the DOM flow
+// (`hidden`), same pattern /tvn uses for its ใส่ข้อมูลใหม่/Dashboard toggle.
+function switchCrashView(view) {
+  ['input', 'dash'].forEach(v => {
+    document.getElementById('cr-view-' + v).hidden = v !== view;
+    document.getElementById('cr-tab-' + v).classList.toggle('active', v === view);
+  });
+}
+
 // Step 0 (all platforms + latest version) and Step 1 (Android/iOS-only,
 // with version history) both read the same Apps Releases data, so one fetch
 // feeds both renderers instead of hitting the API twice on load/refresh.
+let appReleasesPlatforms = [];
 async function loadStep0() {
   const body = document.getElementById('step0-body');
   const updated = document.getElementById('step0-updated');
   try {
     const data = await fetchJson('/api/app-releases');
+    appReleasesPlatforms = data.platforms || [];
     renderStep0(data.platforms);
     renderStep1(data.platforms);
     updated.textContent = 'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH');
@@ -185,7 +241,89 @@ function renderStep1(platforms) {
   document.getElementById('step1-ios-body').innerHTML = versionToMonitorTable(platformsMatching(platforms, ['ios', 'apple tv']));
 }
 
+// ---- Crash-free Users % record form ----
+let crPlatforms = [];
+
+async function loadCrashlyticsForm() {
+  const select = document.getElementById('cr-platform');
+  const previous = select.value;
+  try {
+    const data = await fetchJson('/api/tvn/crashlytics');
+    crPlatforms = data.platforms || [];
+    select.innerHTML = '<option value="">— เลือก platform —</option>' + crPlatforms
+      .map(p => `<option value="${escapeHtml(p.platform)}">${escapeHtml(p.platform)}</option>`)
+      .join('');
+    if (previous && crPlatforms.some(p => p.platform === previous)) select.value = previous;
+    onCrPlatformChange();
+  } catch (err) {
+    select.innerHTML = '<option value="">โหลด platform ไม่สำเร็จ</option>';
+    document.getElementById('cr-record-result').textContent = 'Error: ' + err.message;
+  }
+}
+
+function currentCrPlatform() {
+  const name = document.getElementById('cr-platform').value;
+  return crPlatforms.find(p => p.platform === name) || null;
+}
+
+// Best-effort match against the App Releases platform names (which spell
+// things differently - "android Mobile" here vs "Android Mobile" there) so
+// the Filter field can suggest the versions Step 1 is already tracking
+// instead of the human retyping the same 3 versions every check.
+function suggestedFilterFor(platformName) {
+  const norm = String(platformName || '').trim().toLowerCase();
+  const match = appReleasesPlatforms.find(p => p.platform.trim().toLowerCase() === norm);
+  return match && match.recentVersions && match.recentVersions.length ? match.recentVersions.join(',') : '';
+}
+
+function onCrPlatformChange() {
+  const entry = currentCrPlatform();
+  const lastEl = document.getElementById('cr-last-recorded');
+  const filterInput = document.getElementById('cr-filter');
+  document.getElementById('cr-value').value = '';
+  document.getElementById('cr-record-result').textContent = '';
+
+  if (!entry) {
+    lastEl.textContent = '';
+    filterInput.value = '';
+    return;
+  }
+
+  filterInput.value = entry.filter || suggestedFilterFor(entry.platform);
+  lastEl.textContent = entry.value
+    ? `ล่าสุดบันทึกไว้ ${entry.value}% เมื่อ ${entry.dateCheck}`
+    : 'ยังไม่เคยบันทึกค่าให้ platform นี้';
+}
+
+async function recordCrashlytics() {
+  const btn = document.getElementById('cr-record-btn');
+  const resultEl = document.getElementById('cr-record-result');
+  const platform = document.getElementById('cr-platform').value;
+  const value = document.getElementById('cr-value').value.trim();
+  const filter = document.getElementById('cr-filter').value.trim();
+
+  if (!platform) { resultEl.textContent = 'ยังไม่ได้เลือก platform'; return; }
+  if (!value || isNaN(parseFloat(value))) { resultEl.textContent = 'กรอกค่า Crash-free Users % เป็นตัวเลขก่อน'; return; }
+
+  btn.disabled = true;
+  resultEl.textContent = 'กำลังบันทึก...';
+  try {
+    const data = await fetchJson('/api/tvn/crashlytics/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, value, filter }),
+    });
+    resultEl.textContent = '✓ ' + data.result;
+    await loadCrashlyticsForm(); // pulls back what the sheet now holds, refreshes "ล่าสุดบันทึกไว้"
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 loadStep0();
+loadCrashlyticsForm();
 </script>
 </body>
 </html>
