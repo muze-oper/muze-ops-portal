@@ -7,6 +7,11 @@ Read the exact numbers shown on the dashboard screenshot - never estimate
 from the position of a line on a trend chart. A visual guess off a chart
 line is meaningfully noisy at the sub-1%-precision this tracking needs;
 always prefer a printed number/stat/badge/table row over eyeballing a curve.
+This is not hypothetical: on Firebase Crashlytics specifically, the
+"Crash-free users XX.XX%" headline tile and the last plotted point on the
+"last 7 days" trend chart underneath it can be **different figures** (seen
+in practice: 99.89% headline vs. 100.00% on that day's chart point) - the
+headline tile is the number that gets recorded, never the chart line.
 
 ## Step 1 - identify the tool and what kind of read this is
 
@@ -24,6 +29,20 @@ stat or a ranked list:
 For the two single-stat tools, identify the platform from the visible
 app/filter name (iOS, iOS Mobile, Android, Android Mobile, Apple TV,
 Android TV, Tizen, LG, Vidaa).
+
+**Crashlytics platform is often not visible at all** - a cropped
+Crashlytics screenshot usually shows the "Versions" filter chip (e.g.
+`Versions = "4.0.18 (55)" and 17 more`) but not the app/platform picker
+above it, since that's typically cropped out of what gets pasted. Don't
+guess or leave it blank - cross-check the version number in that chip
+against the "Version to Monitor" tables in /tvn/crashlytics's own Step 1
+section (or `GET /api/app-releases`, which is what that section reads
+from): each platform's Deploy Tag history is far enough apart from the
+others (e.g. Apple TV's builds have been seen trailing iOS Mobile/Android
+Mobile by ~9 minor versions) that the filtered version usually matches
+exactly one platform's recent-versions list. Say which platform you
+inferred and the version string that made it unique, so it can be
+double-checked against the dropdown before syncing.
 
 ## Step 2 - sanity-check the filter before trusting the number(s)
 
@@ -48,7 +67,9 @@ Report:
 
 - **Platform**
 - **Value** - the exact number shown, to 2 decimal places if available
-  (e.g. `99.83`, `3.97`)
+  (e.g. `99.83`, `3.97`). For Crashlytics this is the **headline tile**
+  number specifically ("Crash-free users XX.XX%"), not a value read off
+  the trend line below it - see the caution at the top of this skill.
 - **Filter shown** - what OS/Platform/time-window (Bitmovin) or Versions
   (Crashlytics) filter was actually active, so the person entering it can
   double check it matches what they intended to check
@@ -85,24 +106,40 @@ for a list read this means flagging the specific row, not the whole table.
 
 ## Step 4 - tell them exactly where it goes in muze-ops-portal
 
-Everything gets typed into the `/tvn` page by hand - this skill only reads,
-it never writes anywhere itself:
+This skill only reads, it never writes anywhere itself - and where a read
+actually goes depends on which of the 3 tools it is, since `/tvn` uses a
+different input method for each (last checked against the live page
+2026-08-17; if any of this looks stale, re-check the actual page/routes
+before trusting it, since this input UI has already been redesigned twice):
 
-- **Bitmovin Error Session % -> "BITMOVIN" section**: a line in the Quick
-  Record box for that platform, formatted `<date label>, <value>%` - e.g.
-  `Mon-3-Aug, 2.07%`. The date label must match the sheet's existing format
-  exactly (`Mon-3-Aug` weekday-day-month style).
-- **Bitmovin Top Error Codes -> the `/tvn/top-error-codes` page**: paste the
-  whole reply (including the `Platform:` line) into the "วางคำตอบที่ Claude
-  อ่านให้" box and press "แยกลงตาราง". The page reads the `Platform:` line to
-  preselect the platform - which is what decides the block of sheet rows the
-  sync writes to - and turns the dropdown blue to show it was machine-filled
-  and still wants a glance. Syncing overwrites that platform's whole block,
-  since these are ranked snapshots.
-- **Crashlytics -> "Firebase Crashlytics" section**: the `Crash Free User %`
-  input for that platform's row, plus the `Filter` field if the version list
-  changed from what's already recorded there.
+- **Bitmovin Error Session % (single stat)**: `/tvn`'s "· Error Sessions"
+  track now imports the full 24-hour breakdown from a **CSV export**, not a
+  typed-in single value - there is no manual-entry field left for this
+  screenshot read to go into. If someone still wants the value read (e.g.
+  for a quick Slack update), just report platform/value/filter as normal
+  and say there's no field to paste it into on `/tvn` - point them at the
+  CSV export + "🔄 Sync เข้าชีต" button (`hourly-sync-btn`) instead if they
+  need it logged.
+- **Bitmovin Top Error Codes -> `/tvn`'s "Top Error Codes" track**: paste
+  the whole reply (including the `Platform:` line) into the "วางคำตอบที่
+  Claude อ่านให้" box (`tec-paste-input`) and press "✂️ แยกลงตาราง". The
+  page reads the `Platform:` line to preselect the platform - which is what
+  decides the block of sheet rows the sync writes to - and turns the
+  dropdown blue to show it was machine-filled and still wants a glance.
+  Syncing (`🔄 Sync to Google Sheet`) inserts a new snapshot on top of that
+  platform's block; nothing existing is overwritten.
+- **Crashlytics -> `/tvn/crashlytics`'s record table**: platform is picked
+  from an explicit **dropdown** (`Platform`, next to the value field) - not
+  parsed from pasted text, since (per Step 1 above) the platform usually
+  isn't stated in the screenshot at all. Pick the platform, type/paste the
+  value into the field beside it, click "⬇ ลงตาราง" to drop it into that
+  platform's row in the table below (the dropdown resets after each drop,
+  on purpose, so the next platform has to be picked deliberately rather
+  than accidentally reusing the last one). Repeat per platform read, check
+  the Filter column for each row (auto-suggested from the current Version
+  to Monitor list, but editable), then click "🔄 Sync เข้าชีต" once at the
+  end to write every filled row - it POSTs one platform at a time, so a
+  partial failure leaves the rest of the table intact to retry.
 
-For the two sheet-backed reads (Bitmovin Error Sessions, Crashlytics), the
-human still reviews the prefilled value and clicks the existing Sync /
-บันทึก button themselves before anything is written.
+The human still reviews what's in the table/paste box and clicks the
+existing Sync/ลงตาราง buttons themselves before anything is written.
