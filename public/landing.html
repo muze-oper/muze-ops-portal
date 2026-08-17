@@ -77,11 +77,14 @@
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath d='M1 2l3 3 3-3' stroke='%238891b0' stroke-width='1.3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     }
     .today-ops-status:disabled { opacity: .6; cursor: default; }
-    .today-ops-status--todo { background-color: #eceef4; color: #6b7396; }
-    .today-ops-status--scoping { background-color: #dce6ff; color: #3457d5; }
-    .today-ops-status--processing { background-color: #fff2d6; color: #b9820b; }
+    .today-ops-status--followup { background-color: #ffe8d1; color: #c2661f; }
+    .today-ops-status--informed { background-color: #dce6ff; color: #3457d5; }
     .today-ops-status--done { background-color: #d8f7ec; color: #128a6b; }
-    .today-ops-status--ignore { background-color: #f1f1f6; color: #a7acc4; text-decoration: line-through; }
+    .today-ops-status--cancel { background-color: #ffe1e8; color: #d63b5c; text-decoration: line-through; }
+    .today-ops-status--doing { background-color: #fff2d6; color: #b9820b; }
+    .today-ops-status--onsite { background-color: #d7f5f5; color: #128a96; }
+    .today-ops-status--minutemeeting { background-color: #ece5fb; color: #7a4bd8; }
+    .today-ops-status--other { background-color: #eceef4; color: #6b7396; }
     .today-ops-project { flex: none; padding: 2px 9px; border-radius: 20px; font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
     .today-ops-project--tvn { background: rgba(34,195,221,.15); color: #159ab0; }
     .today-ops-project--ktc { background: rgba(91,95,239,.13); color: #4b4fe0; }
@@ -453,9 +456,12 @@
       })
       .catch(() => {});
 
-    const STATUS_CLASS = { 'To Do': 'todo', 'Scoping': 'scoping', 'Processing': 'processing', 'Done': 'done', 'Ignore': 'ignore' };
+    const STATUS_CLASS = {
+      'Follow Up': 'followup', 'Informed': 'informed', 'Done': 'done', 'Cancel': 'cancel',
+      'Doing': 'doing', 'Onsite': 'onsite', 'Minute Meeting': 'minutemeeting',
+    };
     const PROJECT_CLASS = { TVN: 'tvn', KTC: 'ktc', MTS: 'mts', Nissan: 'nissan' };
-    const STATUS_OPTIONS = ['To Do', 'Scoping', 'Processing', 'Ignore', 'Done'];
+    const STATUS_OPTIONS = ['Follow Up', 'Informed', 'Done', 'Cancel', 'Doing', 'Onsite', 'Minute Meeting'];
 
     // If the sheet already has a value outside this list, keep it as an
     // extra option instead of silently dropping/overwriting it on load.
@@ -466,7 +472,7 @@
 
     function todayOpsRowHtml(item) {
       const time = [item.startTime, item.endTime].filter(Boolean).join('–');
-      const statusClass = STATUS_CLASS[item.status] || 'todo';
+      const statusClass = STATUS_CLASS[item.status] || 'other';
       const projectClass = PROJECT_CLASS[item.project] || 'other';
       const topic = escapeHtml(item.topic || '-');
       const topicHtml = item.link
@@ -507,12 +513,12 @@
         .then(r => r.json().then(data => ({ ok: r.ok, data })))
         .then(({ ok, data }) => {
           if (!ok) throw new Error(data.error || 'save failed');
-          select.className = `today-ops-status today-ops-status--${STATUS_CLASS[newStatus] || 'todo'}`;
+          select.className = `today-ops-status today-ops-status--${STATUS_CLASS[newStatus] || 'other'}`;
           select.dataset.prevStatus = newStatus;
         })
         .catch(() => {
           select.value = prevStatus;
-          select.className = `today-ops-status today-ops-status--${STATUS_CLASS[prevStatus] || 'todo'}`;
+          select.className = `today-ops-status today-ops-status--${STATUS_CLASS[prevStatus] || 'other'}`;
         })
         .finally(() => { select.disabled = false; });
     }
