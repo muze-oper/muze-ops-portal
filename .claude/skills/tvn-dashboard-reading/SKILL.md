@@ -76,10 +76,16 @@ Report:
 
 **Trend read (Crashlytics "last 7 days" graph) - a distinct mode, only when
 asked for the graph/week, not the day's single value:** the headline tile
-rule above is for the one number that gets recorded into today's row - it
-does not apply here. When asked to read the trend chart itself, read every
-plotted day directly off the line (never substitute the headline number for
-any of them) and answer in exactly this shape:
+rule above is for the one number that gets recorded into *today's* row via
+the quick-entry dropdown - it does not apply here. `/tvn/crashlytics` also
+has a **"Backfill ย้อนหลัง"** section specifically for this (added
+2026-08-17): a paste box (`cr-backfill-paste`) that expects one line per day
+in the shape `<Month> <day>  <value>` - e.g. `Aug 11  99.92` - parsed
+client-side and synced as a batch to whichever platform is picked in its own
+dropdown (`cr-backfill-platform`, separate from the quick-entry one). When
+asked to read the trend chart itself, read every plotted day directly off
+the line (never substitute the headline number for any of them) and answer
+in this shape:
 
 ```
 Platform: Apple TV
@@ -88,10 +94,13 @@ Aug 12	99.90
 Aug 13	99.85
 ```
 
-- Line 1 is `Platform: <name>`, from the filter (Step 1) - **not** read off
-  the graph.
-- Every line after that is one plotted day, tab-separated `<date>` and
-  `<value>`, read from the chart line only.
+- Line 1, `Platform: <name>` (from the filter, Step 1, not the graph), is
+  for the person reading your reply - it does **not** need to go into the
+  paste box, since Backfill picks platform from its own dropdown; a stray
+  `Platform:` line there is just silently skipped as unreadable, not
+  harmful, but no need to tell them to include it.
+- Every line after that is one plotted day, `<date>` then `<value>`
+  (tab or spaces both parse fine), read from the chart line only.
 - This axis is usually 95-100% (or similar) while the real values often sit
   in the top ~0.5 of that range - a verified read-vs-actual comparison on
   exactly this chart type found every point read low, worst (−0.08 to
@@ -169,7 +178,14 @@ before trusting it, since this input UI has already been redesigned twice):
   the Filter column for each row (auto-suggested from the current Version
   to Monitor list, but editable), then click "🔄 Sync เข้าชีต" once at the
   end to write every filled row - it POSTs one platform at a time, so a
-  partial failure leaves the rest of the table intact to retry.
+  partial failure leaves the rest of the table intact to retry. **For a
+  multi-day trend read** (Step 3's "Trend read" mode) use the separate
+  "Backfill ย้อนหลัง" section instead: pick the platform from its own
+  dropdown (`cr-backfill-platform`), paste the `<date>  <value>` lines into
+  `cr-backfill-paste`, check the parsed date+value table, then "🔄 Sync
+  ย้อนหลังเข้าชีต" - each date is written under its own row (existing
+  placeholder filled in place, otherwise a new row inserted after that
+  platform's block), so re-running it doesn't overwrite prior days.
 
 The human still reviews what's in the table/paste box and clicks the
 existing Sync/ลงตาราง buttons themselves before anything is written.
