@@ -147,6 +147,7 @@
             <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync to Google Sheet</button>
             <button class="btn-ghost" id="tec-clear-btn" onclick="clearTecRows()">ล้างตาราง</button>
             <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
+            <a class="btn-ghost" id="tec-open-sheet" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1613893186#gid=1613893186" target="_blank" rel="noopener">📄 เปิดชีตต้นฉบับ</a>
             <div id="error-codes-result" class="result-text"></div>
           </div>
           <div id="error-codes-export-panel" style="background:var(--surface);">
@@ -837,9 +838,9 @@ function addErrorCodeRow(rank, playerVersion, errorCode, approxSession) {
   const row = document.createElement('tr');
   row.innerHTML = `
     <td>${escapeHtml(nextRank)}</td>
-    <td><input class="cell-input tec-version" style="width:100%;min-width:170px;text-align:left;font-weight:400;" value="${escapeHtml(playerVersion || '')}" placeholder="เช่น avplayer-26.6"></td>
-    <td><input class="cell-input tec-code" style="width:100px;" value="${escapeHtml(errorCode || '')}" placeholder="เช่น -12643"></td>
-    <td><input class="cell-input tec-session" style="width:100px;" value="${escapeHtml(approxSession || '')}" placeholder="เช่น 600"></td>
+    <td><input class="cell-input tec-version" style="width:100%;min-width:170px;text-align:left;font-weight:400;" value="${escapeHtml(playerVersion || '')}"></td>
+    <td><input class="cell-input tec-code" style="width:100px;" value="${escapeHtml(errorCode || '')}"></td>
+    <td><input class="cell-input tec-session" style="width:100px;" value="${escapeHtml(approxSession || '')}"></td>
   `;
   tbody.appendChild(row);
   return row;
@@ -860,9 +861,9 @@ function resetTecInput() {
   document.getElementById('tec-paste-input').value = '';
   document.getElementById('tec-date').value = '';
   document.getElementById('tec-platform').value = '';
-  setPlatformAutofilled(false, '');
-  document.getElementById('tec-filters-preview').textContent = '';
-  renderTecRows([], TEC_DEFAULT_ROWS);
+  // Drops the autofill highlight, the Filters preview and every table row in
+  // one go, so nothing that was just synced can be left sitting in the form.
+  onTecPlatformChange(true);
 }
 
 // Clears only the pasted text, leaving the table and platform alone - useful
@@ -997,8 +998,8 @@ async function syncTopErrorCodes() {
       body: JSON.stringify({ platform: block.platform, entries, dateLabel: date }),
     });
     await loadTopErrorCodes(); // pull back what the sheet now holds
-    resetTecInput();
-    resultEl.textContent = data.result;
+    resetTecInput(); // runs last - loadTopErrorCodes restores the platform it found
+    resultEl.textContent = data.result + '\nล้างฟอร์มให้แล้ว - พร้อมใส่ platform ถัดไป';
   } catch (err) {
     resultEl.textContent = 'Error: ' + err.message;
   } finally {
