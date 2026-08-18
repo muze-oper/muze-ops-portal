@@ -33,16 +33,35 @@ Android TV, Tizen, LG, Vidaa).
 **Crashlytics platform is often not visible at all** - a cropped
 Crashlytics screenshot usually shows the "Versions" filter chip (e.g.
 `Versions = "4.0.18 (55)" and 17 more`) but not the app/platform picker
-above it, since that's typically cropped out of what gets pasted. Don't
-guess or leave it blank - cross-check the version number in that chip
-against the "Version to Monitor" tables in /tvn/crashlytics's own Step 1
-section (or `GET /api/app-releases`, which is what that section reads
-from): each platform's Deploy Tag history is far enough apart from the
-others (e.g. Apple TV's builds have been seen trailing iOS Mobile/Android
-Mobile by ~9 minor versions) that the filtered version usually matches
-exactly one platform's recent-versions list. Say which platform you
-inferred and the version string that made it unique, so it can be
-double-checked against the dropdown before syncing.
+above it, since that's typically cropped out of what gets pasted. When it
+*is* visible, it reads something like `[PROD][TVS] TrueVisions NOW
+(Android + An...)` or `(iOS + ...)` - this alone only tells you Android vs
+iOS, not which of the two platforms sharing that OS (Android Mobile /
+Android TV, or iOS Mobile / Apple TV).
+
+To narrow it the rest of the way (or when the picker is cropped out
+entirely), cross-check the version number in the Versions chip:
+
+- Cross-check it against the "Version to Monitor" tables in
+  /tvn/crashlytics's own Step 1 section (or `GET /api/app-releases`, which
+  is what that section reads from) - each platform's Deploy Tag history is
+  usually far enough apart from the others (e.g. Apple TV's builds have
+  been seen trailing iOS Mobile/Android Mobile by ~9 minor versions) that
+  the filtered version matches exactly one platform's recent-versions
+  list.
+- **This can still be ambiguous** - iOS Mobile and Android Mobile have
+  been seen sharing the exact same version number (both on `4.0.27`),
+  since they ship on the same release cadence. If the app/platform picker
+  is visible, use it to settle Android-vs-iOS first, then the version
+  number only needs to separate Mobile from TV within that OS - which the
+  version string usually does on its own: **a `-tv` suffix marks the TV
+  build** (seen in practice: `4.0.28-tv (1001)` for Android TV vs plain
+  `4.0.27 (1)` for Android Mobile, both under the same Android app). If
+  even that doesn't resolve it, say so and ask which platform it is rather
+  than guessing between the two - don't default to either one.
+- Say which platform you inferred and what made it unique (the picker
+  text, the version string, or both), so it can be double-checked against
+  the dropdown before syncing.
 
 ## Step 2 - sanity-check the filter before trusting the number(s)
 
