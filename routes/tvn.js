@@ -548,6 +548,127 @@ router.post('/api/tvn/top-error-codes/record', async (req, res) => {
   }
 });
 
+// --- Firebase Crashlytics "Crashlytics Error" tab: Top Issues list, laid
+// out exactly like the BitMovin Top Error Codes tab above - one block of
+// consecutive rows per platform, Filters (A) + Platform (B) established per
+// block, this only ever inserts new rows at the top of a block (newest
+// snapshot first), never rewrites/removes what's already there. Columns
+// line up 1:1 with what Firebase's own issue list table shows (Issue,
+// Versions, Trend, Events, Users), so a row copy-pasted straight out of
+// that UI lands as tab-separated fields in the same order.
+const CRASHLYTICS_ERR_SHEET_GID = 570219984;
+const CRASHLYTICS_ERR_FILTERS_COL_IDX = 0; // column A
+const CRASHLYTICS_ERR_PLATFORM_COL_IDX = 1; // column B
+const CRASHLYTICS_ERR_DATE_COL_IDX = 2; // column C - first of the six written columns (C:H)
+const CRASHLYTICS_ERR_WRITE_COLS = 6; // Date Check, Issue, Versions, Trends, Events, Users
+
+async function fetchCrashlyticsErrorsTitleAndRows() {
+  const title = await resolveSheetTitleByGid(SHEET_ID, CRASHLYTICS_ERR_SHEET_GID);
+  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:H5000`);
+  return { title, rows };
+}
+
+function readCrashlyticsErrorEntry(row) {
+  return {
+    date: row[CRASHLYTICS_ERR_DATE_COL_IDX] || '',
+    issue: row[CRASHLYTICS_ERR_DATE_COL_IDX + 1] || '',
+    versions: row[CRASHLYTICS_ERR_DATE_COL_IDX + 2] || '',
+    trend: row[CRASHLYTICS_ERR_DATE_COL_IDX + 3] || '',
+    events: row[CRASHLYTICS_ERR_DATE_COL_IDX + 4] || '',
+    users: row[CRASHLYTICS_ERR_DATE_COL_IDX + 5] || '',
+  };
+}
+
+function groupCrashlyticsErrorBlocks(rows) {
+  const blocks = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const platform = (row[CRASHLYTICS_ERR_PLATFORM_COL_IDX] || '').trim();
+    if (!platform) continue;
+    const rowNum = i + 1; // sheet rows are 1-based and row 1 is the header
+    const last = blocks[blocks.length - 1];
+    if (last && last.platform === platform && last.endRow === rowNum - 1) {
+      last.endRow = rowNum;
+      last.entries.push(readCrashlyticsErrorEntry(row));
+    } else {
+      blocks.push({
+        platform,
+        filters: (row[CRASHLYTICS_ERR_FILTERS_COL_IDX] || '').trim(),
+        startRow: rowNum,
+        endRow: rowNum,
+        entries: [readCrashlyticsErrorEntry(row)],
+      });
+    }
+  }
+  return blocks;
+}
+
+router.get('/api/tvn/crashlytics-errors', async (req, res) => {
+  if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
+  try {
+    const { rows } = await fetchCrashlyticsErrorsTitleAndRows();
+    res.json({ blocks: groupCrashlyticsErrorBlocks(rows) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const CRASHLYTICS_ERR_MAX_ROWS_PER_SYNC = 50;
+
+router.post('/api/tvn/crashlytics-errors/record', async (req, res) => {
+  if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
+  const { platform, entries, dateLabel, filter } = req.body || {};
+  try {
+    const platformName = String(platform || '').trim();
+    if (!platformName) {
+      return res.status(400).json({ error: 'ไม่ได้ระบุ platform' });
+    }
+    const { title, rows } = await fetchCrashlyticsErrorsTitleAndRows();
+    let block = groupCrashlyticsErrorBlocks(rows).find(b => b.platform.toLowerCase() === platformName.toLowerCase());
+    if (!block) {
+      // Same fallback as the Crash-free % record endpoint - the app's own
+      // platform list is fixed independent of whichever blocks currently
+      // exist in the sheet, so a missing platform gets a fresh block
+      // appended at the bottom instead of failing outright.
+      const newRow = rows.length + 1;
+      block = { platform: platformName, filters: '', startRow: newRow, endRow: newRow, entries: [] };
+    }
+
+    const list = (Array.isArray(entries) ? entries : []).filter(e => e && String(e.issue || '').trim());
+    if (!list.length) {
+      return res.status(400).json({ error: `${platformName}: ไม่มีข้อมูลให้บันทึก` });
+    }
+    if (list.length > CRASHLYTICS_ERR_MAX_ROWS_PER_SYNC) {
+      return res.status(400).json({ error: `${platformName}: รับได้สูงสุด ${CRASHLYTICS_ERR_MAX_ROWS_PER_SYNC} แถวต่อครั้ง (ส่งมา ${list.length})` });
+    }
+
+    const date = String(dateLabel || '').trim() || formatBangkokWeekdayLabel();
+    const filtersValue = filter || block.filters || '';
+
+    await insertSheetRows(SHEET_ID, CRASHLYTICS_ERR_SHEET_GID, block.startRow, list.length);
+
+    // Filters and Platform go on every row - they're what groups the rows
+    // into a block, so a row missing them would split the platform's run.
+    const grid = list.map(e => [
+      filtersValue,
+      block.platform,
+      date,
+      String(e.issue || '').trim(),
+      String(e.versions || '').trim(),
+      String(e.trend || '').trim(),
+      String(e.events || '').trim(),
+      String(e.users || '').trim(),
+    ]);
+    const lastCol = colLetter(CRASHLYTICS_ERR_DATE_COL_IDX + CRASHLYTICS_ERR_WRITE_COLS - 1);
+    const endRow = block.startRow + list.length - 1;
+    await updateSheetGrid(SHEET_ID, `'${title}'!A${block.startRow}:${lastCol}${endRow}`, grid);
+
+    res.json({ result: `${block.platform}: แทรก ${list.length} issue วันที่ ${date} ที่แถว ${block.startRow}-${endRow} (ของเดิมเลื่อนลง)` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Firebase Crashlytics tab: a history log now (this used to be one
 // static row per platform - the sheet itself has since grown a Date Check
 // history per platform, most visibly on iOS Mobile which already carries

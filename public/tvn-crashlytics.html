@@ -100,36 +100,44 @@
       </div>
     </div>
 
-    <div class="block-head"><h2 class="h">บันทึก Crash-free Users %</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">บันทึก Crashlytics Top Issues</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">เช็คค่า Crash-free users % ตาม filter ด้านบน (7 วันล่าสุด) ทีละ platform — เลือก platform จาก dropdown แล้ววาง (หรือพิมพ์) ค่าที่อ่านได้ กด "ลงตาราง" แล้วทำซ้ำทีละ platform ก่อนกด Sync ครั้งเดียวตอนท้าย</div>
+      <div class="hint">คัดลอกแถวจากตาราง Issues ในหน้า Firebase Crashlytics (Issue / Versions / Trend / Events / Users) มาวางได้ตรงๆ — บรรทัดแรกใส่ <code>Platform: ชื่อ platform</code> เพื่อเลือก platform ให้อัตโนมัติ</div>
 
-      <div class="tec-paste-row" style="margin-top:12px;align-items:flex-end;">
-        <div class="tec-paste-col" style="flex:0 0 220px;">
-          <label class="field-label" for="cr-target-platform">Platform</label>
-          <select id="cr-target-platform"><option value="">— เลือก platform —</option></select>
-        </div>
+      <div class="tec-paste-row" style="margin-top:12px;">
         <div class="tec-paste-col">
-          <label class="field-label" for="cr-paste-input">ค่า Crash-free Users ที่อ่านได้</label>
-          <div class="cr-value-row">
-            <input class="cell-input" id="cr-paste-input" placeholder="99.85" inputmode="decimal" onkeydown="if(event.key==='Enter'){applyCrValue();}">
-            <span class="cr-pct-sign">%</span>
-            <button class="btn-ghost" onclick="applyCrValue()">⬇ ลงตาราง</button>
+          <div class="step"><span class="step-no">Step 1</span><span class="step-text">วาง 1 บรรทัดต่อ 1 issue</span></div>
+          <textarea id="cr-err-paste" class="paste-input" oninput="parseCrErrPasted()"></textarea>
+          <div id="cr-err-parse-note" class="result-text"></div>
+          <div class="table-actions">
+            <button class="btn-ghost" onclick="clearCrErrPaste()">🧹 ล้างข้อความที่วาง</button>
           </div>
-          <div id="cr-parse-result" class="result-text"></div>
+        </div>
+
+        <div class="tec-paste-col">
+          <div class="step"><span class="step-no">Step 2</span><span class="step-text">เลือก Platform + ตรวจค่าที่แยกได้ในตาราง แก้ไขได้ก่อน sync</span></div>
+          <div class="field-row" style="margin:8px 0;">
+            <label class="field-label" for="cr-err-platform">Platform</label>
+            <select id="cr-err-platform" onchange="onCrErrPlatformChange(true)"><option value="">— เลือก platform —</option></select>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="data" id="cr-err-table">
+              <thead><tr><th style="text-align:left;">Issue</th><th style="text-align:left;">Versions</th><th style="text-align:left;">Trend</th><th>Events</th><th>Users</th></tr></thead>
+              <tbody id="cr-err-table-body"><tr><td colspan="5" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      <table class="data" id="cr-table" style="margin-top:14px;">
-        <thead><tr><th>Platform</th><th>Crash-free Users %</th><th>Filter (versions ที่กำลัง monitor)</th><th>ล่าสุดที่บันทึกไว้</th></tr></thead>
-        <tbody id="cr-table-body"><tr><td colspan="4" class="hint">กำลังโหลดข้อมูล...</td></tr></tbody>
-      </table>
-
-      <div class="toolbar" style="margin-top:12px;">
-        <button class="btn-primary" id="cr-sync-btn" onclick="syncCrashlytics()">🔄 Sync เข้าชีต</button>
-        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=0#gid=0" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
+      <div class="step" style="margin-bottom:8px;">
+        <span class="step-no">Step 3</span>
+        <span class="step-text">กด Sync — แทรกไว้บนสุดของ platform นั้น ของเดิมเลื่อนลง ไม่มีอะไรถูกลบ</span>
       </div>
-      <div id="cr-record-result" class="result-text"></div>
+      <div class="toolbar">
+        <button class="btn-primary" id="cr-err-sync-btn" onclick="syncCrErr()">🔄 Sync Top Issues เข้าชีต</button>
+        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=570219984#gid=570219984" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
+      </div>
+      <div id="cr-err-result" class="result-text"></div>
     </div>
 
     <div class="block-head"><h2 class="h">Backfill ย้อนหลัง</h2><div class="rule"></div></div>
@@ -172,6 +180,38 @@
         <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=0#gid=0" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
       </div>
       <div id="cr-backfill-result" class="result-text"></div>
+    </div>
+
+    <div class="block-head"><h2 class="h">บันทึก Crash-free Users %</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="hint">เช็คค่า Crash-free users % ตาม filter ด้านบน (7 วันล่าสุด) ทีละ platform — เลือก platform จาก dropdown แล้ววาง (หรือพิมพ์) ค่าที่อ่านได้ กด "ลงตาราง" แล้วทำซ้ำทีละ platform ก่อนกด Sync ครั้งเดียวตอนท้าย</div>
+
+      <div class="tec-paste-row" style="margin-top:12px;align-items:flex-end;">
+        <div class="tec-paste-col" style="flex:0 0 220px;">
+          <label class="field-label" for="cr-target-platform">Platform</label>
+          <select id="cr-target-platform"><option value="">— เลือก platform —</option></select>
+        </div>
+        <div class="tec-paste-col">
+          <label class="field-label" for="cr-paste-input">ค่า Crash-free Users ที่อ่านได้</label>
+          <div class="cr-value-row">
+            <input class="cell-input" id="cr-paste-input" placeholder="99.85" inputmode="decimal" onkeydown="if(event.key==='Enter'){applyCrValue();}">
+            <span class="cr-pct-sign">%</span>
+            <button class="btn-ghost" onclick="applyCrValue()">⬇ ลงตาราง</button>
+          </div>
+          <div id="cr-parse-result" class="result-text"></div>
+        </div>
+      </div>
+
+      <table class="data" id="cr-table" style="margin-top:14px;">
+        <thead><tr><th>Platform</th><th>Crash-free Users %</th><th>Filter (versions ที่กำลัง monitor)</th><th>ล่าสุดที่บันทึกไว้</th></tr></thead>
+        <tbody id="cr-table-body"><tr><td colspan="4" class="hint">กำลังโหลดข้อมูล...</td></tr></tbody>
+      </table>
+
+      <div class="toolbar" style="margin-top:12px;">
+        <button class="btn-primary" id="cr-sync-btn" onclick="syncCrashlytics()">🔄 Sync เข้าชีต</button>
+        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=0#gid=0" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
+      </div>
+      <div id="cr-record-result" class="result-text"></div>
     </div>
   </section>
 
@@ -317,6 +357,7 @@ function populateCrTargetSelect() {
     .join('');
   document.getElementById('cr-target-platform').innerHTML = options;
   document.getElementById('cr-backfill-platform').innerHTML = options;
+  document.getElementById('cr-err-platform').innerHTML = options;
 }
 
 // Best-effort match against the App Releases platform names (which spell
@@ -608,6 +649,135 @@ async function syncCrBackfill() {
     resultEl.textContent = '✓ ' + data.result;
     resetCrBackfillInput();
     await loadCrashlyticsForm(); // refreshes "ล่าสุดที่บันทึกไว้" on the quick-entry table too
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---- Crashlytics Top Issues: paste rows copied straight out of the
+// Firebase Crashlytics issue list table (Issue, Versions, Trend, Events,
+// Users - tab-separated, matching that table's own column order) and sync
+// them as a new ranked snapshot for one platform, inserted at the top of
+// that platform's block - same insert-and-push-down convention the
+// BitMovin Top Error Codes tab already uses. ----
+
+function setCrErrPlatformAutofilled(on) {
+  document.getElementById('cr-err-platform').classList.toggle('autofilled', !!on);
+}
+
+function applyCrErrPlatformHint(lines) {
+  const hinted = lines.map(parseCrPlatformLine).find(Boolean);
+  if (!hinted) return null;
+  const match = CR_PLATFORM_OPTIONS.find(p => p.toLowerCase() === hinted.toLowerCase());
+  const select = document.getElementById('cr-err-platform');
+  if (match) {
+    select.value = match;
+    setCrErrPlatformAutofilled(true);
+    onCrErrPlatformChange(false);
+  }
+  return hinted;
+}
+
+// "Issue<TAB>Versions<TAB>Trend<TAB>Events<TAB>Users" - a row copied
+// straight out of Firebase's own issue list table pastes as tab-separated
+// fields in exactly this order, so no reformatting is needed by hand.
+function parseCrErrLine(line) {
+  const parts = line.split('\t').map(s => s.trim());
+  if (parts.length < 5 || !parts[0]) return null;
+  const [issue, versions, trend, events, users] = parts;
+  return { issue, versions, trend, events, users };
+}
+
+function parseCrErrPasted() {
+  const text = document.getElementById('cr-err-paste').value;
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const platformHint = applyCrErrPlatformHint(lines);
+
+  const entries = [];
+  const skipped = [];
+  lines.forEach(line => {
+    if (parseCrPlatformLine(line)) return; // consumed by applyCrErrPlatformHint above
+    const parsed = parseCrErrLine(line);
+    if (parsed) entries.push(parsed); else skipped.push(line);
+  });
+  renderCrErrTable(entries);
+  const note = document.getElementById('cr-err-parse-note');
+  const notes = [];
+  if (platformHint) {
+    notes.push(CR_PLATFORM_OPTIONS.some(p => p.toLowerCase() === platformHint.toLowerCase())
+      ? `เลือก Platform เป็น "${platformHint}" จากบรรทัดแรก`
+      : `บรรทัดแรกระบุ Platform "${platformHint}" ซึ่งไม่ตรงกับตัวเลือกใด - เลือกเองด้านล่าง`);
+  }
+  if (!lines.length) { note.textContent = ''; return; }
+  if (!entries.length) notes.push('อ่านค่าไม่ได้สักบรรทัด - ต้องมี 5 field คั่นด้วย Tab (Issue, Versions, Trend, Events, Users)');
+  else notes.push(`แยกได้ ${entries.length} issue` + (skipped.length ? ` (ข้าม ${skipped.length} บรรทัดที่อ่านไม่ออก)` : ''));
+  note.textContent = notes.join(' · ');
+}
+
+function renderCrErrTable(entries) {
+  const tbody = document.getElementById('cr-err-table-body');
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr>';
+    return;
+  }
+  tbody.innerHTML = entries.map((e, i) => `
+    <tr>
+      <td><input class="date-cell-input" style="width:100%;min-width:220px;text-align:left;" data-idx="${i}" data-field="issue" value="${escapeHtml(e.issue)}"></td>
+      <td><input class="date-cell-input" style="width:100%;min-width:120px;" data-idx="${i}" data-field="versions" value="${escapeHtml(e.versions)}"></td>
+      <td><input class="date-cell-input" style="width:100%;min-width:90px;" data-idx="${i}" data-field="trend" value="${escapeHtml(e.trend)}"></td>
+      <td><input class="cell-input" data-idx="${i}" data-field="events" value="${escapeHtml(e.events)}"></td>
+      <td><input class="cell-input" data-idx="${i}" data-field="users" value="${escapeHtml(e.users)}"></td>
+    </tr>
+  `).join('');
+}
+
+function readCrErrRows() {
+  const rows = new Map();
+  document.querySelectorAll('#cr-err-table-body input[data-idx]').forEach(input => {
+    const idx = input.dataset.idx;
+    if (!rows.has(idx)) rows.set(idx, {});
+    rows.get(idx)[input.dataset.field] = input.value.trim();
+  });
+  return [...rows.values()].filter(e => e.issue);
+}
+
+function onCrErrPlatformChange(byHand) {
+  if (byHand) setCrErrPlatformAutofilled(false);
+}
+
+function clearCrErrPaste() {
+  document.getElementById('cr-err-paste').value = '';
+  document.getElementById('cr-err-parse-note').textContent = '';
+  renderCrErrTable([]);
+}
+
+function resetCrErrInput() {
+  clearCrErrPaste();
+  document.getElementById('cr-err-platform').value = '';
+  setCrErrPlatformAutofilled(false);
+}
+
+async function syncCrErr() {
+  const btn = document.getElementById('cr-err-sync-btn');
+  const resultEl = document.getElementById('cr-err-result');
+  const platform = document.getElementById('cr-err-platform').value;
+  const entries = readCrErrRows();
+
+  if (!platform) { resultEl.textContent = 'ยังไม่ได้เลือก platform'; return; }
+  if (!entries.length) { resultEl.textContent = 'ยังไม่มีข้อมูลในตารางให้ sync'; return; }
+
+  btn.disabled = true;
+  resultEl.textContent = 'กำลัง sync...';
+  try {
+    const data = await fetchJson('/api/tvn/crashlytics-errors/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, entries }),
+    });
+    resultEl.textContent = '✓ ' + data.result;
+    resetCrErrInput();
   } catch (err) {
     resultEl.textContent = 'Error: ' + err.message;
   } finally {
