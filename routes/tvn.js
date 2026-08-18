@@ -557,10 +557,11 @@ router.post('/api/tvn/top-error-codes/record', async (req, res) => {
 // BitMovin Top Error Codes tab. gid is stable (0) but resolve the title
 // anyway in case it's ever renamed like BitMovin Error was.
 const CRASHLYTICS_SHEET_GID = 0;
-const CRASHLYTICS_FILTERS_COL_IDX = 0; // column A - versions being monitored, e.g. "4.0.27,4.0.26,4.0.25"
-const CRASHLYTICS_PLATFORM_COL_IDX = 1; // column B
-const CRASHLYTICS_DATE_CHECK_COL_IDX = 2; // column C
-const CRASHLYTICS_VALUE_COL_IDX = 3; // column D - plain number, NOT percent-formatted (unlike BitMovin Error's columns)
+const CRASHLYTICS_SYNC_DATE_COL_IDX = 0; // column A - the real calendar date the row was written (today), auto-filled server-side - not the date the reading is about, see Date Check
+const CRASHLYTICS_FILTERS_COL_IDX = 1; // column B - versions being monitored, e.g. "4.0.27,4.0.26,4.0.25"
+const CRASHLYTICS_PLATFORM_COL_IDX = 2; // column C
+const CRASHLYTICS_DATE_CHECK_COL_IDX = 3; // column D (sheet header reads "Date Monitor")
+const CRASHLYTICS_VALUE_COL_IDX = 4; // column E - plain number, NOT percent-formatted (unlike BitMovin Error's columns)
 
 // "17-Aug-26" style, matching the existing cells in this tab (different from
 // BitMovin Error's "Mon-3-Aug" and the CAB tracker's "17 Aug 2026").
@@ -574,7 +575,7 @@ function formatBangkokShortDate() {
 
 async function fetchCrashlyticsTitleAndRows() {
   const title = await resolveSheetTitleByGid(SHEET_ID, CRASHLYTICS_SHEET_GID);
-  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:D2000`);
+  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:E2000`);
   return { title, rows };
 }
 
@@ -589,6 +590,7 @@ function groupCrashlyticsBlocks(rows) {
     if (!platform) continue;
     const rowNum = i + 1; // sheet rows are 1-based and row 1 is the header
     const entry = {
+      syncDate: row[CRASHLYTICS_SYNC_DATE_COL_IDX] || '',
       filters: row[CRASHLYTICS_FILTERS_COL_IDX] || '',
       dateCheck: row[CRASHLYTICS_DATE_CHECK_COL_IDX] || '',
       value: row[CRASHLYTICS_VALUE_COL_IDX] || '',
@@ -614,9 +616,11 @@ router.get('/api/tvn/crashlytics', async (req, res) => {
       // untouched placeholder row (blank dateCheck/value) never counts.
       const filled = b.history.filter(h => h.dateCheck !== '' || h.value !== '');
       const latest = filled[filled.length - 1] || null;
+      const base = latest || b.history[0];
       return {
         platform: b.platform,
-        filter: (latest || b.history[0]).filters || '',
+        filter: base.filters || '',
+        syncDate: base.syncDate || '',
         dateCheck: latest ? latest.dateCheck : '',
         value: latest ? latest.value : '',
       };
@@ -654,7 +658,7 @@ router.post('/api/tvn/crashlytics/record', async (req, res) => {
       // below fill this brand-new row in place, same as any other
       // not-yet-recorded platform.
       const newRow = rows.length + 1;
-      block = { platform: platformName, startRow: newRow, endRow: newRow, history: [{ filters: '', dateCheck: '', value: '' }] };
+      block = { platform: platformName, startRow: newRow, endRow: newRow, history: [{ syncDate: '', filters: '', dateCheck: '', value: '' }] };
     }
 
     const list = Array.isArray(entries) && entries.length
@@ -668,6 +672,13 @@ router.post('/api/tvn/crashlytics/record', async (req, res) => {
     if (!list.length) {
       return res.status(400).json({ error: entries ? 'ไม่มีข้อมูลให้ sync' : `ค่า "${value}" ไม่ใช่ตัวเลข` });
     }
+
+    // One real calendar date for the whole batch - column A records when
+    // this sync actually ran, not which date each entry's reading is about
+    // (that's entry.date, going into Date Check instead). A 6-day backfill
+    // synced today gets the same "17-Aug-26" in column A on every one of
+    // its 6 rows, even though their Date Check values span 12-17 Aug.
+    const syncDate = formatBangkokShortDate();
 
     const written = [];
     for (const entry of list) {
@@ -684,12 +695,12 @@ router.post('/api/tvn/crashlytics/record', async (req, res) => {
       if (!isPlaceholder) {
         await insertSheetRows(SHEET_ID, CRASHLYTICS_SHEET_GID, rowNum, 1);
       }
-      await updateSheetGrid(SHEET_ID, `'${title}'!A${rowNum}:D${rowNum}`, [[filtersValue, block.platform, entry.date, entry.value]]);
+      await updateSheetGrid(SHEET_ID, `'${title}'!A${rowNum}:E${rowNum}`, [[syncDate, filtersValue, block.platform, entry.date, entry.value]]);
 
       // Keep the in-memory block in sync with what was just written, so the
       // next entry in this same batch sees the right "last row"/endRow -
       // re-fetching the whole sheet on every entry would be needlessly slow.
-      block = { ...block, endRow: rowNum, history: [...block.history, { filters: filtersValue, dateCheck: entry.date, value: entry.value }] };
+      block = { ...block, endRow: rowNum, history: [...block.history, { syncDate, filters: filtersValue, dateCheck: entry.date, value: entry.value }] };
       written.push(`${entry.date}: ${entry.value}%`);
     }
 
