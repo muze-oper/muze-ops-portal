@@ -31,13 +31,13 @@
 
   <div class="view-switch-row">
     <div class="view-toggle" role="tablist" aria-label="สลับหน้า">
-      <button id="tab-input" class="active" onclick="switchTvnView('input')">✍️ ใส่ข้อมูลใหม่</button>
-      <button id="tab-dash" onclick="switchTvnView('dash')">📊 Dashboard</button>
+      <button id="tab-input" onclick="switchTvnView('input')">✍️ ใส่ข้อมูลใหม่</button>
+      <button id="tab-dash" class="active" onclick="switchTvnView('dash')">📊 Dashboard</button>
     </div>
     <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1338052572#gid=1338052572" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
   </div>
 
-  <section class="block" id="view-input">
+  <section class="block" id="view-input" hidden>
     <div class="card">
       <div class="steps">
         <div class="step">
@@ -160,7 +160,7 @@
     </div>
   </section>
 
-  <section class="block" id="view-dash" hidden>
+  <section class="block" id="view-dash">
     <div class="block-head"><h2 class="h">BITMOVIN Error Sessions ต่อชั่วโมง</h2><div class="rule"></div></div>
     <div class="card">
       <div class="toolbar">
