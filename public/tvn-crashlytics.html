@@ -59,12 +59,12 @@
 
   <div class="view-switch-row">
     <div class="view-toggle" role="tablist" aria-label="สลับหน้า">
-      <button id="cr-tab-input" class="active" onclick="switchCrashView('input')">✍️ ใส่ข้อมูลใหม่</button>
-      <button id="cr-tab-dash" onclick="switchCrashView('dash')">📊 Dashboard</button>
+      <button id="cr-tab-input" onclick="switchCrashView('input')">✍️ ใส่ข้อมูลใหม่</button>
+      <button id="cr-tab-dash" class="active" onclick="switchCrashView('dash')">📊 Dashboard</button>
     </div>
   </div>
 
-  <section class="block" id="cr-view-input">
+  <section class="block" id="cr-view-input" hidden>
     <div class="card">
       <div class="step1-intro">
         <div class="step1-intro-image">
@@ -215,7 +215,7 @@
     </div>
   </section>
 
-  <section class="block" id="cr-view-dash" hidden>
+  <section class="block" id="cr-view-dash">
     <div class="block-head"><h2 class="h">Deploy Tag ล่าสุด</h2><div class="rule"></div></div>
     <div class="card">
       <div class="step0-layout">
