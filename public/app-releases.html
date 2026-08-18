@@ -30,7 +30,7 @@
     <div class="card">
       <div class="hint">แสดงแถวล่าสุดของแต่ละ platform ในชีต (ไม่ใช่ประวัติทั้งหมด)</div>
       <div class="toolbar">
-        <button class="btn-ghost" onclick="loadAppReleases()">🔄 Refresh</button>
+        <button class="btn-ghost" onclick="loadAppReleases(true)">🔄 Refresh</button>
         <span class="last-updated" id="app-releases-updated"></span>
       </div>
       <div class="sheet-link-row">
@@ -43,11 +43,11 @@
 </div>
 
 <script>
-async function loadAppReleases() {
+async function loadAppReleases(forceRefresh) {
   const body = document.getElementById('app-releases-body');
   const updated = document.getElementById('app-releases-updated');
   try {
-    const data = await fetchJson('/api/app-releases');
+    const data = await fetchJson('/api/app-releases' + (forceRefresh ? '?refresh=1' : ''));
     renderAppReleases(data.platforms, data.lastUpdated);
     updated.textContent = 'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH');
   } catch (err) {

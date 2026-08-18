@@ -222,7 +222,7 @@
         <div class="step0-info">
           <div class="hint">เวอร์ชันล่าสุดของแต่ละ platform จาก Deploy Tag ในชีต CAB Deploy Tracker (ทุกแท็บ)</div>
           <div class="toolbar">
-            <button class="btn-ghost" onclick="loadStep0()">🔄 Refresh</button>
+            <button class="btn-ghost" onclick="loadStep0(true)">🔄 Refresh</button>
           </div>
           <span class="last-updated" id="step0-updated"></span>
           <div class="sheet-link-row">
@@ -250,11 +250,11 @@ function switchCrashView(view) {
 // with version history) both read the same Apps Releases data, so one fetch
 // feeds both renderers instead of hitting the API twice on load/refresh.
 let appReleasesPlatforms = [];
-async function loadStep0() {
+async function loadStep0(forceRefresh) {
   const body = document.getElementById('step0-body');
   const updated = document.getElementById('step0-updated');
   try {
-    const data = await fetchJson('/api/app-releases');
+    const data = await fetchJson('/api/app-releases' + (forceRefresh ? '?refresh=1' : ''));
     appReleasesPlatforms = data.platforms || [];
     renderStep0(data.platforms);
     renderStep1(data.platforms);
