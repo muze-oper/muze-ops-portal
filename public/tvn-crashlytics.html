@@ -100,7 +100,7 @@
       </div>
     </div>
 
-    <div class="block-head"><h2 class="h">บันทึก Crashlytics Top Issues</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">Crashlytics Issues</h2><div class="rule"></div></div>
     <div class="card">
       <div class="hint">คัดลอกแถวจากตาราง Issues ในหน้า Firebase Crashlytics (Issue / Versions / Trend / Events / Users) มาวางได้ตรงๆ — บรรทัดแรกใส่ <code>Platform: ชื่อ platform</code> เพื่อเลือก platform ให้อัตโนมัติ</div>
 
@@ -134,13 +134,13 @@
         <span class="step-text">กด Sync — แทรกไว้บนสุดของ platform นั้น ของเดิมเลื่อนลง ไม่มีอะไรถูกลบ</span>
       </div>
       <div class="toolbar">
-        <button class="btn-primary" id="cr-err-sync-btn" onclick="syncCrErr()">🔄 Sync Top Issues เข้าชีต</button>
+        <button class="btn-primary" id="cr-err-sync-btn" onclick="syncCrErr()">🔄 Sync Crashlytics Issues เข้าชีต</button>
         <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=570219984#gid=570219984" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
       </div>
       <div id="cr-err-result" class="result-text"></div>
     </div>
 
-    <div class="block-head"><h2 class="h">Backfill ย้อนหลัง</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">Crash-free users</h2><div class="rule"></div></div>
     <div class="card">
       <div class="hint">สำหรับใส่ข้อมูลหลายวันย้อนหลังทีเดียว (เช่น export/summary ที่มีหลายวันในหน้าเดียว) — เลือก platform เดียวต่อครั้ง วางข้อความ 1 บรรทัดต่อ 1 วัน รูปแบบ <code>เดือน วันที่  ค่า%</code> เช่น <code>Aug 11  99.92</code></div>
 
@@ -475,7 +475,7 @@ async function syncCrashlytics() {
   }
 }
 
-// ---- Backfill ย้อนหลัง: paste several days of Crash-free Users % for one
+// ---- Crash-free users: paste several days of Crash-free Users % for one
 // platform at once (e.g. a weekly export/summary), instead of the quick
 // table above which always writes today's date. ----
 
@@ -656,7 +656,7 @@ async function syncCrBackfill() {
   }
 }
 
-// ---- Crashlytics Top Issues: paste rows copied straight out of the
+// ---- Crashlytics Issues: paste rows copied straight out of the
 // Firebase Crashlytics issue list table (Issue, Versions, Trend, Events,
 // Users - tab-separated, matching that table's own column order) and sync
 // them as a new ranked snapshot for one platform, inserted at the top of
