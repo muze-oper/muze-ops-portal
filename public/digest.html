@@ -18,35 +18,36 @@
     header h1 { font-size: 18px; }
     header div { display: flex; gap: 16px; align-items: center; }
     header a { color: white; font-size: 12px; opacity: 0.85; text-decoration: none; }
-    #content { max-width: 1900px; margin: 12px auto 16px; padding: 0 12px; display:flex; gap:14px; align-items:flex-start; }
-    #left-col { width: 280px; flex-shrink: 0; position: sticky; top: 16px; transition: width 0.15s, opacity 0.15s; }
-    #left-col.collapsed { width: 0; opacity: 0; overflow: hidden; pointer-events: none; margin-right: -14px; }
-    #right-col { flex: 1; min-width: 0; }
-    #left-col-toggle {
-      background: rgba(255,255,255,0.2); border: none; color: white; width: 24px; height: 24px;
-      border-radius: 5px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center;
-    }
-    /* Top-level mode switcher — the single control everything else follows */
+    #content { max-width: 1900px; margin: 12px auto 16px; padding: 0 12px; }
+    #right-col { min-width: 0; }
+    /* Top-level Email Volume bar */
     #mode-bar { max-width: 1900px; margin: 16px auto 0; padding: 0 12px; }
     #mode-bar-card {
       background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
     }
-    #mode-bar-label { font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.05em; text-transform: uppercase; }
-    #mode-switch { display: inline-flex; background: #f1f3f4; border-radius: 10px; padding: 4px; gap: 3px; }
+    /* Mode switcher — small rounded pill sitting directly above the Email
+       Dashboard table, not a boxed card of its own and not full-width, so
+       it reads as a light little control rather than a heavy UI element. */
+    #mode-switch { display: inline-flex; background: #f1f3f4; border-radius: 999px; padding: 3px; gap: 2px; margin-bottom: 10px; }
     .mode-btn {
-      display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
-      padding: 7px 16px; border: none; border-radius: 8px; cursor: pointer;
-      background: transparent; color: #5f6368; text-align: left;
-      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+      padding: 6px 14px; border: none; border-radius: 999px; cursor: pointer;
+      background: transparent; color: #5f6368; font-size: 11px; font-weight: 700;
+      transition: background 0.15s, color 0.15s, transform 0.1s;
     }
-    .mode-btn-title { font-size: 13px; font-weight: 700; }
-    .mode-btn-sub { font-size: 10px; font-weight: 400; opacity: 0.8; }
-    .mode-btn.active { background: #1a73e8; color: white; box-shadow: 0 1px 4px rgba(26,115,232,0.45); }
-    .mode-btn:not(.active):hover { background: rgba(0,0,0,0.05); }
+    .mode-btn:active { transform: scale(0.94); }
+    .mode-btn.active { background: #1a73e8; color: white; box-shadow: 0 1px 3px rgba(26,115,232,0.4); }
+    .mode-btn:not(.active):hover { background: rgba(0,0,0,0.06); }
+    @keyframes notifSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes lastUpdateBlink { 0%, 100% { background: #fff3b0; } 50% { background: transparent; } }
+    .last-update-new { animation: lastUpdateBlink 1.1s ease-in-out infinite; cursor: pointer; border-radius: 4px; }
   </style>
 </head>
 <body>
+<!-- New-email toast stack — the in-page fallback/companion to the browser
+     Notification API, since permission can be denied or the OS can suppress
+     it while the tab is focused. Fixed top-right, newest on top. -->
+<div id="notif-toast-stack" style="position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:340px"></div>
 <div class="breadcrumb">
   <a href="/">🏠 Muze Tech Ops Portal</a>
   <span class="sep">/</span>
@@ -62,83 +63,56 @@
 
 <div id="mode-bar">
   <div id="mode-bar-card">
-    <span id="mode-bar-label">โหมดการแสดงผล</span>
-    <div id="mode-switch">
-      <button id="mode-live" class="mode-btn active" onclick="setMode('live')">
-        <span class="mode-btn-title">🔴 LIVE</span>
-        <span class="mode-btn-sub">ตามตารางเวลา · default: Action + ควรรับรู้</span>
-      </button>
-      <button id="mode-filter" class="mode-btn" onclick="setMode('filter')">
-        <span class="mode-btn-title">🔍 FILTER</span>
-        <span class="mode-btn-sub">ตามช่วงเวลาที่เลือก · ทุก category</span>
-      </button>
+    <!-- Volume sparkline — the mode switcher used to share this line but
+         moved down to sit above the Accounts panel instead, so this top bar
+         is just the volume chart now. -->
+    <div id="volume-sparkline-wrap" style="flex:1">
+      <div style="font-size:9px;font-weight:700;color:#999;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:2px">📈 Email Volume · 30 วันล่าสุด</div>
+      <div id="volume-sparkline" style="height:50px"></div>
+      <div id="next-holiday-line" style="font-size:9px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     </div>
   </div>
 </div>
 
 <div id="content">
-  <!-- left column: account summary table + calendar heatmap -->
-  <div id="left-col">
-    <!-- Account summary table -->
-    <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden;margin-bottom:12px">
-      <div style="background:#1a73e8;color:white;padding:10px 14px;text-align:left">
-        <div style="font-weight:700;font-size:13px">📬 Accounts</div>
-        <!-- Same 🔴 LIVE / 🔍 FILTER split as the Dashboard header — these
-             counts come from the live fetch (updated on schedule) but the
-             Dashboard table below them is scoped to the date-range filter,
-             so both facts need to be visible here too. -->
-        <div style="font-size:10px;margin-top:4px;display:flex;flex-direction:column;gap:2px">
-          <div><span style="background:#e53935;font-weight:700;padding:1px 6px;border-radius:7px;letter-spacing:0.03em;margin-right:5px">🔴 LIVE</span><span id="acct-live-meta" style="opacity:0.9"></span></div>
-          <div><span style="background:rgba(255,255,255,0.25);font-weight:700;padding:1px 6px;border-radius:7px;letter-spacing:0.03em;margin-right:5px">🔍 FILTER</span><span id="acct-filter-meta" style="opacity:0.9"></span></div>
-        </div>
-      </div>
-      <table id="acct-table" style="width:100%;border-collapse:collapse;font-size:11px">
-        <thead>
-          <tr style="background:#f8f9fa">
-            <th style="padding:7px 10px;text-align:left;color:#555;border-bottom:1px solid #e0e0e0">Account</th>
-            <th style="padding:7px 8px;text-align:center;color:#e53935;border-bottom:1px solid #e0e0e0;font-size:10px;white-space:nowrap">🔴 Action</th>
-            <th style="padding:7px 8px;text-align:center;color:#f9ab00;border-bottom:1px solid #e0e0e0;font-size:10px;white-space:nowrap">🟡 ควรรู้</th>
-            <th style="padding:7px 8px;text-align:center;color:#9aa0a6;border-bottom:1px solid #e0e0e0;font-size:10px;white-space:nowrap">⚪ Auto</th>
-          </tr>
-        </thead>
-        <tbody id="acct-tbody">
-          <tr><td colspan="4" style="padding:16px;text-align:center;color:#aaa">กำลังโหลด…</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Calendar heatmap — next/current important day shown below the grid -->
-    <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
-      <div style="background:#1a73e8;color:white;padding:10px 14px;font-weight:700;font-size:13px">📅 Email Volume</div>
-      <div id="heatmap-container" style="padding:14px 16px"></div>
-      <div id="next-holiday-line" style="padding:0 16px 14px;font-size:11px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-    </div>
-  </div>
-
-  <!-- right column: only email dashboard -->
+  <!-- right column: only email dashboard (left column with the Accounts
+       table was removed entirely per request — this is a single-column
+       layout now) -->
   <div id="right-col">
+  <!-- Mode switcher — compact toggle sitting directly above the Email
+       Dashboard table, the thing it governs. -->
+  <div id="mode-switch">
+    <button id="mode-live" class="mode-btn active" onclick="setMode('live')">🔴 LIVE</button>
+    <button id="mode-filter" class="mode-btn" onclick="setMode('filter')">🔍 FILTER</button>
+    <button id="mode-history" class="mode-btn" onclick="setMode('history')">📜 HISTORY</button>
+  </div>
   <!-- email dashboard — always visible, auto-loads below cards -->
-  <div id="email-dashboard" style="margin-top:20px">
+  <div id="email-dashboard" style="margin-top:8px">
     <div style="background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow:hidden">
       <!-- header — two clearly separated zones:
              🔴 LIVE   = driven by the fetch schedule (data freshness)
              🔍 FILTER = driven by the account/category/date-range filters (what's shown) -->
       <div style="background:#1a73e8;color:white">
-        <!-- Zone A: LIVE — schedule-driven data freshness -->
+        <!-- Zone A: LIVE — schedule-driven data freshness. Hidden entirely in
+             Filter mode (via #dash-live-info), since none of it means
+             anything once the data on screen came from a one-off Gmail
+             query instead of the fetch schedule. -->
         <div style="padding:10px 20px;background:rgba(0,0,0,0.15);display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,0.15)">
-          <button id="left-col-toggle" onclick="toggleLeftCol()" title="ซ่อน/แสดง panel ด้านซ้าย">◀</button>
           <span style="font-weight:700;font-size:14px">📋 Email Dashboard</span>
-          <span style="background:#e53935;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔴 LIVE</span>
-          <span id="last-updated" style="font-size:11px;opacity:0.9"></span>
-          <span id="next-refresh" style="font-size:11px;opacity:0.9"></span>
-          <button id="db-pull-now" onclick="pullNow()" style="font-size:11px;font-weight:700;padding:4px 12px;border:none;border-radius:6px;background:white;color:#1a73e8;cursor:pointer;white-space:nowrap;margin-left:auto">⟳ Pull Now</button>
-          <button onclick="toggleScheduleInfo()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:10px;padding:4px 8px;border-radius:10px;cursor:pointer">ⓘ ตารางเวลาดึงอีเมล</button>
+          <div id="dash-live-info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1">
+            <span style="background:#e53935;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔴 LIVE</span>
+            <span id="last-updated" style="font-size:11px;opacity:0.9"></span>
+            <span id="next-refresh" style="font-size:11px;opacity:0.9"></span>
+            <button id="notif-toggle" onclick="toggleNotifications()" title="แจ้งเตือนเมื่อมี email ใหม่ (Action/ควรรู้)" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:12px;padding:4px 8px;border-radius:10px;cursor:pointer;margin-left:auto">🔕</button>
+            <button id="db-pull-now" onclick="pullNow()" style="font-size:11px;font-weight:700;padding:4px 12px;border:none;border-radius:6px;background:white;color:#1a73e8;cursor:pointer;white-space:nowrap">⟳ Pull Now</button>
+            <button onclick="toggleScheduleInfo()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:10px;padding:4px 8px;border-radius:10px;cursor:pointer">ⓘ ตารางเวลาดึงอีเมล</button>
+          </div>
         </div>
         <!-- Zone B: FILTER — what's currently shown (account/category/date range) -->
         <div style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <span style="background:rgba(255,255,255,0.25);font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em">🔍 FILTER</span>
-            <select id="db-filter" onchange="_filterAccount=this.value;renderDashboard()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
+            <span id="dash-filter-badge" style="background:rgba(255,255,255,0.25);font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:0.04em;display:none">🔍 FILTER</span>
+            <select id="db-filter" onchange="_filterAccount=this.value;reloadForCurrentMode()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
               <option value="">ทุก account</option>
             </select>
             <select id="db-cat-filter" onchange="_filterCat=this.value;renderDashboard()" style="font-size:11px;padding:4px 8px;border:none;border-radius:6px;background:rgba(255,255,255,0.2);color:white;font-weight:600;cursor:pointer">
@@ -150,9 +124,9 @@
             </select>
             <div id="filter-daterange" style="display:none;align-items:center;gap:10px">
               <span style="font-size:11px;opacity:0.8">ตั้งแต่</span>
-              <input id="db-date-from" type="date" onchange="_filterDateFrom=this.value;renderDashboard();renderAccountTable(_detailData);renderAcctMeta()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
+              <input id="db-date-from" type="date" onchange="_filterDateFrom=this.value;reloadForCurrentMode()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
               <span style="font-size:11px;opacity:0.8">ถึง</span>
-              <input id="db-date-to" type="date" onchange="_filterDateTo=this.value;renderDashboard();renderAccountTable(_detailData);renderAcctMeta()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
+              <input id="db-date-to" type="date" onchange="_filterDateTo=this.value;reloadForCurrentMode()" style="font-size:11px;padding:3px 6px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:white;cursor:pointer;width:130px">
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -175,33 +149,50 @@
           <div style="font-size:10px;color:#999;margin-top:8px">holidays = เสาร์-อาทิตย์ + วันหยุดนักขัตฤกษ์ที่ตั้งไว้ในปฏิทิน (ดูที่ Email Volume ด้านซ้าย)</div>
         </div>
       </div>
+      <!-- Bulk-action bar — appears once ≥1 row (or grouped-row) checkbox is
+           checked. Applies Assignee/Status to every msgId currently selected
+           in one shot, using the same per-msgId POST as a single-row edit. -->
+      <div id="bulk-bar" style="display:none;padding:8px 20px;align-items:center;gap:10px;flex-wrap:wrap;background:#fff8e1;border-bottom:1px solid #ffe0b2">
+        <span id="bulk-count" style="font-size:12px;font-weight:700;color:#795500"></span>
+        <select id="bulk-assignee" style="font-size:11px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;background:white"></select>
+        <button onclick="applyBulkAssignee()" style="font-size:11px;font-weight:600;padding:4px 10px;border:1px solid #1a73e8;border-radius:6px;background:white;color:#1a73e8;cursor:pointer">ตั้ง Assignee</button>
+        <select id="bulk-status" style="font-size:11px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;background:white"></select>
+        <button onclick="applyBulkStatus()" style="font-size:11px;font-weight:600;padding:4px 10px;border:1px solid #1a73e8;border-radius:6px;background:white;color:#1a73e8;cursor:pointer">ตั้ง Status</button>
+        <button onclick="clearSelection()" style="font-size:11px;font-weight:600;padding:4px 10px;border:none;border-radius:6px;background:transparent;color:#795500;cursor:pointer;margin-left:auto">✕ ล้างที่เลือก</button>
+      </div>
       <!-- email table -->
       <div style="overflow-x:auto">
         <table id="dm-table" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;min-width:820px">
           <colgroup>
-            <col style="width:10%"><!-- Due -->
-            <col style="width:7%"><!-- Work Time Counting -->
-            <col style="width:7%"><!-- Assignee -->
-            <col style="width:7%"><!-- Account -->
-            <col style="width:10%"><!-- Sender -->
+            <col style="width:28px"><!-- select -->
             <col style="width:3%"><!-- Cat -->
-            <col style="width:8%"><!-- Status -->
+            <col style="width:7%"><!-- Account -->
+            <col style="width:10%"><!-- Due -->
+            <col style="width:10%"><!-- Last Update -->
+            <col style="width:10%"><!-- Sender -->
             <col><!-- Summary — gets whatever's left -->
+            <col style="width:8%"><!-- Status -->
+            <col style="width:4%"><!-- Assignee -->
+            <col style="width:9%"><!-- Action Done -->
+            <col style="width:7%"><!-- Working Time -->
           </colgroup>
           <thead>
             <tr style="background:#f8f9fa">
-              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Due (Arrival+30m)</th>
-              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Work Time Counting</th>
-              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Assignee</th>
-              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Account</th>
-              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Sender</th>
-              <th style="padding:6px 2px;text-align:center;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0">Cat</th>
-              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Status</th>
-              <th style="padding:6px 8px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0">Summary</th>
+              <th style="padding:6px 3px;text-align:center;border-bottom:2px solid #e0e0e0"><input id="dm-select-all" type="checkbox" onchange="toggleSelectAllVisible(this.checked)" title="เลือกทั้งหมดที่แสดงอยู่"></th>
+              <th style="padding:6px 2px;text-align:center;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0">Cat</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Account</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Due (Arrival+30m)</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Last Update</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Sender</th>
+              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0">Summary</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Status</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Assignee</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Action Done</th>
+              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Working Time</th>
             </tr>
           </thead>
           <tbody id="dm-tbody">
-            <tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">กำลังโหลด…</td></tr>
+            <tr><td colspan="11" style="padding:32px;text-align:center;color:#aaa;font-size:13px">กำลังโหลด…</td></tr>
           </tbody>
         </table>
       </div>
@@ -233,6 +224,382 @@ const CAT_TAG    = {'🔴 ต้อง Action':{bg:'#e53935',text:'white'},'🟡
 
 let _detailData = [];
 let _liveCounts = {}; // { 'email@': { action, mustRead, auto, total } }
+
+// ── New-item notifications (Live mode) ──
+// Toast always fires (works with no permission at all); the browser
+// Notification is an opt-in extra for when the tab isn't focused.
+let _notifEnabled = localStorage.getItem('digestNotifEnabled') === '1';
+let _seenMsgIds = new Set();
+let _seenInitialized = false; // first loadLive() just seeds _seenMsgIds — nothing "new" to announce yet
+
+function updateNotifButton() {
+  const btn = document.getElementById('notif-toggle');
+  if (!btn) return;
+  const blocked = typeof Notification !== 'undefined' && Notification.permission === 'denied';
+  btn.textContent = _notifEnabled && !blocked ? '🔔' : '🔕';
+  btn.title = blocked
+    ? 'การแจ้งเตือนถูกบล็อกในเบราว์เซอร์ — ต้องไปเปิดเองใน settings ของเบราว์เซอร์'
+    : (_notifEnabled ? 'ปิดแจ้งเตือน email ใหม่' : 'เปิดแจ้งเตือนเมื่อมี email ใหม่ (Action/ควรรู้)');
+}
+
+async function toggleNotifications() {
+  if (!_notifEnabled) {
+    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { updateNotifButton(); return; } // denied/dismissed — stays off, toast still works
+    }
+    _notifEnabled = true;
+  } else {
+    _notifEnabled = false;
+  }
+  localStorage.setItem('digestNotifEnabled', _notifEnabled ? '1' : '0');
+  updateNotifButton();
+}
+
+function showToast(title, bodyHtml) {
+  const stack = document.getElementById('notif-toast-stack');
+  if (!stack) return;
+  const toast = document.createElement('div');
+  toast.style.cssText = 'background:white;border-left:4px solid #e53935;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.25);padding:10px 14px;font-size:12px;color:#222;cursor:pointer;animation:notifSlideIn 0.25s ease-out';
+  toast.innerHTML = '<div style="font-weight:700;margin-bottom:3px">'+title+'</div><div style="color:#555;line-height:1.5">'+bodyHtml+'</div>';
+  toast.onclick = () => toast.remove();
+  stack.prepend(toast);
+  setTimeout(() => toast.remove(), 8000);
+}
+
+// Fires for newly-arrived 🔴/🟡 items (⚪ Auto is excluded — it was never
+// meant to need anyone's attention). Toast always shows; the OS-level
+// Notification only fires if the user opted in via the bell button.
+function notifyNewItems(items) {
+  if (!items.length) return;
+  const title = items.length === 1 ? '📋 Email ใหม่ 1 รายการ' : `📋 Email ใหม่ ${items.length} รายการ`;
+  const lines = items.slice(0, 3).map(i => `${i.category.split(' ')[0]} ${i.account.split('@')[0]}: ${i.subject}`);
+  if (items.length > 3) lines.push(`…และอีก ${items.length - 3} รายการ`);
+  showToast(title, lines.join('<br>'));
+  if (_notifEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    const n = new Notification(title, { body: lines.join('\n') });
+    n.onclick = () => { window.focus(); n.close(); };
+  }
+}
+// Filter mode's own dataset — populated by a live Gmail query (/api/digest/range)
+// scoped to whatever account+date-range is picked. Kept separate from _detailData
+// (Live mode's schedule-driven dataset) so switching back to Live never loses it,
+// and vice versa.
+let _filterData = [];
+let _filterLoading = false;
+// History mode's own dataset — populated by /api/digest/history, the
+// persisted per-day archive (fast, no live Gmail round-trip) instead of a
+// fresh query, so it can show Auto/Skip/Done emails too without re-hitting
+// Gmail for a date range that's mostly already resolved/settled.
+let _historyData = [];
+let _historyLoading = false;
+
+// "Last Update" blink — a group's Last Update value flashes until someone
+// clicks it. _lastUpdateSeen maps groupKey -> the last acknowledged update
+// timestamp (ms), persisted so a page reload doesn't forget what's already
+// been seen. _lastUpdateSeenInitialized guards a one-time silent seeding of
+// every group's CURRENT last-update time on the very first render this ever
+// runs (or after localStorage is cleared) — otherwise every already-existing
+// group would start blinking the moment this feature ships, when only
+// genuinely new arrivals from here on should.
+let _lastUpdateSeen = {};
+let _lastUpdateSeenInitialized = false;
+try {
+  const _stored = localStorage.getItem('digestLastUpdateSeen');
+  if (_stored) { _lastUpdateSeen = JSON.parse(_stored); _lastUpdateSeenInitialized = true; }
+} catch { /* corrupt localStorage value — just re-seed */ }
+
+function ackLastUpdate(cell) {
+  const key = cell.dataset.lastupdateKey;
+  const time = +cell.dataset.lastupdateTime;
+  if (key && time) {
+    _lastUpdateSeen[key] = time;
+    localStorage.setItem('digestLastUpdateSeen', JSON.stringify(_lastUpdateSeen));
+  }
+  cell.classList.remove('last-update-new');
+}
+function currentData() {
+  if (_mode === 'filter') return _filterData;
+  if (_mode === 'history') return _historyData;
+  return _detailData;
+}
+
+// ── Row selection + bulk Assignee/Status update ──
+// Keyed by msgId (not row index — indices shift every re-render, msgId doesn't).
+let _selectedMsgIds = new Set();
+
+function findEmailByMsgId(msgId) {
+  for (const d of currentData()) {
+    const e = (d.emails || []).find(x => x.msgId === msgId);
+    if (e) return { account: d.account, e };
+  }
+  return null;
+}
+
+function syncCheckbox(cb) {
+  const ids = (cb.dataset.msgids || '').split(',').filter(Boolean);
+  ids.forEach(id => cb.checked ? _selectedMsgIds.add(id) : _selectedMsgIds.delete(id));
+  updateBulkBar();
+}
+
+// Selects/deselects every checkbox currently rendered (i.e. whatever the
+// active filters show) — not literally every email ever fetched.
+function toggleSelectAllVisible(checked) {
+  document.querySelectorAll('#dm-tbody input[type=checkbox][data-msgids]').forEach(cb => {
+    cb.checked = checked;
+    syncCheckbox(cb);
+  });
+}
+
+function clearSelection() {
+  _selectedMsgIds.clear();
+  renderDashboard();
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulk-bar');
+  const countEl = document.getElementById('bulk-count');
+  if (!bar || !countEl) return;
+  const n = _selectedMsgIds.size;
+  bar.style.display = n > 0 ? 'flex' : 'none';
+  countEl.textContent = `เลือกอยู่ ${n} รายการ —`;
+
+  const selectAll = document.getElementById('dm-select-all');
+  if (selectAll) {
+    const boxes = [...document.querySelectorAll('#dm-tbody input[type=checkbox][data-msgids]')];
+    const checkedCount = boxes.filter(cb => cb.checked).length;
+    selectAll.checked = boxes.length > 0 && checkedCount === boxes.length;
+    selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+  }
+}
+
+// Shared by a single grouped-row's Assignee/Status select (idsAttr may be
+// just one msgId or a whole thread) AND the bulk-action toolbar — same POST
+// either way, just looped over however many msgIds are involved.
+async function applyAssigneeToMsgIds(msgIds, assigneeEmail) {
+  await Promise.all(msgIds.filter(Boolean).map(async msgId => {
+    const info = findEmailByMsgId(msgId);
+    if (!info) return;
+    const existing = _assignments[msgId] || {};
+    const isNewAssignee = !!assigneeEmail && !existing.assigneeEmail;
+    const updates = { ...existing,
+      msgId, account: info.account,
+      assigneeEmail,
+      dueDate: existing.dueDate || emailInboxDue(info.e.date),
+      status: existing.status || 'To Do',
+      emailSubject: info.e.subject || existing.emailSubject || '',
+      emailFrom: info.e.from || existing.emailFrom || '',
+    };
+    _assignments[msgId] = updates;
+    await fetch('/api/digest/assign', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...updates, sendEmail: isNewAssignee }),
+    }).catch(console.error);
+  }));
+}
+
+async function applyStatusToMsgIds(msgIds, status) {
+  await Promise.all(msgIds.filter(Boolean).map(async msgId => {
+    const info = findEmailByMsgId(msgId);
+    if (!info) return;
+    _emailStatuses[msgId] = status;
+    await fetch('/api/digest/emailstatus', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ msgId, account: info.account, status }),
+    }).catch(console.error);
+  }));
+}
+
+// Free-text "Action Done" reference (e.g. a Jira ticket number) - same
+// persisted-per-msgId pattern as Assignee/Status, applied to every msgId in
+// a group at once so the whole [MN-xx] thread shares one reference.
+async function applyActionDoneToMsgIds(msgIds, actionDone) {
+  await Promise.all(msgIds.filter(Boolean).map(async msgId => {
+    const info = findEmailByMsgId(msgId);
+    if (!info) return;
+    const existing = _assignments[msgId] || {};
+    const updates = { ...existing,
+      msgId, account: info.account,
+      actionDone,
+      dueDate: existing.dueDate || emailInboxDue(info.e.date),
+      status: existing.status || 'To Do',
+      emailSubject: info.e.subject || existing.emailSubject || '',
+      emailFrom: info.e.from || existing.emailFrom || '',
+    };
+    _assignments[msgId] = updates;
+    await fetch('/api/digest/assign', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...updates, sendEmail: false }),
+    }).catch(console.error);
+  }));
+}
+
+// nissan-ma tickets carry a "[MN-134]"-style tag somewhere in the subject -
+// used both as the default Action Done value and as the grouping key (any
+// email sharing the same tag groups together, even if the rest of the
+// subject text differs).
+function extractMnTag(subject) {
+  const m = /\[MN-\d+\]/i.exec(subject || '');
+  return m ? m[0].toUpperCase() : null;
+}
+// The customer-facing case reference (e.g. "C26080087") is the one identifier
+// present on EVERY email about a ticket from the very first notification —
+// the [MN-xx] tag only shows up later, once ops opens an internal Jira
+// ticket and it starts getting appended to reply subjects. So this is the
+// real grouping key; [MN-xx] is just a fallback for the rare case a subject
+// has a ticket tag but no case reference.
+function extractCaseRef(subject) {
+  const m = /\bC\d{8}\b/.exec(subject || '');
+  return m ? m[0].toUpperCase() : null;
+}
+// Fallback exact-subject grouping key — two subjects that read identically
+// can still fail a strict === compare (different Unicode normalization form,
+// or a non-breaking space/tab in place of a regular space somewhere in the
+// middle, both invisible to the eye) - confirmed as the cause of two visibly
+// identical subjects not grouping. NFC-normalize and collapse all whitespace
+// (JS's \s already matches  ) before comparing instead of just trim().
+// Reply/forward chains pile up "Re: "/"RE: "/"Fwd: "/"FW: " prefixes (often
+// several deep — "RE: FW: ...") plus ticketing-system bracket tags inserted
+// or appended along the way ("[Ticket ID : 308527][CRM]", "[17 Aug 2026]",
+// "[Please confirm]") and a stray leading colon left over once a bracket tag
+// that was followed by ": " gets stripped off. None of that changes what the
+// thread is actually about, but left in place it makes every reply in the
+// chain compare as a different subject, so the exact-subject fallback below
+// failed to group e.g. "FW: ลูกค้า...", "RE: FW: ...", "Re: FW: ...", and
+// "RE: [Ticket ID : 308527][CRM] FW: ... [Please confirm]" together — same
+// issue confirmed on "[17 Aug 2026] No detail for..." vs "RE: [17 Aug 2026]
+// No detail for..." vs "RE: [MyNISSAN] : No detail for...". Strip
+// repeatedly from the front (prefixes/tags/colons can alternate: "RE:
+// [Ticket ID : x][CRM] FW: ..."), then drop any bracket tag left elsewhere
+// (e.g. a trailing one), leaving just the human-written subject.
+function stripThreadNoise(subject) {
+  let s = (subject || '').trim();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const prefixMatch = /^(re|fw|fwd)\s*:\s*/i.exec(s);
+    if (prefixMatch) { s = s.slice(prefixMatch[0].length).trim(); changed = true; continue; }
+    const bracketMatch = /^\[[^\]]*\]\s*/.exec(s);
+    if (bracketMatch) { s = s.slice(bracketMatch[0].length).trim(); changed = true; continue; }
+    const colonMatch = /^:\s*/.exec(s);
+    if (colonMatch) { s = s.slice(colonMatch[0].length).trim(); changed = true; continue; }
+  }
+  return s.replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function normalizeSubjectKey(subject) {
+  return stripThreadNoise(subject).normalize('NFC').replace(/\s+/g, ' ').trim();
+}
+const TVN_ACCOUNT = 'support-tvn@muze.co.th';
+// support@ is CC'd on the same True Digital Group/Zendesk tickets as
+// support-tvn (confirmed earlier via the "True Digital Group" training rule
+// fix — both mailboxes get the identical ticket thread), so it needs the
+// same Zendesk-ID default, not just support-tvn.
+const SUPPORT_ACCOUNT = 'support@muze.co.th';
+
+// True Digital Group's Zendesk auto-replies include a boilerplate line like
+// "Or go to support.truedigital.com/hc/requests/300116" - almost always
+// early enough in the body to already be inside Gmail's own snippet (~200
+// chars), so this is cheap to check for every listed row without a full
+// body fetch. loadEmailBody() re-checks against the full body too, for the
+// rarer case the link falls after where the snippet got truncated.
+function extractZendeskId(text) {
+  const urlMatch = /support\.truedigital\.com\/hc\/requests\/(\d+)/i.exec(text || '');
+  if (urlMatch) return urlMatch[1];
+  // Verified against 55 real support-tvn emails: the hc/requests URL itself
+  // almost always falls past Gmail's ~200-char snippet cutoff, but Zendesk's
+  // own auto-reply intro line always has "request (NNNNNN)" right near the
+  // top, in whichever phrasing ("You are registered as a CC on this
+  // request (...)" for CC'd parties, "Your request (...) has been updated"
+  // for the assignee, etc.) - matching just "request (N)" instead of pinning
+  // down every possible sentence caught 52/55, vs. only a handful pinning
+  // one exact phrasing.
+  const reqMatch = /request \((\d+)\)/i.exec(text || '');
+  return reqMatch ? reqMatch[1] : null;
+}
+
+// nissan-ma: an auto-close warning in the LATEST email of a thread ("if we
+// don't hear from you by end of today, we'll assume it's resolved and close
+// the ticket") means the customer/requester has effectively already closed
+// it out — matched as a plain substring since it's fixed boilerplate text,
+// not a pattern with a variable part like the Zendesk/MN-tag checks.
+const AUTO_CLOSE_PHRASE = 'if we do not hear from you by the end of today, we will assume the issue is resolved and close the ticket';
+function hasAutoCloseWarning(text) {
+  return !!text && text.toLowerCase().includes(AUTO_CLOSE_PHRASE);
+}
+
+// A "[Closed]" tag on the subject is the ticketing system itself declaring
+// the case closed - not account-specific, so it applies to any group.
+function hasClosedTag(subject) {
+  return /\[closed\]/i.test(subject || '');
+}
+
+function defaultActionDone(account, subject, snippet) {
+  if (account === NISSAN_ACCOUNT) {
+    const tag = extractMnTag(subject);
+    return tag ? `Jira ${tag.replace(/[[\]]/g, '')}` : '';
+  }
+  if (account === TVN_ACCOUNT || account === SUPPORT_ACCOUNT) {
+    const zid = extractZendeskId(snippet) || extractZendeskId(subject);
+    return zid ? `Zendesk ${zid}` : '';
+  }
+  return '';
+}
+
+// Grouping merges emails by whichever member matched a Zendesk ID/case-ref/
+// MN-tag (see groupKeyFor) - but the group's representative (earliest due)
+// isn't necessarily THAT member, so checking only the representative's own
+// subject/snippet regressed to blank Action Done for groups whose earliest
+// email happens to be a plain reply with none of Zendesk's boilerplate text.
+// Scan every member instead and use the first one that actually matches.
+function defaultActionDoneForGroup(members) {
+  for (const m of members) {
+    const val = defaultActionDone(m.account, m.e.subject, m.e.snippet);
+    if (val) return val;
+  }
+  return '';
+}
+
+// support@/support-tvn only: if a team member's own address shows up in the
+// thread (they already replied), pre-fill Assignee to them - whoever's
+// address appears EARLIEST in the text wins, since a reply chain puts the
+// newest message's content first and quotes older ones below it, so the
+// earliest match is the most recent reply, not an old quoted one.
+const ASSIGNEE_BODY_HINTS = [
+  { email: 'noppasit.k@muze.co.th', name: 'Beach' },
+  { email: 'chartwit.t@muze.co.th', name: 'Aon' },
+];
+function extractAssigneeFromBody(text) {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  let best = null;
+  ASSIGNEE_BODY_HINTS.forEach(c => {
+    const idx = lower.indexOf(c.email);
+    if (idx !== -1 && (!best || idx < best.idx)) best = { idx, email: c.email };
+  });
+  return best ? best.email : null;
+}
+function defaultAssigneeForGroup(members) {
+  for (const m of members) {
+    if (m.account !== TVN_ACCOUNT && m.account !== SUPPORT_ACCOUNT) continue;
+    const email = extractAssigneeFromBody(m.e.snippet) || extractAssigneeFromBody(m.e.subject);
+    if (email) return email;
+  }
+  return '';
+}
+
+async function applyBulkAssignee() {
+  const value = document.getElementById('bulk-assignee').value;
+  if (!value) return;
+  await applyAssigneeToMsgIds([..._selectedMsgIds], value);
+  clearSelection();
+}
+
+async function applyBulkStatus() {
+  const value = document.getElementById('bulk-status').value;
+  if (!value) return;
+  await applyStatusToMsgIds([..._selectedMsgIds], value);
+  clearSelection();
+}
 let _lastTitle = '';
 let _lastUpdatedAt = null; // raw ISO timestamp from the live payload, for reuse in the Accounts header
 let _assignments = {}; // { msgId: assignmentObj }
@@ -240,12 +607,13 @@ let _emailStatuses = {}; // { msgId: status string }
 let _emailTimings = {}; // { msgId: { inProgressSince, resolvedAt } }
 let _dashAccount = ''; // currently selected dashboard account tab
 
-const EMAIL_STATUSES = ['To Do', 'Scoping', 'Processing', 'Ignore', 'Done'];
+const EMAIL_STATUSES = ['To Do', 'Scoping', 'Processing', 'Ignore', 'Skip', 'Done'];
 const STATUS_BADGE = {
   'To Do':      { bg: '#e8f0fe', text: '#1a73e8' },
   'Scoping':    { bg: '#e8f5e9', text: '#34a853' },
   'Processing': { bg: '#fff3e0', text: '#e65100' },
   'Ignore':     { bg: '#f1f3f4', text: '#bdbdbd' },
+  'Skip':       { bg: '#f1f3f4', text: '#9aa0a6' },
   'Done':       { bg: '#f1f3f4', text: '#80868b' },
 };
 // Category dot color (red/yellow/grey) for the new Category column.
@@ -305,7 +673,7 @@ function fmtReceived(dateStr) {
 }
 
 // Elapsed time between two ISO timestamps, stopwatch-style ("00:00:01",
-// "01:23:45", "2d 03:04:05"). Used for the Work Time Counting column —
+// "01:23:45", "2d 03:04:05"). Used for the Working Time column —
 // start is the moment status first left "To Do", end is when it reached
 // "Done" (frozen from then on), or now if still open (ticks live — see
 // tickWorkTime()).
@@ -350,9 +718,7 @@ function filterDashboard(account) {
   renderDashboard();
 }
 
-// Shared by renderDashboard() (rows) and renderAccountTable() (per-account
-// tallies) so both panels apply date scoping identically — only meaningful
-// in Filter mode; Live mode has no date axis at all.
+// Only meaningful in Filter mode; Live mode has no date axis at all.
 function withinDateFilter(e) {
   if (_mode !== 'filter') return true;
   if (!_filterDateFrom && !_filterDateTo) return true;
@@ -368,7 +734,23 @@ function setMode(mode) {
   _mode = mode;
   document.getElementById('mode-live').classList.toggle('active', mode === 'live');
   document.getElementById('mode-filter').classList.toggle('active', mode === 'filter');
-  document.getElementById('filter-daterange').style.display = mode === 'filter' ? 'flex' : 'none';
+  document.getElementById('mode-history').classList.toggle('active', mode === 'history');
+  // Filter and History both work off the same date-range inputs — one picks
+  // a live Gmail query, the other reads the stored archive, but "what range
+  // am I looking at" is the same control either way.
+  document.getElementById('filter-daterange').style.display = (mode === 'filter' || mode === 'history') ? 'flex' : 'none';
+
+  // Header shows ONLY the badge/info for the mode currently selected — no
+  // more "🔴 LIVE" sitting next to a picked date range that has nothing to
+  // do with the fetch schedule, or "🔍 FILTER"/"📜 HISTORY" showing during
+  // Live mode when nothing is actually date-filtered.
+  const dashLiveInfo  = document.getElementById('dash-live-info');
+  const dashFilterTag = document.getElementById('dash-filter-badge');
+  if (dashLiveInfo)  dashLiveInfo.style.display  = mode === 'live' ? 'flex' : 'none';
+  if (dashFilterTag) {
+    dashFilterTag.style.display = (mode === 'filter' || mode === 'history') ? 'inline-block' : 'none';
+    dashFilterTag.textContent = mode === 'history' ? '📜 HISTORY' : '🔍 FILTER';
+  }
 
   if (mode === 'live') {
     _filterCat = '__important__';
@@ -389,20 +771,91 @@ function setMode(mode) {
   if (fromEl) fromEl.value = _filterDateFrom;
   if (toEl)   toEl.value   = _filterDateTo;
 
+  if (mode === 'filter') {
+    loadFilterData(); // live Gmail query for the (just-defaulted) range
+  } else if (mode === 'history') {
+    loadHistoryData(); // read the stored per-day archive for the (just-defaulted) range
+  } else {
+    renderDashboard();
+  }
+}
+
+// Filter mode's live query — fetches Gmail directly for the picked account(s)
+// + date range via /api/digest/range, rather than filtering whatever happens
+// to already be in the Live dataset (which only ever holds today's fetch +
+// carried-forward pending items — a resolved or Auto email from an earlier
+// date can never reappear there no matter what range is picked).
+async function loadFilterData() {
+  if (_mode !== 'filter' || !_filterDateFrom || !_filterDateTo) return;
+  _filterLoading = true;
   renderDashboard();
-  renderAccountTable(_detailData);
-  renderAcctMeta();
+  try {
+    const acc = _filterAccount || 'all';
+    const url = '/api/digest/range?account=' + encodeURIComponent(acc) +
+      '&from=' + encodeURIComponent(_filterDateFrom) + '&to=' + encodeURIComponent(_filterDateTo);
+    const res = await fetch(url);
+    const data = await res.json();
+    _filterData = Object.entries(data.counts || {}).map(([account, entry]) => ({ account, emails: entry.emails || [] }));
+    if (data.skipped && data.skipped.length) {
+      console.warn('Filter mode: no migrated Gmail token for', data.skipped.join(', '));
+    }
+  } catch (e) {
+    console.error('loadFilterData failed', e);
+  } finally {
+    _filterLoading = false;
+    renderDashboard();
+  }
+}
+
+// History mode's query — reads the persisted per-day archive via
+// /api/digest/history instead of a live Gmail round-trip, so it's fast even
+// for a wide range and shows Auto/Skip/Done emails Live mode already dropped.
+async function loadHistoryData() {
+  if (_mode !== 'history' || !_filterDateFrom || !_filterDateTo) return;
+  _historyLoading = true;
+  renderDashboard();
+  try {
+    const acc = _filterAccount || 'all';
+    const url = '/api/digest/history?account=' + encodeURIComponent(acc) +
+      '&from=' + encodeURIComponent(_filterDateFrom) + '&to=' + encodeURIComponent(_filterDateTo);
+    const res = await fetch(url);
+    const data = await res.json();
+    _historyData = Object.entries(data.counts || {}).map(([account, entry]) => ({ account, emails: entry.emails || [] }));
+  } catch (e) {
+    console.error('loadHistoryData failed', e);
+  } finally {
+    _historyLoading = false;
+    renderDashboard();
+  }
+}
+
+// Account/category/date-range controls are shared across all three modes -
+// this dispatches to whichever reload each one actually needs (Live has
+// nothing to re-fetch, it's just a render).
+function reloadForCurrentMode() {
+  if (_mode === 'filter') loadFilterData();
+  else if (_mode === 'history') loadHistoryData();
+  else renderDashboard();
 }
 
 function renderDashboard() {
   const tbody = document.getElementById('dm-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  const counts = { 'To Do': 0, 'Scoping': 0, 'Processing': 0, 'Ignore': 0, 'Done': 0 };
+  const counts = { 'To Do': 0, 'Scoping': 0, 'Processing': 0, 'Ignore': 0, 'Skip': 0, 'Done': 0 };
+
+  if (_filterLoading) {
+    tbody.innerHTML = '<tr><td colspan="11" style="padding:32px;text-align:center;color:#888;font-size:13px">⏳ กำลังดึงอีเมลจาก Gmail...</td></tr>';
+    return;
+  }
+  if (_historyLoading) {
+    tbody.innerHTML = '<tr><td colspan="11" style="padding:32px;text-align:center;color:#888;font-size:13px">📜 กำลังโหลดประวัติ...</td></tr>';
+    return;
+  }
 
   // flatten all accounts (optionally filtered)
   const rows = [];
-  _detailData.forEach(function(d) {
+  currentData().forEach(function(d) {
     if (_filterAccount && d.account !== _filterAccount) return;
     (d.emails || []).forEach(function(e, i) {
       // category filter
@@ -417,7 +870,7 @@ function renderDashboard() {
   });
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="padding:32px;text-align:center;color:#aaa;font-size:13px">ไม่มี email</td></tr>';
     document.getElementById('db-unread').textContent    = '📥 Unread 0';
     document.getElementById('db-processing').textContent= '⚙ Processing 0';
     document.getElementById('db-scoping').textContent   = '🔍 Scoping 0';
@@ -432,10 +885,92 @@ function renderDashboard() {
     return dueA < dueB ? -1 : dueA > dueB ? 1 : 0;
   });
 
+  // Group repeat notifications about the same thing into one row. Position =
+  // the group's first (earliest-due) occurrence, so the table's overall
+  // ordering doesn't change; the group just collapses in place. Grouping key
+  // priority: the case reference (e.g. "C26080087" — present from the very
+  // first email, so it's what actually ties "[MN-134] C26080087/..." to a
+  // later "C26080087/..." reply that never got the ticket tag), then the
+  // [MN-xx] tag alone, then the Zendesk ticket ID (support-tvn — the same
+  // ticket shows up across multiple reply-chain subjects that don't share
+  // any subject text at all, only the ticket ID buried in the snippet/body,
+  // which is exactly what was showing as duplicate "Zendesk 300117" rows
+  // instead of one group), then the exact subject as the last resort (a
+  // ticketing system pinging the same thing over and over, verbatim).
+  function groupKeyFor(e) {
+    return extractCaseRef(e.subject)
+      || extractMnTag(e.subject)
+      || (function() {
+           const zid = extractZendeskId(e.subject) || extractZendeskId(e.snippet);
+           return zid ? 'ZD-' + zid : null;
+         })()
+      || normalizeSubjectKey(e.subject);
+  }
+  const groups = [];
+  const bySubject = new Map();
   rows.forEach(function(row) {
-    const account = row.account, e = row.e, i = row.i;
-    const st  = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
+    const key = groupKeyFor(row.e);
+    let group = bySubject.get(key);
+    if (!group) { group = { members: [] }; bySubject.set(key, group); groups.push(group); }
+    group.members.push(row);
+  });
+
+  groups.forEach(function(group) {
+    const members = group.members;
+    const rep = members[0]; // representative — due/sender/category/account shown, Due editing applies here only
+    const account = rep.account, e = rep.e, i = rep.i;
+    const msgIds = members.map(m => m.e.msgId).filter(Boolean);
     const asg = e.msgId ? (_assignments[e.msgId] || null) : null;
+    const assigneeVal = asg?.assigneeEmail || defaultAssigneeForGroup(members);
+    // asg.actionDone is only ever set once someone actually edits/saves the
+    // field - until then, default to the [MN-xx] tag / Zendesk ticket ref
+    // scanned off the subject/snippet, so the group starts pre-filled
+    // instead of blank.
+    const actionDoneVal = (asg && asg.actionDone != null) ? asg.actionDone : defaultActionDoneForGroup(members);
+    // A ticket reference (Zendesk/Jira) attached means this is a confirmed
+    // real, actionable issue, not just "should-know" - the Cat dot reflects
+    // that even when the raw classifier landed on 🟡 ควรรับรู้. Display-only:
+    // there's no per-msgId category override storage the way Status/
+    // Assignee/Action Done have, so this doesn't touch the category filter
+    // (which already includes ควรรับรู้ under __important__ anyway).
+    const effectiveCategory = actionDoneVal ? '🔴 ต้อง Action' : e.category;
+
+    let st = (e.msgId && _emailStatuses[e.msgId]) || 'To Do';
+    // The most recent member by arrival time — used for Last Update below
+    // (blank when there's only one member, since Due already covers it) and
+    // for the auto-close phrase check (only the LATEST email in a thread is
+    // time-sensitive enough for "by the end of today" to mean anything).
+    const latestMember = members.reduce((best, m) => (!best || new Date(m.e.date) > new Date(best.e.date)) ? m : best, members[0]);
+
+    // Business rule: a non-blank Action Done means work has already started
+    // (a ticket ref got attached) — it can't still be "To Do", so escalate
+    // to Processing the moment that becomes true rather than leaving the
+    // status stale until someone notices and flips it manually. Only ever
+    // escalates FROM "To Do" — never overrides Scoping/Ignore/Skip/Done —
+    // and persists immediately so it won't re-fire every render.
+    if (actionDoneVal && st === 'To Do') {
+      st = 'Processing';
+      msgIds.forEach(id => { _emailStatuses[id] = 'Processing'; });
+      applyStatusToMsgIds(msgIds, 'Processing');
+    }
+    // nissan-ma: the LATEST email in the thread carries the auto-close
+    // warning — the requester's own side has effectively signed off, so
+    // treat it as resolved. Checks latestMember's own account (not the
+    // group's representative) in case a group ever spans accounts, and
+    // never overrides an already-Done status.
+    if (latestMember.account === NISSAN_ACCOUNT && st !== 'Done' && hasAutoCloseWarning(latestMember.e.snippet)) {
+      st = 'Done';
+      msgIds.forEach(id => { _emailStatuses[id] = 'Done'; });
+      applyStatusToMsgIds(msgIds, 'Done');
+    }
+    // A "[Closed]" tag in the latest email's subject (e.g. Zendesk's own
+    // "[Ticket ID : xxx] ... [Closed]" notification) - any account, since
+    // it's the ticketing system's own closure signal, not a heuristic guess.
+    if (st !== 'Done' && hasClosedTag(latestMember.e.subject)) {
+      st = 'Done';
+      msgIds.forEach(id => { _emailStatuses[id] = 'Done'; });
+      applyStatusToMsgIds(msgIds, 'Done');
+    }
     if (counts[st] !== undefined) counts[st]++;
     else counts['To Do']++;
     const sb = STATUS_BADGE[st] || STATUS_BADGE['To Do'];
@@ -444,9 +979,23 @@ function renderDashboard() {
     tr.onmouseover = function() { this.style.background='#f8f9fa'; };
     tr.onmouseout  = function() { this.style.background=''; };
     tr.onclick     = function(ev) { if (ev.target.tagName==='SELECT'||ev.target.tagName==='INPUT') return; showEmailDetail(account, i); };
-    const assigneeVal = asg?.assigneeEmail || '';
     const dueVal = asg?.dueDate || emailInboxDue(e.date);
     const dueId  = 'tbl-due-'+account.replace(/[@.]/g,'_')+'-'+i;
+    const lastUpdateDate = members.length > 1 ? new Date(latestMember.e.date) : null;
+    const lastUpdateVal = lastUpdateDate ? fmtReceived(lastUpdateDate) : '';
+    // Group's grouping key doubles as a stable identity for "have I already
+    // seen this update" tracking (msgIds within a group shift as new emails
+    // arrive, but the key — case ref/MN-tag/Zendesk ID/subject — doesn't).
+    const lastUpdateKey = groupKeyFor(e);
+    const lastUpdateTime = lastUpdateDate ? lastUpdateDate.getTime() : null;
+    let isNewLastUpdate = false;
+    if (lastUpdateTime) {
+      if (_lastUpdateSeenInitialized) {
+        isNewLastUpdate = !_lastUpdateSeen[lastUpdateKey] || lastUpdateTime > _lastUpdateSeen[lastUpdateKey];
+      } else {
+        _lastUpdateSeen[lastUpdateKey] = lastUpdateTime; // silent one-time baseline seed — see declaration above
+      }
+    }
     const shortAcc = account.split('@')[0];
     const inProgress = st !== 'To Do';
     const isPast = dueVal && new Date(dueVal) < new Date();
@@ -456,7 +1005,20 @@ function renderDashboard() {
     const dueWeight = (inProgress || isPast) ? '700' : '400';
     const dueBorder = (isPast && !inProgress) ? '#e53935' : '#ddd';
     const timing = e.msgId ? _emailTimings[e.msgId] : null;
+    const idsAttr = msgIds.join(',');
+    const allSelected = msgIds.length > 0 && msgIds.every(id => _selectedMsgIds.has(id));
+    const groupBadge = members.length > 1
+      ? ' <span onclick="event.stopPropagation();toggleGroupExpand(this)" data-expanded="0" style="cursor:pointer;display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;background:#e8f0fe;color:#1a73e8;vertical-align:middle;white-space:nowrap">🔁×'+members.length+' ▸</span>'
+      : '';
     tr.innerHTML =
+      // Select — checkbox carries every msgId in the group, so bulk actions
+      // (either the group row's own Assignee/Status, or the toolbar) apply
+      // to every instance of this thread at once.
+      '<td style="padding:6px 3px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" data-msgids="'+idsAttr+'" '+(allSelected?'checked':'')+' onchange="syncCheckbox(this)"></td>'+
+      // Category — color only (red/yellow/grey), no text
+      '<td style="padding:6px 2px;text-align:center;overflow:hidden" title="'+(effectiveCategory||'')+'"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+(CATEGORY_DOT[effectiveCategory]||'#ccc')+'"></span></td>'+
+      // Account
+      '<td style="padding:6px 3px;overflow:hidden;white-space:nowrap"><span style="font-size:10px;padding:2px 5px;border-radius:10px;background:#e8f0fe;color:#1a73e8;font-weight:700">'+shortAcc+'</span></td>'+
       // Due — compact formatted text with a fully transparent native
       // datetime-local input overlaid on top, so clicking anywhere on the
       // text opens the real picker without a native input's own locale-
@@ -464,159 +1026,135 @@ function renderDashboard() {
       // px) so it always fills whatever the <colgroup> gives this column —
       // table-layout:fixed ignores content size entirely, so a wider fixed
       // px here would just overflow the column instead of resizing it.
-      '<td style="padding:6px 6px;overflow:hidden">'+
+      // Represents the group's first occurrence only — grouped items can
+      // have genuinely different arrival times, so this isn't bulk-applied.
+      '<td style="padding:6px 4px;overflow:hidden">'+
         '<div style="position:relative;display:block;width:100%" onclick="event.stopPropagation()">'+
-          '<input id="'+dueId+'" type="datetime-local" value="'+dueVal+'" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',\'due\',this.value,\'\')" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0">'+
-          '<div style="pointer-events:none;font-size:10px;font-weight:'+dueWeight+';color:'+dueColor+';border:1px solid '+dueBorder+';border-radius:5px;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(dueVal?fmtReceived(dueVal):'—')+'</div>'+
+          '<input id="'+dueId+'" type="datetime-local" value="'+dueVal+'" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0">'+
+          '<div style="pointer-events:none;font-size:11px;font-weight:'+dueWeight+';color:'+dueColor+';border:1px solid '+dueBorder+';border-radius:5px;padding:2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(dueVal?fmtReceived(dueVal):'—')+'</div>'+
         '</div>'+
       '</td>'+
-      // Work Time Counting — elapsed since status first left "To Do", frozen
-      // once Done. data-worktime-msgid + data-resolved let tickWorkTime()
-      // find and update this cell every second without a full re-render.
-      '<td data-worktime-msgid="'+(e.msgId||'')+'" data-in-progress-since="'+(timing?.inProgressSince||'')+'" data-resolved-at="'+(timing?.resolvedAt||'')+'" style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-variant-numeric:tabular-nums;color:'+(timing?.resolvedAt?'#34a853':'#888')+';font-weight:'+(timing?.resolvedAt?'700':'400')+'">'+fmtDuration(timing?.inProgressSince, timing?.resolvedAt)+'</td>'+
-      // Assignee
-      '<td style="padding:6px 4px;overflow:hidden">'+
-        '<select onclick="event.stopPropagation()" onchange="saveTblField(\''+account+'\',\''+(e.msgId||'')+'\','+i+',\'assignee\',this.value,\''+dueId+'\')" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:white;width:100%">'+
+      // Last Update — blank unless grouped; see lastUpdateVal above. Blinks
+      // (last-update-new) until clicked — a new arrival in an already-open
+      // group is easy to miss otherwise, since the group row itself doesn't
+      // move or change shape when it happens.
+      '<td class="'+(isNewLastUpdate?'last-update-new':'')+'" data-lastupdate-key="'+escapeHtmlSmall(lastUpdateKey)+'" data-lastupdate-time="'+(lastUpdateTime||'')+'" onclick="event.stopPropagation();ackLastUpdate(this)" style="padding:6px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#888">'+lastUpdateVal+'</td>'+
+      // Sender
+      '<td style="padding:6px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555;font-size:12px">'+e.from+'</td>'+
+      // Summary — the one column with no fixed <col> width, so table-layout:fixed gives it all the leftover space
+      '<td style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#222;font-size:13px">'+e.subject+groupBadge+'</td>'+
+      // Status — applied to every msgId in the group (see idsAttr above)
+      '<td style="padding:6px 3px;overflow:hidden">'+
+        '<select onclick="event.stopPropagation()" onchange="applyStatusToMsgIds([\''+msgIds.join("','")+'\'],this.value).then(renderDashboard)" style="font-size:11px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:'+sb.bg+';color:'+sb.text+';font-weight:600;width:100%">'+
+          EMAIL_STATUSES.map(s=>'<option value="'+s+'"'+(s===st?' selected':'')+'>'+s+'</option>').join('')+
+        '</select>'+
+      '</td>'+
+      // Assignee — applied to every msgId in the group (see idsAttr above)
+      '<td style="padding:6px 3px;overflow:hidden">'+
+        '<select onclick="event.stopPropagation()" onchange="applyAssigneeToMsgIds([\''+msgIds.join("','")+'\'],this.value).then(renderDashboard)" style="font-size:11px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:white;width:100%">'+
           '<option value="">—</option>'+
           ASSIGNEES.map(a=>'<option value="'+a.email+'"'+(a.email===assigneeVal?' selected':'')+'>'+a.name+'</option>').join('')+
         '</select>'+
       '</td>'+
-      // Account
-      '<td style="padding:6px 4px;overflow:hidden;white-space:nowrap"><span style="font-size:9px;padding:2px 5px;border-radius:10px;background:#e8f0fe;color:#1a73e8;font-weight:700">'+shortAcc+'</span></td>'+
-      // Sender
-      '<td style="padding:6px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555;font-size:11px">'+e.from+'</td>'+
-      // Category — color only (red/yellow/grey), no text
-      '<td style="padding:6px 2px;text-align:center;overflow:hidden" title="'+(e.category||'')+'"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+(CATEGORY_DOT[e.category]||'#ccc')+'"></span></td>'+
-      // Status
-      '<td style="padding:6px 4px;overflow:hidden">'+
-        '<select onclick="event.stopPropagation()" onchange="setEmailStatus(event,\''+account+'\',\''+(e.msgId||'')+'\','+i+')" style="font-size:10px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;background:'+sb.bg+';color:'+sb.text+';font-weight:600;width:100%">'+
-          EMAIL_STATUSES.map(s=>'<option value="'+s+'"'+(s===st?' selected':'')+'>'+s+'</option>').join('')+
-        '</select>'+
+      // Action Done — free text, applied to every msgId in the group (see
+      // idsAttr above) so a whole [MN-xx] thread shares one reference.
+      // Defaults (until edited) to the [MN-xx] tag scanned off the subject.
+      '<td style="padding:6px 3px;overflow:hidden" onclick="event.stopPropagation()">'+
+        '<input value="'+escapeHtmlSmall(actionDoneVal)+'" onchange="applyActionDoneToMsgIds([\''+msgIds.join("','")+'\'],this.value).then(renderDashboard)" style="font-size:11px;padding:2px 3px;border:1px solid #ddd;border-radius:5px;width:100%;box-sizing:border-box">'+
       '</td>'+
-      // Summary — the one column with no fixed <col> width, so table-layout:fixed gives it all the leftover space
-      '<td style="padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#222">'+e.subject+'</td>';
+      // Working Time — elapsed since status first left "To Do", frozen once
+      // Done. data-worktime-msgid + data-resolved let tickWorkTime() find and
+      // update this cell every second without a full re-render.
+      '<td data-worktime-msgid="'+(e.msgId||'')+'" data-in-progress-since="'+(timing?.inProgressSince||'')+'" data-resolved-at="'+(timing?.resolvedAt||'')+'" style="padding:6px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-variant-numeric:tabular-nums;color:'+(timing?.resolvedAt?'#34a853':'#888')+';font-weight:'+(timing?.resolvedAt?'700':'400')+'">'+fmtDuration(timing?.inProgressSince, timing?.resolvedAt)+'</td>';
     tbody.appendChild(tr);
+
+    // Collapsed-by-default sub-rows for a grouped thread — read-only (no
+    // separate controls; editing the group row above already applies to
+    // every instance), just enough to see each occurrence's own timestamp.
+    if (members.length > 1) {
+      members.forEach(function(m) {
+        const sub = document.createElement('tr');
+        sub.className = 'dm-group-sub';
+        sub.style.cssText = 'display:none;border-bottom:1px solid #f0f0f0;background:#fafbfc;cursor:pointer';
+        sub.onclick = function() { showEmailDetail(m.account, m.i); };
+        sub.innerHTML =
+          '<td></td>'+
+          '<td></td>'+
+          '<td></td>'+
+          '<td style="padding:4px 4px 4px 20px;font-size:11px;color:#999">'+fmtReceived(emailInboxDue(m.e.date))+'</td>'+
+          '<td></td>'+
+          '<td style="padding:4px 6px;font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.e.from+'</td>'+
+          // This instance's OWN subject — grouping merges by ticket
+          // reference, not exact subject text, so each occurrence can read
+          // differently from the group row's representative subject above it.
+          '<td style="padding:4px 6px;font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.e.subject+'</td>'+
+          '<td colspan="4"></td>';
+        tbody.appendChild(sub);
+      });
+    }
   });
+  // First render ever (or first since localStorage was cleared) — the
+  // baseline just got silently seeded above with every group's CURRENT
+  // last-update time, so persist it now and stop re-seeding on every
+  // future render (only a genuinely newer update should blink from here on).
+  if (!_lastUpdateSeenInitialized) {
+    _lastUpdateSeenInitialized = true;
+    localStorage.setItem('digestLastUpdateSeen', JSON.stringify(_lastUpdateSeen));
+  }
   // update status bar
   document.getElementById('db-unread').textContent    = '📥 To Do ' + counts['To Do'];
   document.getElementById('db-processing').textContent= '⚙ Processing ' + counts['Processing'];
   document.getElementById('db-scoping').textContent   = '🔍 Scoping ' + counts['Scoping'];
   document.getElementById('db-done').textContent      = '✅ Done ' + counts['Done'];
+  updateBulkBar();
 }
 
-async function saveTblField(account, msgId, rowIdx, field, value, dueId) {
-  if (!msgId) return;
-  // auto due date when assignee set
-  if (field === 'assignee' && value && dueId) {
-    const dueEl = document.getElementById(dueId);
-    if (dueEl && !dueEl.value) {
-      const d = new Date(Date.now() + 30 * 60 * 1000);
-      const pad = n => String(n).padStart(2,'0');
-      dueEl.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    }
+// Expands/collapses the read-only sub-rows for a grouped thread — they were
+// appended directly after the group's <tr> in the DOM, so nextElementSibling
+// walks exactly as many as belong to this group.
+function toggleGroupExpand(badge) {
+  const expanded = badge.dataset.expanded === '1';
+  badge.dataset.expanded = expanded ? '0' : '1';
+  const text = badge.textContent.replace(/[▸▾]/, '').trim();
+  badge.textContent = text + ' ' + (expanded ? '▸' : '▾');
+  let node = badge.closest('tr').nextElementSibling;
+  while (node && node.classList.contains('dm-group-sub')) {
+    node.style.display = expanded ? 'none' : 'table-row';
+    node = node.nextElementSibling;
   }
-  // merge with existing assignment
+}
+
+// Due-date editing only — Assignee/Status went through applyAssigneeToMsgIds()/
+// applyStatusToMsgIds() instead once those needed to apply to a whole group.
+async function saveTblField(account, msgId, rowIdx, dueValue) {
+  if (!msgId) return;
   const existing = _assignments[msgId] || {};
-  const d = _detailData.find(x => x.account === account);
+  const d = currentData().find(x => x.account === account);
   const e = d?.emails?.[rowIdx] || {};
   const updates = { ...existing,
     msgId, account,
-    assigneeEmail:   field === 'assignee' ? value : existing.assigneeEmail,
-    expectedAction:  field === 'action'   ? value : existing.expectedAction,
-    dueDate:         field === 'due'      ? value : (existing.dueDate || document.getElementById('tbl-due-'+rowIdx)?.value || ''),
-    status:          existing.status || 'To Do',
-    emailSubject:    e.subject || existing.emailSubject || '',
-    emailFrom:       e.from    || existing.emailFrom    || '',
+    dueDate: dueValue,
+    status: existing.status || 'To Do',
+    emailSubject: e.subject || existing.emailSubject || '',
+    emailFrom: e.from || existing.emailFrom || '',
   };
   _assignments[msgId] = updates;
-  // send email notification only when assignee is first set
-  const isNewAssignee = field === 'assignee' && value && !existing.assigneeEmail;
   await fetch('/api/digest/assign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...updates, sendEmail: isNewAssignee }),
+    body: JSON.stringify({ ...updates, sendEmail: false }),
   }).catch(console.error);
 }
 
 
 function renderSummary(title, accountList) {
   _lastTitle = title || _lastTitle;
-  renderAccountTable(accountList);
   populateFilter();
   renderDashboard();
 }
 
-// Mirrors the dashboard's date-range filter + last-live-update time into the
-// Accounts panel header, so the numbers there are read alongside the same
-// context the detailed table below already shows.
-function renderAcctMeta() {
-  const liveEl = document.getElementById('acct-live-meta');
-  const filterEl = document.getElementById('acct-filter-meta');
-  if (!liveEl || !filterEl) return;
-
-  const ts = _lastUpdatedAt ? new Date(_lastUpdatedAt).toLocaleString('th-TH', { timeStyle: 'short' }) : '';
-  liveEl.textContent = ts ? `อัปเดต: ${ts}` : 'กำลังโหลด…';
-
-  const fmt = ymd => {
-    if (!ymd) return '';
-    const [y, m, d] = ymd.split('-');
-    return `${d}/${m}/${y}`;
-  };
-  filterEl.textContent = (_filterDateFrom || _filterDateTo)
-    ? `${fmt(_filterDateFrom)} – ${fmt(_filterDateTo)}`
-    : 'ทุกช่วงเวลา';
-}
-
-function renderAccountTable(accountList) {
-  const tbody = document.getElementById('acct-tbody');
-  if (!tbody) return;
-  if (!accountList || !accountList.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="padding:14px;text-align:center;color:#aaa">ไม่มีข้อมูล</td></tr>';
-    return;
-  }
-  tbody.innerHTML = accountList.map(function(d) {
-    // Always count from the actual email list, never _liveCounts — that's
-    // the server's tally for THIS round's fetch only, computed before the
-    // carry-forward merge, so any carried-over item (still pending, not
-    // Done) was invisible here even though it's plainly shown in the
-    // Dashboard table below, which reads from this same d.emails array.
-    // withinDateFilter() is a no-op in Live mode (mode has no date axis) and
-    // scopes to the picked range in Filter mode, matching the Dashboard.
-    const emails   = (d.emails || []).filter(withinDateFilter);
-    const action   = emails.filter(e => e.category === '🔴 ต้อง Action').length;
-    const mustRead = emails.filter(e => e.category === '🟡 ควรรับรู้').length;
-    const auto     = emails.filter(e => e.category === '⚪ แจ้งเตือนอัตโนมัติ').length;
-    const shortAcc = d.account.split('@')[0];
-    return '<tr style="border-bottom:1px solid #f0f0f0">' +
-      '<td style="padding:7px 10px;font-size:11px;font-weight:600;color:#333">' + shortAcc + '</td>' +
-      '<td style="padding:7px 6px;text-align:center;font-weight:700;font-size:12px;color:' + (action > 0 ? '#e53935' : '#bbb') + '">' + action + '</td>' +
-      '<td style="padding:7px 6px;text-align:center;font-weight:700;font-size:12px;color:' + (mustRead > 0 ? '#f9ab00' : '#bbb') + '">' + mustRead + '</td>' +
-      '<td style="padding:7px 6px;text-align:center;font-weight:700;font-size:12px;color:#9aa0a6">' + auto + '</td>' +
-      '</tr>';
-  }).join('');
-}
-
-async function setEmailStatus(event, account, msgId, rowIdx) {
-  const status = event.target.value;
-  if (msgId) {
-    _emailStatuses[msgId] = status;
-    // re-color the select immediately
-    const sb = STATUS_BADGE[status] || STATUS_BADGE['To Do'];
-    event.target.style.background = sb.bg;
-    event.target.style.color = sb.text;
-    // persist
-    fetch('/api/digest/emailstatus', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ msgId, account, status }),
-    }).catch(console.error);
-  }
-  // re-render the dashboard so the status-bar counts and sort reflect the change
-  renderDashboard();
-}
-
 function showEmailDetail(account, emailIdx) {
-  const d      = _detailData.find(function(x) { return x.account === account; });
+  const d      = currentData().find(function(x) { return x.account === account; });
   if (!d) return;
   const e      = d.emails[emailIdx];
   const border = CAT_BORDER[e.category] || '#9aa0a6';
@@ -684,11 +1222,62 @@ function showEmailDetail(account, emailIdx) {
         '<tr><td style="padding:2px 10px 2px 0;color:#888">จาก</td><td style="font-weight:600;color:#222">'+e.from+'</td></tr>'+
         '<tr><td style="padding:2px 10px 2px 0;color:#888">วันเวลา</td><td style="color:'+(status!=='To Do'?'#34a853':'inherit')+';font-weight:'+(status!=='To Do'?'700':'400')+'">'+fmtReceived(e.date)+'</td></tr>'+
       '</table>'+
-      '<div style="background:#f8f9fa;border-radius:8px;padding:16px;font-size:13px;line-height:1.7;color:#333;white-space:pre-wrap">'+e.snippet+'</div>'+
+      '<div id="dm-body-box" style="background:#f8f9fa;border-radius:8px;padding:16px;font-size:13px;line-height:1.7;color:#333;white-space:pre-wrap">'+e.snippet+'</div>'+
+      '<div id="dm-attachments" style="margin-top:10px"></div>'+
     reclassifySection(account, e)+
     assignSection+
     '</div>';
   document.getElementById('digest-overlay').style.display = 'block';
+
+  _openMsgId = e.msgId || null;
+  if (_openMsgId) loadEmailBody(account, _openMsgId);
+}
+
+// Full body + attachment filenames aren't in the list-view payload (only
+// snippet is, to keep that fetch cheap for every row) — loaded on demand
+// here instead, only for the one email actually being viewed.
+let _openMsgId = null;
+function escapeHtmlSmall(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtBytes(n) {
+  if (!n) return '';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+  return (n / 1024 / 1024).toFixed(1) + ' MB';
+}
+async function loadEmailBody(account, msgId) {
+  const bodyBox = document.getElementById('dm-body-box');
+  const attBox = document.getElementById('dm-attachments');
+  try {
+    const res = await fetch('/api/digest/email-body?account=' + encodeURIComponent(account) + '&msgId=' + encodeURIComponent(msgId));
+    const data = await res.json();
+    if (_openMsgId !== msgId) return; // modal moved on to a different email while this was in flight
+    if (data.error) return; // snippet stays showing as the fallback
+    if (bodyBox && data.body) bodyBox.textContent = data.body;
+    // Fallback for support-tvn: the snippet-based default (used at list-
+    // render time, cheap) can miss a Zendesk link that falls after Gmail's
+    // ~200-char snippet cutoff — re-check against the now-loaded full body
+    // and persist it if found, so it doesn't just sit un-set until someone
+    // manually notices and fills it in.
+    if (account === TVN_ACCOUNT && !(_assignments[msgId]?.actionDone) && data.body) {
+      const zid = extractZendeskId(data.body);
+      if (zid) applyActionDoneToMsgIds([msgId], `Zendesk ${zid}`).then(renderDashboard);
+    }
+    // Same idea for nissan-ma's auto-close phrase — the snippet-time check
+    // can miss it if it falls past Gmail's ~200-char cutoff.
+    if (account === NISSAN_ACCOUNT && _emailStatuses[msgId] !== 'Done' && hasAutoCloseWarning(data.body)) {
+      applyStatusToMsgIds([msgId], 'Done').then(renderDashboard);
+    }
+    if (attBox && data.attachments && data.attachments.length) {
+      attBox.innerHTML =
+        '<div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:5px">📎 ไฟล์แนบ (' + data.attachments.length + ')</div>' +
+        data.attachments.map(a =>
+          '<div style="font-size:12px;color:#555;padding:3px 0">📄 ' + escapeHtmlSmall(a.filename) +
+          (a.size ? ' <span style="color:#aaa">(' + fmtBytes(a.size) + ')</span>' : '') + '</div>'
+        ).join('');
+    }
+  } catch (e) { /* silent — snippet stays visible as fallback */ }
 }
 
 function reclassifySection(account, e) {
@@ -805,6 +1394,8 @@ async function loadLive() {
     if (data.counts && Object.keys(data.counts).length) {
       // data.counts = { 'email': { counts: {...}, emails: [...] } }
       _liveCounts = {};
+      const isFirstLoad = !_seenInitialized;
+      const newImportant = [];
       for (const [acc, entry] of Object.entries(data.counts)) {
         if (entry && entry.counts) {
           _liveCounts[acc] = entry.counts;
@@ -812,32 +1403,53 @@ async function loadLive() {
           const existing = _detailData.find(d => d.account === acc);
           if (existing) existing.emails = entry.emails || [];
           else _detailData.push({ account: acc, emails: entry.emails || [] });
+
+          // New-item detection — by msgId, so an existing item that just
+          // changed status/category doesn't get treated as "new". Auto is
+          // excluded; the very first load only seeds _seenMsgIds (the whole
+          // current backlog isn't "new").
+          (entry.emails || []).forEach(function(e) {
+            if (!e.msgId) return;
+            if (!isFirstLoad && !_seenMsgIds.has(e.msgId) && e.category !== '⚪ แจ้งเตือนอัตโนมัติ') {
+              newImportant.push({ account: acc, subject: e.subject, category: e.category });
+            }
+            _seenMsgIds.add(e.msgId);
+          });
         }
       }
+      _seenInitialized = true;
       // remove any accounts not in live data (e.g. personal accounts removed from ACCOUNTS list)
       const liveAccounts = new Set(Object.keys(_liveCounts));
       _detailData = _detailData.filter(d => liveAccounts.has(d.account));
       if (_detailData.length) renderSummary(_lastTitle, _detailData);
+      if (newImportant.length) notifyNewItems(newImportant);
       _lastUpdatedAt = data.updatedAt || null;
       const ts = data.updatedAt ? new Date(data.updatedAt).toLocaleString('th-TH', { timeStyle: 'short' }) : '';
       document.getElementById('last-updated').textContent = `อัปเดต: ${ts} · live`;
-      renderAcctMeta();
       loadAllEmailStatuses();
     }
   } catch { /* silent */ }
 }
 
+// Deep link from the landing page's "hot issues" bullets (?account=&msgId=) -
+// opens just that one email's detail modal once the Live dataset has loaded,
+// instead of landing on the full dashboard list. Silently does nothing if the
+// email's no longer there (resolved/dropped since the bullet was rendered).
+function openFromQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  const qAccount = params.get('account');
+  const qMsgId = params.get('msgId');
+  if (!qAccount || !qMsgId) return;
+  const d = _detailData.find(x => x.account === qAccount);
+  if (!d) return;
+  const idx = (d.emails || []).findIndex(e => e.msgId === qMsgId);
+  if (idx === -1) return;
+  showEmailDetail(qAccount, idx);
+}
+
 function toggleScheduleInfo() {
   const el = document.getElementById('schedule-info');
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
-
-function toggleLeftCol() {
-  const col = document.getElementById('left-col');
-  const btn = document.getElementById('left-col-toggle');
-  const collapsed = col.classList.toggle('collapsed');
-  btn.textContent = collapsed ? '▶' : '◀';
-  localStorage.setItem('digestLeftColCollapsed', collapsed ? '1' : '0');
 }
 
 async function pullNow() {
@@ -855,7 +1467,7 @@ async function pullNow() {
 }
 
 let _countdownTimer = null;
-// Ticks every Work Time Counting cell currently in the DOM once a second —
+// Ticks every Working Time cell currently in the DOM once a second —
 // direct DOM text updates, not a renderDashboard() re-render (which would
 // rebuild the whole table every second and could clobber an open dropdown).
 // Cells with no inProgressSince (still "To Do") were rendered as "—" and are
@@ -912,156 +1524,162 @@ function renderNextHolidayLine() {
   el.textContent = `🗓 วันสำคัญ: ${fmt} — ${name || 'วันหยุด'}`;
 }
 
-// ── Calendar Heatmap ──────────────────────────────────────────
+// ── Email Volume sparkline — rolling 30 days, replaces the old month-grid
+// calendar heatmap (moved up to sit on the same line as the mode switcher). ──
 let _heatData = {};   // { 'YYYY-MM-DD': count }
 let _heatHolidays = new Map(); // 'YYYY-MM-DD' -> name
-let _heatYear = new Date().getFullYear();
-let _heatMonth = new Date().getMonth(); // 0-based
+const SPARKLINE_DAYS = 30;
 
-// Same 42-cell window renderHeatmap() draws — computed once so the fetch
-// only asks the backend for the snapshots it's actually about to display.
-function heatmapGridBounds(year, month) {
+function sparklineRange() {
   const pad = n => String(n).padStart(2,'0');
-  const toStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  const startOffset = new Date(year, month, 1).getDay();
-  const gridStart = new Date(year, month, 1 - startOffset);
-  const gridEnd = new Date(year, month, 1 - startOffset + 41);
-  return { from: toStr(gridStart), to: toStr(gridEnd) };
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - (SPARKLINE_DAYS - 1));
+  return { from: ymd(from), to: ymd(to) };
 }
 
-async function loadHeatmap(year = _heatYear, month = _heatMonth) {
+async function loadHeatmap() {
   try {
-    const { from, to } = heatmapGridBounds(year, month);
+    const { from, to } = sparklineRange();
     const res = await fetch(`/api/digest/heatmap?from=${from}&to=${to}`);
     if (!res.ok) return;
     const data = await res.json();
-    Object.assign(_heatData, data.daily || {}); // merge — keep previously-viewed months cached
+    _heatData = data.daily || {};
     _heatHolidays = new Map((data.holidays || []).map(h => {
       // entries are {date, name} (calendar sync) or a plain string (manual
       // legacy entry, no name); normalize: MM-DD -> prefix with current year
       const raw = typeof h === 'string' ? h : h.date;
       const name = typeof h === 'string' ? '' : (h.name || '');
-      const date = raw.length === 5 ? _heatYear + '-' + raw : raw;
+      const date = raw.length === 5 ? new Date().getFullYear() + '-' + raw : raw;
       return [date, name];
     }));
     renderNextHolidayLine();
-    renderHeatmap();
+    renderVolumeSparkline();
   } catch(e) { console.error('heatmap error', e); }
 }
 
-// Four clearly-distinct hues instead of a green gradient (adjacent tiers on
-// a same-color scale were hard to tell apart at a glance).
-function heatColor(count) {
-  if (!count)     return { bg: '#ebedf0', text: '#aaa' };  // 0
-  if (count < 5)  return { bg: '#fff3b0', text: '#1a1a1a' }; // 1-4   light yellow
-  if (count < 15) return { bg: '#f8bbd0', text: '#1a1a1a' }; // 5-14  pink
-  if (count < 30) return { bg: '#66bb6a', text: '#1a1a1a' }; // 15-29 green
-  return          { bg: '#1b5e20', text: 'white' };          // 30+   dark green
-}
+// Plain SVG line chart, no library — viewBox sized to the container's actual
+// pixel width (not a fixed number) so the line/dots render at 1:1 scale
+// instead of getting stretched into ellipses by a mismatched aspect ratio.
+const MONTHS_TH_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 
-function renderHeatmap() {
-  const container = document.getElementById('heatmap-container');
-  if (!container) return;
-
-  const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const DAYS_EN = ['S','M','T','W','T','F','S'];
-
-  const year = _heatYear, month = _heatMonth;
-  const today = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
-  function toDateStr(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
-
-  const firstOfMonth = new Date(year, month, 1);
-  const startOffset = firstOfMonth.getDay();
-  const gridStart = new Date(year, month, 1 - startOffset);
-
-  let html = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:0 2px">
-      <span style="font-size:15px;font-weight:700;color:#1a1a1a">${MONTHS_EN[month]} ${year}</span>
-      <div style="display:flex;gap:2px">
-        <button onclick="heatmapPrev()" style="background:none;border:1px solid #e0e0e0;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;color:#555;display:flex;align-items:center;justify-content:center">&#8249;</button>
-        <button onclick="heatmapNext()" style="background:none;border:1px solid #e0e0e0;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;color:#555;display:flex;align-items:center;justify-content:center">&#8250;</button>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:6px">`;
-  DAYS_EN.forEach(d => {
-    html += `<div style="text-align:center;font-size:11px;font-weight:600;color:#aaa;padding:3px 0">${d}</div>`;
-  });
-  html += '</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">';
-
-  for (let i = 0; i < 42; i++) {
-    const cur = new Date(gridStart);
-    cur.setDate(gridStart.getDate() + i);
-    const dateStr = toDateStr(cur);
-    const isCurrentMonth = cur.getMonth() === month;
-    const count = _heatData[dateStr] || 0;
-    const holidayName = isCurrentMonth ? _heatHolidays.get(dateStr) : undefined;
-    const isHoliday = holidayName !== undefined;
-    const isToday = dateStr === todayStr;
-
-    // Volume fills the whole cell now (was a tiny dot) — holiday/today are
-    // layered on top as a border ring so both signals stay visible together.
-    let cellBg = 'transparent', textColor = isCurrentMonth ? '#ccc' : '#ddd', fontWeight = '400', border = 'none';
-
-    if (isCurrentMonth) {
-      const heat = heatColor(count);
-      cellBg = heat.bg;
-      textColor = heat.text;
-    }
-    if (isToday) {
-      border = '2px solid #1a73e8'; fontWeight = '700';
-    } else if (isHoliday) {
-      border = '2px solid #e53935'; fontWeight = '600';
-    }
-
-    const tooltip = (isHoliday ? (holidayName || 'วันหยุด') + ' • ' : '') + (isCurrentMonth ? count + ' email' : '') + '\n' + dateStr;
-    html += `<div title="${tooltip}" style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;border-radius:8px;background:${cellBg};border:${border};box-sizing:border-box;cursor:default">
-      <span style="font-size:13px;font-weight:${fontWeight};color:${textColor};line-height:1">${cur.getDate()}</span>
-    </div>`;
+// Custom floating tooltip (position:fixed, appended to <body>) instead of a
+// native <title> — shows up instantly at the cursor instead of waiting on
+// the browser's own hover-delay tooltip, and can be styled/positioned
+// precisely regardless of the chart's own overflow/scroll ancestors.
+function sparkTipEl() {
+  let tip = document.getElementById('spark-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'spark-tip';
+    tip.style.cssText = 'position:fixed;display:none;background:#1a1a1a;color:white;font-size:11px;font-weight:600;padding:4px 9px;border-radius:6px;pointer-events:none;z-index:10000;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25)';
+    document.body.appendChild(tip);
   }
-  html += '</div>';
-
-  // legend — actual email-count range per color tier, not just "low/high"
-  html += `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;font-size:10px;color:#888">
-    <span>Volume:</span>
-    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#ebedf0;display:inline-block"></span>0</span>
-    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#fff3b0;display:inline-block"></span>1–4</span>
-    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#f8bbd0;display:inline-block"></span>5–14</span>
-    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#66bb6a;display:inline-block"></span>15–29</span>
-    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#1b5e20;display:inline-block"></span>30+</span>
-    <span style="margin-left:auto;display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:2px;background:#ebedf0;border:2px solid #e53935;display:inline-block"></span>วันสำคัญ</span>
-  </div>`;
-
-  container.innerHTML = html;
+  return tip;
+}
+function showSparkTip(evt, text) {
+  const tip = sparkTipEl();
+  tip.textContent = text;
+  tip.style.display = 'block';
+  tip.style.left = (evt.clientX + 12) + 'px';
+  tip.style.top = (evt.clientY - 30) + 'px';
+}
+function moveSparkTip(evt) {
+  const tip = document.getElementById('spark-tip');
+  if (!tip || tip.style.display === 'none') return;
+  tip.style.left = (evt.clientX + 12) + 'px';
+  tip.style.top = (evt.clientY - 30) + 'px';
+}
+function hideSparkTip() {
+  const tip = document.getElementById('spark-tip');
+  if (tip) tip.style.display = 'none';
 }
 
-async function heatmapPrev() {
-  _heatMonth--;
-  if (_heatMonth < 0) { _heatMonth = 11; _heatYear--; }
-  renderHeatmap(); // paint immediately with whatever's cached, counts fill in after fetch
-  await loadHeatmap();
-}
-async function heatmapNext() {
-  _heatMonth++;
-  if (_heatMonth > 11) { _heatMonth = 0; _heatYear++; }
-  renderHeatmap();
-  await loadHeatmap();
-}
+function renderVolumeSparkline() {
+  const el = document.getElementById('volume-sparkline');
+  if (!el) return;
 
+  const pad = n => String(n).padStart(2,'0');
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const today = new Date();
+  const points = [];
+  for (let i = SPARKLINE_DAYS - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = ymd(d);
+    points.push({
+      date: dateStr, day: d.getDate(), month: d.getMonth() + 1, year: d.getFullYear(),
+      count: _heatData[dateStr] || 0, isToday: i === 0, holiday: _heatHolidays.get(dateStr),
+    });
+  }
+
+  const W = el.clientWidth || 400;
+  const CHART_H = 36, LABEL_H = 14, H = CHART_H + LABEL_H, PAD_X = 5, PAD_Y = 5;
+  const maxCount = Math.max(1, ...points.map(p => p.count));
+  const stepX = points.length > 1 ? (W - PAD_X * 2) / (points.length - 1) : 0;
+  const x = i => PAD_X + i * stepX;
+  const y = c => CHART_H - PAD_Y - (c / maxCount) * (CHART_H - PAD_Y * 2);
+
+  const linePoints = points.map((p, i) => `${x(i)},${y(p.count)}`).join(' ');
+  const areaPoints = `${x(0)},${CHART_H} ${linePoints} ${x(points.length - 1)},${CHART_H}`;
+
+  const marks = points.map((p, i) => {
+    // No date in the tooltip at all — the axis label right below the point
+    // already says which day it is. Holiday name takes priority over "วันนี้"
+    // when a day happens to be both.
+    const tipText = `${p.count} email` + (p.holiday ? ` (${p.holiday})` : (p.isToday ? ' (วันนี้)' : ''));
+    const hoverAttrs = `onmouseenter="showSparkTip(event,'${tipText.replace(/'/g, "\\'")}')" onmousemove="moveSparkTip(event)" onmouseleave="hideSparkTip()"`;
+    let dot = '';
+    if (p.isToday) {
+      dot = `<circle cx="${x(i)}" cy="${y(p.count)}" r="3.5" fill="#1a73e8" stroke="white" stroke-width="1.2"></circle>`;
+    } else if (p.holiday) {
+      dot = `<circle cx="${x(i)}" cy="${CHART_H - 2}" r="2" fill="#e53935"></circle>`;
+    }
+    // One transparent hit-target per day, oversized (r=7) vs the visible dot
+    // so hovering near — not just exactly on — a point still triggers it.
+    return dot + `<circle cx="${x(i)}" cy="${y(p.count)}" r="7" fill="transparent" ${hoverAttrs}></circle>`;
+  }).join('');
+
+  // Every day gets a label now — just the day number to keep 30 of them
+  // from overlapping, except month-boundary days (and today) which spell
+  // out the month too so the range doesn't read as ambiguous. Edge labels
+  // anchor inward (start/end instead of middle) so they don't clip past
+  // the SVG bounds.
+  let labels = '';
+  points.forEach((p, i) => {
+    const text = p.isToday ? 'วันนี้' : (p.day === 1 ? `1 ${MONTHS_TH_SHORT[p.month - 1]}` : String(p.day));
+    const anchor = i === 0 ? 'start' : (i === points.length - 1 ? 'end' : 'middle');
+    // Today wins the emphasis styling; otherwise a holiday's day-number turns
+    // red so it stands out along the axis without needing to hover for it.
+    const color = p.isToday ? '#1a73e8' : (p.holiday ? '#e53935' : '#999');
+    const weight = (p.isToday || p.holiday) ? '700' : '400';
+    labels += `<text x="${x(i)}" y="${H - 2}" font-size="7.5" fill="${color}" font-weight="${weight}" text-anchor="${anchor}">${text}</text>`;
+  });
+
+  el.style.height = H + 'px';
+  el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block">
+    <polygon points="${areaPoints}" fill="#1a73e8" opacity="0.08"></polygon>
+    <polyline points="${linePoints}" fill="none" stroke="#1a73e8" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"></polyline>
+    ${marks}
+    ${labels}
+  </svg>`;
+}
+window.addEventListener('resize', renderVolumeSparkline);
 // Sync the mode UI (date-range visibility, dropdown values) to the default
-// 'live' state — renderDashboard()/renderAccountTable() themselves run once
-// real data loads via loadLive() below, so this is just the static setup.
+// 'live' state — renderDashboard() itself runs once real data loads via
+// loadLive() below, so this is just the static setup.
 document.getElementById('filter-daterange').style.display = 'none';
 document.getElementById('db-cat-filter').value = _filterCat;
 
-if (localStorage.getItem('digestLeftColCollapsed') === '1') {
-  document.getElementById('left-col').classList.add('collapsed');
-  document.getElementById('left-col-toggle').textContent = '▶';
-}
+document.getElementById('bulk-assignee').innerHTML =
+  '<option value="">Assignee...</option>' + ASSIGNEES.map(a => '<option value="'+a.email+'">'+a.name+'</option>').join('');
+document.getElementById('bulk-status').innerHTML =
+  '<option value="">Status...</option>' + EMAIL_STATUSES.map(s => '<option value="'+s+'">'+s+'</option>').join('');
 
+updateNotifButton();
 startCountdown();
-loadLive(); // also triggers loadAllEmailStatuses() once accounts are known
+loadLive().then(openFromQueryParams); // also triggers loadAllEmailStatuses() once accounts are known
 loadAssignments();
 loadHeatmap();
 </script>

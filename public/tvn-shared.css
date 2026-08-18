@@ -1,0 +1,441 @@
+/* Shared design tokens + components across the three /tvn pages:
+   BitMovin Error Sessions, BitMovin Top Error Codes, Firebase Crashlytics.
+   Kept in one file so the three pages look and feel like one tool, not
+   three unrelated ones - same palette/typography as the TVN runbook. */
+
+:root {
+  --bg: #F3F5F3;
+  --surface: #FFFFFF;
+  --surface-2: #EAEDEA;
+  --ink: #16211D;
+  --ink-dim: #57635C;
+  --ink-faint: #7C8981;
+  --border: #D6DBD3;
+  --accent: #0E6F63;
+  --accent-ink: #0A5049;
+  --accent-soft: #DCEFEA;
+  --good: #2E7D46;
+  --good-soft: #E3F3E6;
+  --warn: #A66A00;
+  --warn-soft: #F7EBD6;
+  --critical: #B3261E;
+  --critical-soft: #FBE4E2;
+  --info: #1A56C4;
+  --info-ink: #123C8C;
+  --info-soft: #E1EAFA;
+  --font-sans: -apple-system, "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0F1513;
+    --surface: #16201D;
+    --surface-2: #1C2723;
+    --ink: #E7ECE8;
+    --ink-dim: #A8B5AE;
+    --ink-faint: #74827A;
+    --border: #2A362F;
+    --accent: #4FD9C6;
+    --accent-ink: #8CEBDD;
+    --accent-soft: #16302C;
+    --good: #63C77E;
+    --good-soft: #163420;
+    --warn: #E3AC4E;
+    --warn-soft: #3A2C10;
+    --critical: #F0716A;
+    --critical-soft: #3A1613;
+    --info: #8CB8FF;
+    --info-ink: #B9D3FF;
+    --info-soft: #17243A;
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+a { color: var(--accent-ink); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------- Console header ----------
+   Sticky, so the page identity and the nav stay reachable on views that
+   scroll (both the merged entry form and the merged dashboard do). That only
+   works if it's short: one row, no description paragraph, title and nav on
+   the same line - it costs about 60px instead of the ~150px the stacked
+   version did. */
+.console {
+  position: sticky; top: 0; z-index: 50;
+  background: #0A0F0D; color: var(--bg); padding: 11px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+.console-inner {
+  max-width: 1100px; margin: 0 auto;
+  display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap;
+}
+.console-main { min-width: 0; margin-right: auto; }
+/* Was 11px uppercase mono in accent teal with wide tracking - technically
+   legible, actually squinted at. Neutral grey at normal tracking reads as
+   the label it is and stops competing with the title. */
+.eyebrow {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #7E8D86;
+  display: flex; align-items: center; gap: 7px; margin: 0 0 2px;
+}
+.eyebrow::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; }
+h1.title { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 0; color: #F3F5F3; line-height: 1.25; }
+.header-actions { display: flex; gap: 7px; flex-wrap: wrap; flex: none; }
+.ghost-link {
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; padding: 5px 11px;
+  border-radius: 7px; border: 1px solid rgba(255,255,255,0.16); color: #E2EAE6; background: rgba(255,255,255,0.05);
+}
+.ghost-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; background: rgba(255,255,255,0.09); }
+
+/* Page nav - real <a> links between the two /tvn pages, not a JS tab
+   switcher. .active marks the page currently loaded. Sans, not mono: at this
+   size mono cost more legibility than the console look was worth. */
+.page-nav { display: flex; gap: 6px; flex-wrap: wrap; flex: none; }
+.page-nav-link {
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; padding: 5px 11px;
+  border-radius: 7px; border: 1px solid rgba(255,255,255,0.14); color: #C9D6D0; background: rgba(255,255,255,0.03);
+}
+.page-nav-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.page-nav-link.active { background: var(--accent); border-color: var(--accent); color: #0A0F0D; }
+
+/* ---------- Body layout ---------- */
+.wrap { max-width: 1100px; margin: 0 auto; padding: 22px 24px 72px; }
+section.block { margin: 0 0 40px; }
+.block-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+h2.h { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); margin: 0; white-space: nowrap; }
+.rule { flex: 1; height: 1px; background: var(--border); }
+.tag-pill { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); text-transform: uppercase; font-weight: 700; margin-left: 8px; vertical-align: middle; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+.card .hint { font-size: 12.5px; color: var(--ink-faint); margin-bottom: 12px; max-width: 76ch; }
+
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.last-updated { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+#empty-state { text-align: center; padding: 48px 24px; color: var(--ink-faint); }
+#empty-state .icon { font-size: 36px; margin-bottom: 12px; }
+
+/* ---------- Buttons ---------- */
+.btn-primary, .btn-ghost {
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; border-radius: 8px;
+  padding: 8px 14px; cursor: pointer; border: 1px solid transparent;
+}
+.btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
+.btn-ghost { background: var(--surface); color: var(--ink-dim); border-color: var(--border); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-ink); }
+button:disabled { opacity: 0.55; cursor: default; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---------- Tables ---------- */
+table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.data th { text-align: right; background: var(--surface-2); color: var(--ink-faint); font-weight: 600; padding: 8px 10px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; font-family: var(--font-mono); border-bottom: 1px solid var(--border); }
+table.data th:first-child, table.data td:first-child { text-align: left; }
+table.data td { padding: 6px 8px; border-top: 1px solid var(--border); color: var(--ink); text-align: right; white-space: nowrap; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+table.data td:first-child { font-family: var(--font-sans); font-variant-numeric: normal; }
+
+/* Compact 24-hour heatmap (BitMovin Error Sessions, hourly) - narrow fixed
+   columns so Platform+Date+24 hours+Average fits the page width without a
+   horizontal scrollbar on a normal desktop viewport. */
+.hourly-heatmap { table-layout: fixed; font-size: 10px; }
+/* table.data th/td (line 103/105 above) set text-align via 2 type selectors +
+   1 class, which beats this rule's 1 type + 1 class on specificity alone -
+   !important is the only way this centering actually wins. */
+.hourly-heatmap th, .hourly-heatmap td { padding: 4px 3px; text-align: center !important; }
+.hourly-heatmap td { font-variant-numeric: tabular-nums; border-top: 1px solid var(--border); }
+/* Label columns hold real words, so they get enough room to not collide with
+   the first hour column - fixed layout clips rather than wraps otherwise. */
+/* Platform and its date stack in one column rather than taking two: side by
+   side, neither fitted its width and both were being cut off. Nothing here
+   truncates now - no ellipsis, no hidden overflow. */
+.hourly-heatmap .col-id { text-align: left !important; width: 86px; }
+.hourly-heatmap .id-platform { display: block; font-family: var(--font-sans); font-size: 10px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+/* Date is blue in both the header and the value, so the pairing is obvious
+   at a glance rather than being inferred from position. */
+.hourly-heatmap .id-date { display: block; font-family: var(--font-mono); font-size: 8.5px; color: var(--info); font-weight: 600; white-space: nowrap; }
+.hourly-heatmap th.col-id .id-platform { color: var(--ink-faint); font-weight: 600; }
+
+/* Every printed number is a percentage ("8.21%"). The hour column carries it
+   at its own smaller size so both the peak value and the "12.00" header fit
+   wholly inside one cell - nothing overflows into a neighbour, which is what
+   previously got clipped when the table was exported as an image. Widths sum
+   to 86 + 46 + 40 + 46 + 24x32 = 986px, inside the ~1012px a full-width card
+   gives, so the table never needs to scroll at this page's max width. */
+.hourly-heatmap .col-hour { width: 32px; padding-left: 1px; padding-right: 1px; font-size: 8px; }
+.hourly-heatmap .col-stat { width: 42px; font-size: 9px; }
+.hourly-heatmap td.col-stat { white-space: nowrap; }
+.hourly-heatmap .col-time { width: 58px; }
+/* Time stacks with its date the same way Platform stacks with its date -
+   the two are one reading, so they share the same two-line treatment. */
+.hourly-heatmap .time-value { display: block; font-family: var(--font-sans); font-size: 9px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.hourly-heatmap .time-date { display: block; font-family: var(--font-mono); font-size: 8.5px; color: var(--info); font-weight: 600; white-space: nowrap; }
+/* Peak is the day's maximum - a fixed critical colour, not a point on the
+   ramp, so it never reads as "just another value". */
+.hourly-heatmap td.col-peak { color: var(--critical); font-weight: 700; }
+/* Peak and the hour it happened are one reading split across two cells, so a
+   tinted band with a border down each side frames them as a pair rather than
+   two unrelated columns that happen to be adjacent. */
+.hourly-heatmap .col-peak, .hourly-heatmap .col-time { background: var(--surface-2); }
+.hourly-heatmap .col-peak { border-left: 1px solid var(--border); }
+.hourly-heatmap .col-time { border-right: 1px solid var(--border); }
+/* Avg is coloured on the same scale as the hours, so without a break it reads
+   as just another hour cell - this gap separates the summary block. */
+.hourly-heatmap .col-avg { border-right: 6px solid var(--surface); }
+
+.cell-input, .date-cell-input {
+  font-family: var(--font-mono); font-size: 12.5px; padding: 5px 7px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--surface); color: var(--ink); box-sizing: border-box;
+}
+.cell-input { width: 84px; text-align: right; font-weight: 600; }
+.cell-input:focus, .date-cell-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.date-cell-input { width: 110px; font-family: var(--font-sans); }
+.new-row td { background: var(--accent-soft); }
+
+.heat-legend { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.heat-swatch { display: flex; flex-direction: column; align-items: center; font-size: 9px; color: var(--ink-faint); font-family: var(--font-mono); }
+.heat-box { width: 26px; height: 14px; border-radius: 3px; margin-bottom: 2px; }
+
+.table-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.result-text { white-space: pre-wrap; margin-top: 12px; font-size: 12px; color: var(--ink-dim); font-family: var(--font-mono); }
+
+.record-panel label { display: block; margin-top: 10px; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--ink-dim); }
+.record-panel textarea {
+  width: 100%; box-sizing: border-box; font-family: var(--font-mono); font-size: 12.5px; padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--ink);
+}
+.record-panel textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+#redo-btn { margin-left: 8px; }
+
+.platform-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 10px 0 14px; }
+.platform-input label { margin-top: 0; }
+.platform-input textarea { height: 84px; resize: vertical; }
+
+/* Labelled inline field + a full-width paste box (Top Error Codes input). */
+.field-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.field-label { font-size: 12px; font-weight: 600; color: var(--ink-dim); }
+.paste-input {
+  width: 100%; box-sizing: border-box; margin-top: 10px; height: 120px; resize: vertical;
+  font-family: var(--font-mono); font-size: 12.5px; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink);
+}
+.paste-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+.paste-input-half { height: 78px; margin-top: 6px; }
+
+/* Paste box on the left, the Platform/Date it feeds on the right. */
+.tec-paste-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; margin-bottom: 16px; }
+.tec-paste-col { min-width: 0; }
+.tec-paste-col .field-label { display: block; }
+
+/* The table only needs about two thirds of the width, so the action buttons
+   live in the space beside it instead of stacking below. */
+.tec-table-row { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 16px; align-items: start; }
+.tec-btn-col { display: flex; flex-direction: column; gap: 8px; }
+.tec-btn-col button { width: 100%; }
+/* A link that sits in the button stack has to look and size like the buttons
+   around it - anchors are inline and pick up none of the button box. */
+.tec-btn-col a.btn-ghost { display: block; width: 100%; box-sizing: border-box; text-align: center; text-decoration: none; }
+.tec-btn-col .result-text { margin-top: 4px; }
+/* A step row sitting in this narrow column stacks its badge above the text,
+   rather than squeezing both onto one line. */
+.tec-btn-col .step { flex-direction: column; align-items: flex-start; gap: 5px; margin-bottom: 2px; }
+
+@media (max-width: 860px) {
+  .tec-paste-row, .tec-table-row { grid-template-columns: 1fr; }
+}
+
+/* ---------- Two-view toggle (BitMovin Error Sessions) ----------
+   A pill segmented control - small enough to sit above the content without
+   taking a section header's worth of height, since both views have to fit a
+   viewport without scrolling. */
+.view-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.view-toggle { display: inline-flex; gap: 3px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+.view-toggle button {
+  border: none; background: none; cursor: pointer; padding: 6px 16px; border-radius: 999px;
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; color: var(--ink-dim);
+  transition: background .15s ease, color .15s ease;
+}
+.view-toggle button:hover:not(.active) { color: var(--accent-ink); }
+.view-toggle button.active { background: var(--accent); color: var(--bg); }
+
+/* 24 hours as one strip instead of a 24-row table - the import view has to
+   fit without scrolling, and the day's shape reads faster this way. */
+.hour-strip { display: flex; gap: 1px; border-radius: 4px; overflow: hidden; }
+.strip-cell { flex: 1; height: 26px; }
+.strip-scale { display: flex; justify-content: space-between; margin-top: 3px; font-family: var(--font-mono); font-size: 9px; color: var(--ink-faint); }
+
+/* Platform / Date confirmation rows shown before sync unlocks. */
+.validate-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.validate-label { flex: none; width: 74px; font-size: 11.5px; font-weight: 600; color: var(--ink-dim); }
+.validate-value { font-size: 11px; color: var(--ink-dim); }
+.validate-ok { font-size: 10.5px; font-weight: 600; color: var(--good); }
+.validate-warn { font-size: 10.5px; font-weight: 600; color: var(--warn); }
+
+/* Reference material kept on the page but folded away, so it costs no height
+   until it's actually wanted. */
+.extras { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.extras summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--ink-dim); }
+.extras summary:hover { color: var(--accent-ink); }
+
+/* Step list: a badge, the instruction, and that step's button on the same
+   line, so the walkthrough scans as rows rather than one block of prose. */
+.steps { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.step { display: flex; align-items: center; gap: 10px; font-size: 12.5px; line-height: 1.6; color: var(--ink-dim); }
+.step-no {
+  flex: none; align-self: flex-start; margin-top: 1px; padding: 2px 9px; border-radius: 20px;
+  background: var(--accent-soft); color: var(--accent-ink);
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; white-space: nowrap;
+}
+.step-text { flex: 1; min-width: 0; }
+.step strong { color: var(--ink); }
+.step button { flex: none; }
+
+/* ---------- Daily / cumulative summary under the heatmap ----------
+   Fills the gap left under the 24-hour grid. Two cards, two lines each, so
+   it stays a glance-read rather than turning into a second table. */
+.sum-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.sum-card { border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 9px 12px 10px; background: var(--surface-2); }
+.sum-head { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: var(--ink); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sum-when { font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: var(--info); }
+.sum-list { margin: 0; padding-left: 16px; }
+.sum-list li { font-size: 11.5px; line-height: 1.6; color: var(--ink-dim); }
+.sum-list li + li { margin-top: 3px; }
+.sum-list b { color: var(--ink); }
+.sum-up { color: var(--critical); font-weight: 700; }
+.sum-down { color: var(--good); font-weight: 700; }
+.sum-source { margin: 9px 0 0; font-size: 10.5px; line-height: 1.65; color: var(--ink-faint); }
+.sum-source b { color: var(--ink-dim); }
+.sum-source code { font-family: var(--font-mono); font-size: 10px; color: var(--accent); }
+@media (max-width: 900px) { .sum-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Two data-entry tracks sharing one Step 1 ----------
+   Both forms live on the same page now, so each gets its own frame and tint
+   (green = CSV export, blue = screenshot + paste). Without that they read as
+   one long ten-step procedure instead of two alternatives. */
+.track {
+  border: 1px solid var(--border); border-left: 4px solid var(--track-accent);
+  border-radius: 10px; padding: 14px 16px; background: var(--track-tint);
+}
+.track + .track { margin-top: 14px; }
+.track--csv { --track-accent: var(--accent); --track-ink: var(--accent-ink); --track-tint: var(--accent-soft); }
+.track--paste { --track-accent: var(--info); --track-ink: var(--info-ink); --track-tint: var(--info-soft); }
+.track-head { display: flex; align-items: baseline; gap: 9px; margin-bottom: 10px; flex-wrap: wrap; }
+.track-name { font-size: 13.5px; font-weight: 700; color: var(--track-accent); }
+.track-sub { font-size: 11.5px; color: var(--ink-faint); }
+/* The step pills carry the track's own hue so a step number is never
+   ambiguous about which of the two forms it belongs to. */
+.track .step-no { background: var(--surface); color: var(--track-ink); border: 1px solid var(--track-accent); }
+.track .steps { margin-bottom: 12px; }
+.track .tec-paste-row, .track .tec-table-row { margin-bottom: 0; }
+.track .card, .track .data { background: var(--surface); }
+
+/* ---------- Dashboard: stat tiles + single-series horizontal bars ----------
+   One measure (approx sessions) per chart, so one accent hue carries the
+   fill and length carries the magnitude. Values sit beside each bar in ink
+   tokens, never inside the fill, so contrast never depends on the hue. */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.stat { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.stat-value { font-family: var(--font-mono); font-size: 21px; font-weight: 700; color: var(--ink); line-height: 1.2; }
+.stat-label { font-size: 11px; color: var(--ink-dim); margin-top: 3px; }
+
+/* Kept in CSS, not inline: copyElementAsImage temporarily sets and clears the
+   padding shorthand on this element, which would wipe an inline padding-top. */
+#tec-dash-export { background: var(--surface); padding-top: 4px; }
+
+/* Title inside the captured area - the PNG gets shared on its own, so it has
+   to carry its own heading and the window/filters it represents. */
+.export-head { margin-bottom: 14px; }
+.export-title { display: block; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+.export-meta { display: block; font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+
+/* Filters in one row above the charts, export action pushed to the far end. */
+.dash-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.dash-filters { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.dash-filters .date-cell-input { width: 120px; }
+
+/* Sits directly under the View more button, so it reads as that chart's
+   footnote rather than a loose paragraph at the end of the dashboard. */
+.dash-note { font-size: 12.5px; color: var(--ink-dim); margin-top: 10px; line-height: 1.75; }
+.dash-note .note-bad { color: var(--critical); font-weight: 700; }
+.dash-note .note-info { color: var(--info); font-weight: 700; }
+.view-more-btn { margin-top: 10px; width: 100%; }
+
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 22px; }
+.chart { margin: 0; min-width: 0; }
+.chart figcaption { margin-bottom: 10px; }
+.chart-title { display: block; font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.chart-sub { display: block; font-size: 11px; color: var(--ink-faint); margin-top: 1px; }
+
+/* Right-hand column: the platform chart tops out at 7 bars while the code
+   chart runs 10+, so the summary lives in the leftover space instead of
+   adding a full-width band nobody has room for. */
+.chart-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+/* Reuses the .sum-card vocabulary the hourly heatmap summary already defines
+   (see above) so both panels read as the same component. Only the layout
+   differs: stacked, because this one lives in a half-width column. */
+.sum-grid.sum-stack { grid-template-columns: 1fr; margin-top: 0; }
+.dash-summary:empty { display: none; }
+
+/* 2px row gap keeps adjacent fills from reading as one block. */
+.bars { display: flex; flex-direction: column; gap: 2px; }
+.bars .bar-row { display: grid; grid-template-columns: minmax(96px, 34%) 1fr auto; gap: 10px; align-items: center; padding: 3px 0; }
+.bars .bar-label { font-size: 11px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars .bar-track { height: 14px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.bars .bar-fill { height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; }
+.bars .bar-value { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; color: var(--ink); text-align: right; min-width: 96px; white-space: nowrap; }
+/* The unit is recessive - it repeats on every row, so it shouldn't compete
+   with the number it labels. */
+.bars .bar-unit { font-weight: 400; color: var(--ink-faint); font-size: 10px; }
+
+/* Platform -> filter reference, rendered from the sheet's own Filters column.
+   Filter lines stack one per line, the way Bitmovin's Filters panel shows
+   them, since this exists to be compared against that panel. */
+.filter-ref { margin-top: 8px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.filter-ref-head { font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+.filter-ref-sub { font-size: 11.5px; margin-bottom: 4px; }
+/* Three columns - name, OS, Platform - so the Platform values line up under
+   each other regardless of how long the OS string beside them is. */
+.filter-ref-table { margin: 6px 0 0 18px; border-collapse: collapse; font-size: 11.5px; }
+.filter-ref-table th, .filter-ref-table td { padding: 2px 20px 2px 0; text-align: left; vertical-align: top; white-space: nowrap; }
+.filter-ref-table th { color: var(--ink); font-weight: 700; }
+.filter-ref-table td code { color: var(--ink-dim); }
+
+/* A dropdown filled from Claude's answer rather than by hand - blue marks it
+   as a machine guess that still wants a glance before syncing. */
+select.autofilled { color: var(--info); font-weight: 700; }
+.platform-source { font-size: 11.5px; color: var(--info); font-weight: 600; }
+
+
+/* ---------- Screenshot-insert (paste-area) - purely visual reference,
+   nothing reads or analyzes it. Same box on all 3 pages. ---------- */
+.paste-area {
+  border: 1.5px dashed var(--border); border-radius: 10px; padding: 28px; text-align: center;
+  color: var(--ink-faint); font-size: 13px; cursor: pointer; background: var(--surface-2);
+}
+.paste-area:hover, .paste-area:focus { outline: none; border-color: var(--accent); background: var(--accent-soft); }
+.paste-area.has-image { padding: 12px; border-style: solid; cursor: default; }
+.paste-area img { max-width: 100%; max-height: 360px; border-radius: 6px; display: block; margin: 0 auto; }
+.paste-area .clear-btn { margin-top: 10px; }
+
+/* ---------- "How to import the skill" step card ---------- */
+.skill-steps ol { margin: 0; padding-left: 0; list-style: none; counter-reset: step; }
+.skill-steps li { counter-increment: step; position: relative; padding-left: 32px; margin-bottom: 14px; font-size: 13px; }
+.skill-steps li::before {
+  content: counter(step); position: absolute; left: 0; top: 0; font-family: var(--font-mono); font-size: 11px;
+  font-weight: 700; color: var(--accent-ink); background: var(--accent-soft); width: 20px; height: 20px;
+  border-radius: 5px; display: flex; align-items: center; justify-content: center;
+}
+.skill-steps li:last-child { margin-bottom: 0; }
+.skill-steps code { font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; }
+.skill-steps pre { font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; overflow-x: auto; margin: 6px 0 0; }
+.skill-steps .optional-tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); border: 1px dashed var(--border); padding: 1px 6px; border-radius: 5px; margin-left: 6px; }
+
+/* ---------- Sheet link ---------- */
+.sheet-link-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.sheet-link { font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+.sheet-link:hover { filter: brightness(0.97); text-decoration: none; }
+.sheet-link.disabled { border-color: var(--border); color: var(--ink-faint); background: var(--surface-2); cursor: default; pointer-events: none; }
+
+/* Sub-toggle inside the input view - lighter than the page-level one, since
+   it switches which form is showing rather than which page you are on. */

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Releases — Muze Tech Ops Portal</title>
+  <link rel="stylesheet" href="/tvn-shared.css">
+  <script src="/tvn-shared.js"></script>
+</head>
+<body>
+
+<div class="console">
+  <div class="console-inner">
+    <div class="console-main">
+      <p class="eyebrow">Muze Tech Ops Portal · App Releases</p>
+      <h1 class="title">App Releases</h1>
+      <p class="subtitle">เวอร์ชันล่าสุดของแอป TrueVisions NOW ต่อ platform อ่านจาก Deploy Tag ในชีต CAB Deploy Tracker (ทุกแท็บ)</p>
+    </div>
+    <div class="header-actions">
+      <a class="ghost-link" href="/">← กลับหน้าหลัก</a>
+      <a class="ghost-link" href="/logout">Logout</a>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <section class="block">
+    <div class="block-head"><h2 class="h">เวอร์ชันล่าสุดต่อ Platform</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="hint">แสดงแถวล่าสุดของแต่ละ platform ในชีต (ไม่ใช่ประวัติทั้งหมด)</div>
+      <div class="toolbar">
+        <button class="btn-ghost" onclick="loadAppReleases()">🔄 Refresh</button>
+        <span class="last-updated" id="app-releases-updated"></span>
+      </div>
+      <div class="sheet-link-row">
+        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1ULCi9sX4mK1pFC7xkSfAQgqSxNI_Fo2a_gIIETaQ0NE/edit" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง (CAB Deploy Tracker)</a>
+      </div>
+      <div id="app-releases-body" style="margin-top:14px;"><div id="app-releases-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+async function loadAppReleases() {
+  const body = document.getElementById('app-releases-body');
+  const updated = document.getElementById('app-releases-updated');
+  try {
+    const data = await fetchJson('/api/app-releases');
+    renderAppReleases(data.platforms, data.lastUpdated);
+    updated.textContent = 'อัปเดตล่าสุด: ' + new Date(data.lastUpdated).toLocaleString('th-TH');
+  } catch (err) {
+    body.innerHTML = `<div id="app-releases-empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderAppReleases(platforms, lastUpdated) {
+  const body = document.getElementById('app-releases-body');
+  if (!platforms || !platforms.length) {
+    body.innerHTML = `<div id="app-releases-empty"><div class="icon">📭</div>ไม่พบข้อมูล platform ในชีต</div>`;
+    return;
+  }
+  // Every row shares the same Date Check - the sheet is scanned live in one
+  // request, so all platforms were confirmed at the exact same moment.
+  const dateCheck = formatBangkokDateCheck(lastUpdated);
+  const rowsHtml = platforms.map(p => `
+    <tr>
+      <td>${escapeHtml(p.platform)}</td>
+      <td style="text-align:left;">${escapeHtml(p.version || '—')}</td>
+      <td style="text-align:left;">${escapeHtml(p.releaseDate || '—')}</td>
+      <td style="text-align:left;">${escapeHtml(p.submitDate || '—')}</td>
+      <td style="text-align:left;">${escapeHtml(dateCheck)}</td>
+    </tr>
+  `).join('');
+
+  body.innerHTML = `
+    <table class="data">
+      <thead><tr><th>Platform</th><th>Version ล่าสุด</th><th>Release Date</th><th>Submit Date</th><th>Date Check</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  `;
+}
+
+loadAppReleases();
+</script>
+</body>
+</html>

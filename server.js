@@ -8,8 +8,11 @@ const digestRoutes = require('./routes/digest');
 const plannerRoutes = require('./routes/planner');
 const mtscsRoutes = require('./routes/mtscs');
 const nissanMnRoutes = require('./routes/nissanMn');
+const tvnRoutes = require('./routes/tvn');
+const appReleasesRoutes = require('./routes/appReleases');
 const ktcChatRoutes = require('./routes/ktcChat');
 const kbRoutes = require('./routes/kb');
+const resourcePlanningRoutes = require('./routes/resourcePlanning');
 
 const app = express();
 app.use(cookieParser());
@@ -27,12 +30,18 @@ app.use(requireAuth.optionalAuth);
 app.post('/api/digest', digestRoutes);
 app.get('/api/digest/debug', digestRoutes);
 app.post('/api/digest/live', digestRoutes);
+app.get('/api/digest/live', digestRoutes);
 app.get('/api/digest/training-rules', digestRoutes);
 app.post('/api/digest/train', digestRoutes);
 app.get('/api/digest/holidays', digestRoutes);
 app.post('/api/digest/holidays', digestRoutes);
 app.get('/api/digest/daily-totals', digestRoutes);
 app.post('/api/digest/daily-totals', digestRoutes);
+app.post('/api/digest/gmail-tokens', digestRoutes);
+app.get('/api/digest/gmail-tokens', digestRoutes);
+app.get('/api/digest/range', digestRoutes);
+app.get('/api/digest/history', digestRoutes);
+app.get('/api/digest/email-body', digestRoutes);
 app.post('/api/planner', plannerRoutes);
 
 // Public routes - must be registered before requireAuth
@@ -46,8 +55,11 @@ app.use(digestRoutes);
 app.use(plannerRoutes);
 app.use(mtscsRoutes);
 app.use(nissanMnRoutes);
+app.use(tvnRoutes);
+app.use(appReleasesRoutes);
 app.use(ktcChatRoutes);
 app.use(kbRoutes);
+app.use(resourcePlanningRoutes);
 
 module.exports = app;
 if (require.main === module) {

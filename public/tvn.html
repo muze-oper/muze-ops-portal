@@ -1,0 +1,1300 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BitMovin Error Sessions — Muze Tech Ops Portal</title>
+  <link rel="stylesheet" href="/tvn-shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="/tvn-shared.js"></script>
+</head>
+<body>
+
+<div class="console">
+  <div class="console-inner">
+    <div class="console-main">
+      <p class="eyebrow">Muze Tech Ops Portal · TVN</p>
+      <h1 class="title">BitMovin Error Sessions</h1>
+    </div>
+    <nav class="page-nav">
+      <a class="page-nav-link active" href="/tvn">BitMovin</a>
+      <a class="page-nav-link" href="/tvn/crashlytics">Firebase Crashlytics</a>
+    </nav>
+    <div class="header-actions">
+      <a class="ghost-link" href="/">← กลับหน้าหลัก</a>
+      <a class="ghost-link" href="/logout">Logout</a>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="view-switch-row">
+    <div class="view-toggle" role="tablist" aria-label="สลับหน้า">
+      <button id="tab-input" class="active" onclick="switchTvnView('input')">✍️ ใส่ข้อมูลใหม่</button>
+      <button id="tab-dash" onclick="switchTvnView('dash')">📊 Dashboard</button>
+    </div>
+    <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1338052572#gid=1338052572" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
+  </div>
+
+  <section class="block" id="view-input">
+    <div class="card">
+      <div class="steps">
+        <div class="step">
+          <span class="step-no">Step 1</span>
+          <span class="step-text">
+            เปิด Bitmovin → ตั้ง <strong>Filters</strong> ให้เหลือ platform เดียว — ขั้นตอนนี้ใช้ร่วมกันทั้งสองแบบด้านล่าง
+            <div class="filter-ref">
+              <div class="filter-ref-head">Filter ที่ต้องใช้</div>
+              <div class="filter-ref-sub">1. <strong>Show Metrics Between</strong> = <code>Last 24 hours</code></div>
+              <div class="filter-ref-sub">2. <strong>Platform filters</strong> — ตั้งให้เหลือ platform เดียวเท่านั้น:</div>
+              <table class="filter-ref-table"><tbody id="shared-filter-ref"></tbody></table>
+            </div>
+          </span>
+        </div>
+      </div>
+
+      <div class="track track--csv">
+        <div class="track-head">
+          <span class="track-name">A · Error Sessions</span>
+          <span class="track-sub">ผ่านไฟล์ CSV ที่ export จาก Bitmovin → แท็บ BitMovin Error</span>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <span class="step-no">Step 2</span>
+            <span class="step-text">metric <strong>Error Sessions</strong> → <strong>Export CSV</strong> → เลือกไฟล์ที่ได้ — ระบบจะอ่าน platform จาก filter ในไฟล์ และแปลงเวลาเป็นเวลาไทยให้</span>
+          </div>
+        </div>
+
+        <div class="tec-paste-row">
+          <div class="tec-paste-col">
+            <label class="field-label" for="hourly-csv-file">ไฟล์ CSV จาก Bitmovin</label>
+            <input type="file" id="hourly-csv-file" accept=".csv,text/csv" onchange="handleHourlyCsvFile(this)">
+            <div id="hourly-csv-hours"></div>
+          </div>
+          <div class="tec-paste-col">
+            <div class="step" style="margin-bottom:8px;">
+              <span class="step-no">Step 3</span>
+              <span class="step-text">ตรวจ <strong>Platform</strong> + <strong>Date</strong> ให้ถูกก่อน sync</span>
+            </div>
+            <div id="hourly-validate"><div class="hint">ยังไม่ได้เลือกไฟล์</div></div>
+            <div class="step" style="margin:12px 0 8px;">
+              <span class="step-no">Step 4</span>
+              <span class="step-text">กด Sync — แทรกแถวใหม่บนสุดของ platform นั้น ของเดิมเลื่อนลง ไม่มีอะไรถูกลบ</span>
+            </div>
+            <button class="btn-primary" id="hourly-sync-btn" onclick="syncHourlyCsv()" disabled style="width:100%;">🔄 Sync เข้าชีต</button>
+            <div id="hourly-csv-result" class="result-text"></div>
+          </div>
+        </div>
+
+        <details class="extras">
+          <summary>แนบ screenshot ไว้อ้างอิง</summary>
+          <div id="paste-area-sessions" class="paste-area" tabindex="0" style="margin-top:12px;">📋 คลิกที่นี่แล้ววาง (Ctrl/Cmd+V) หรือลากรูป screenshot มาวาง</div>
+        </details>
+      </div>
+
+      <div class="track track--paste">
+        <div class="track-head">
+          <span class="track-name">B · Top Error Codes</span>
+          <span class="track-sub">ผ่าน screenshot ที่ให้ Claude อ่านค่าให้ → แท็บ BitMovin Top Error Codes</span>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <span class="step-no">Step 2</span>
+            <span class="step-text">แคป screenshot กราฟ "Top Error Codes" <strong>ให้เห็นกล่อง Filters ด้วย</strong> พร้อมแกนตัวเลขด้านล่าง</span>
+          </div>
+          <div class="step">
+            <span class="step-no">Step 3</span>
+            <span class="step-text">เปิดแชท <strong>Claude Code</strong> จากโฟลเดอร์ <code>muze-ops-portal</code> → วาง screenshot ลงในแชท (Ctrl/Cmd+V) → วางคำสั่งต่อท้าย</span>
+            <button type="button" class="btn-ghost" onclick="copyClaudePrompt()">📋 copy คำสั่ง</button>
+          </div>
+          <div class="step">
+            <span class="step-no">Step 4</span>
+            <span class="step-text">copy คำตอบของ Claude มาวางในช่องด้านล่าง — Platform จะถูกเลือกให้ทันที (ขึ้น<span style="color:#1a73e8;font-weight:700;">สีน้ำเงิน</span>) ให้เช็คว่าตรงกับรูป</span>
+          </div>
+        </div>
+        <code id="tec-claude-prompt" hidden>อ่านกราฟ Top Error Codes นี้ ตอบบรรทัดแรกเป็น "Platform: &lt;ชื่อ platform&gt;" ตาม Filters ในรูป แล้วบรรทัดต่อไปละ 1 อันดับ รูปแบบ "player-version: error-code, approx-session" เรียงมากไปน้อย ไม่ต้องมีข้อความอื่น</code>
+
+        <div class="tec-paste-row">
+          <div class="tec-paste-col">
+            <label class="field-label" for="tec-paste-input">วางคำตอบที่ Claude อ่านให้</label>
+            <textarea id="tec-paste-input" class="paste-input paste-input-half" placeholder="Platform: Android Mobile&#10;media3-exoplayer-1.10.1: 2004, 519"></textarea>
+            <div class="table-actions" style="margin-top:6px;">
+              <button class="btn-ghost" id="tec-clear-paste-btn" onclick="clearTecPasteInput()">🧹 ล้างข้อมูลที่วาง</button>
+            </div>
+          </div>
+          <div class="tec-paste-col">
+            <label class="field-label" for="tec-platform">Platform ที่จะเขียนลงชีต</label>
+            <div class="field-row" style="margin-top:2px;">
+              <select id="tec-platform" onchange="onTecPlatformChange(true)"><option value="">กำลังโหลด...</option></select>
+              <span id="tec-platform-source" class="platform-source"></span>
+            </div>
+            <div class="field-row" style="margin-top:8px;">
+              <label class="field-label" for="tec-date">Date</label>
+              <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
+            </div>
+            <div id="tec-filters-preview" class="hint" style="margin-top:8px;"></div>
+          </div>
+        </div>
+
+        <div class="tec-table-row">
+          <div class="tec-btn-col">
+            <div class="step">
+              <span class="step-no">Step 5</span>
+              <span class="step-text">กด <strong>แยกลงตาราง</strong> → ตรวจค่าในตาราง + Date → กด <strong>Sync to Google Sheet</strong></span>
+            </div>
+            <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
+            <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync to Google Sheet</button>
+            <button class="btn-ghost" id="tec-clear-btn" onclick="clearTecRows()">ล้างตาราง</button>
+            <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
+            <a class="btn-ghost" id="tec-open-sheet" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1613893186#gid=1613893186" target="_blank" rel="noopener">📄 เปิดชีตต้นฉบับ</a>
+            <div id="error-codes-result" class="result-text"></div>
+          </div>
+          <div id="error-codes-export-panel" style="background:var(--surface);">
+            <table class="data" id="error-codes-table">
+              <thead><tr><th>อันดับ</th><th style="text-align:left">Player Version</th><th>Error Code</th><th>Approx Session</th></tr></thead>
+              <tbody id="error-codes-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="view-dash" hidden>
+    <div class="block-head"><h2 class="h">BITMOVIN Error Sessions ต่อชั่วโมง</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="toolbar">
+        <button class="btn-ghost" id="hourly-refresh-btn" onclick="loadHourlyTable()">🔄 รีเฟรชข้อมูล</button>
+        <label style="font-size:12px;font-weight:600;color:var(--ink-dim);">กรองวันที่:</label>
+        <select id="hourly-date-filter" onchange="renderHourlyTable()"><option value="">ทุกวันที่</option></select>
+        <button class="btn-ghost" id="hourly-export-btn" onclick="copyElementAsImage('hourly-export-panel','hourly-table-result','hourly-export-btn')">📋 Export เป็นรูปภาพ</button>
+      </div>
+      <div id="hourly-table-body"><div id="hourly-table-empty"><div class="icon">⏳</div>กำลังโหลดข้อมูล...</div></div>
+      <div id="hourly-table-result" class="result-text"></div>
+    </div>
+
+    <div class="block-head"><h2 class="h">BITMOVIN Top Error in 24 Hours</h2><div class="rule"></div></div>
+    <div class="card">
+      <div id="tec-dash-empty" class="hint">กำลังโหลดข้อมูลจากชีต...</div>
+      <div id="tec-dash" hidden>
+        <div class="dash-toolbar">
+          <div class="dash-filters">
+            <label class="field-label" for="tec-f-date-from">Date</label>
+            <select id="tec-f-date-from" onchange="renderTecDashboard()"></select>
+            <span class="field-label">ถึง</span>
+            <select id="tec-f-date-to" onchange="renderTecDashboard()"></select>
+            <label class="field-label" for="tec-f-platform" style="margin-left:6px;">Platform</label>
+            <select id="tec-f-platform" onchange="renderTecDashboard()"></select>
+            <label class="field-label" for="tec-f-code" style="margin-left:6px;">Error code</label>
+            <input id="tec-f-code" class="date-cell-input" placeholder="เช่น 3018" oninput="renderTecDashboard()">
+            <button class="btn-ghost" onclick="resetTecFilters()">ล้างฟิลเตอร์</button>
+          </div>
+          <button class="btn-ghost" id="tec-dash-export-btn" onclick="copyElementAsImage('tec-dash-export','tec-dash-result','tec-dash-export-btn')">📋 Export เป็นรูปภาพ</button>
+        </div>
+        <div id="tec-dash-result" class="result-text"></div>
+
+        <div id="tec-dash-export">
+          <div class="export-head">
+            <span class="export-title">BITMOVIN Top Error in 24 Hours</span>
+            <span class="export-meta" id="tec-export-meta"></span>
+          </div>
+          <div class="stat-row" id="tec-stats"></div>
+          <div class="chart-grid">
+            <figure class="chart">
+              <figcaption>
+                <span class="chart-title">Top error codes รวมทุก Platform</span>
+                <span class="chart-sub">รวม sessions ของ error code เดียวกันข้าม platform</span>
+              </figcaption>
+              <div class="bars" id="tec-chart-code"></div>
+              <button class="btn-ghost view-more-btn" id="tec-view-more" onclick="toggleTecViewMore()" hidden></button>
+              <div class="dash-note" id="tec-dash-note"></div>
+            </figure>
+            <div class="chart-col">
+              <figure class="chart">
+                <figcaption>
+                  <span class="chart-title">Approx sessions แยกตาม Platform</span>
+                  <span class="chart-sub">รวมทุก error code ที่บันทึกไว้ของแต่ละ platform</span>
+                </figcaption>
+                <div class="bars" id="tec-chart-platform"></div>
+              </figure>
+              <!-- Sits in the gap under the shorter platform chart: at most two
+                   lines per heading, so it stays compact even when the code
+                   chart is expanded to all rows. -->
+              <section class="dash-summary" id="tec-summary"></section>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+</div>
+
+<script>
+// ---- Hourly CSV import: parse a Bitmovin "Error Sessions" CSV export
+// (Global Filter table + a Date/Error Sessions/Sessions Considered/
+// Percentage table), auto-detect which platform it's for from the OS +
+// Platform filter, convert each hour's UTC timestamp to the Bangkok-time
+// column label used by the hourly sheet tab, and show a preview for the
+// human to confirm before writing anything. ----
+
+// Mirrors the "Filters" text already stored per platform row in the
+// hourly sheet tab (see routes/tvn.js HOURLY_SHEET_GID) - os is matched as
+// a set (order-independent), platformValue is an extra disambiguator only
+// where two platforms share the same OS (Android / Android TV).
+const HOURLY_PLATFORM_FILTERS = [
+  { platform: 'iOS Mobile', os: ['ipados', 'ios'], platformValue: 'ios' },
+  { platform: 'Android Mobile', os: ['android'], platformValue: 'android' },
+  { platform: 'Apple TV', os: ['tvos'], platformValue: 'tvos' },
+  { platform: 'Android TV', os: ['android'], platformValue: 'androidtv' },
+  { platform: 'Tizen', os: ['tizen'], platformValue: null },
+  { platform: 'LG', os: ['web0s'], platformValue: null },
+  { platform: 'Vidaa', os: ['vidaa'], platformValue: null },
+];
+const HOURLY_ALL_PLATFORMS = HOURLY_PLATFORM_FILTERS.map(p => p.platform);
+
+function detectHourlyPlatform(osList, platformValue) {
+  const osSet = osList.map(s => s.trim().toLowerCase()).filter(Boolean).sort();
+  const pv = platformValue ? platformValue.trim().toLowerCase() : null;
+  const matches = HOURLY_PLATFORM_FILTERS.filter(def => {
+    const defOs = [...def.os].sort();
+    if (JSON.stringify(defOs) !== JSON.stringify(osSet)) return false;
+    if (def.platformValue === null) return true;
+    return def.platformValue === pv;
+  });
+  return matches.length === 1 ? matches[0].platform : null;
+}
+
+// Basic quoted-CSV line parser - the Bitmovin export quotes every field and
+// at least one value ("iOS,iPadOS") contains a comma inside the quotes, so
+// a plain .split(',') would corrupt it.
+function parseCsvLine(line) {
+  const fields = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; }
+      } else {
+        cur += c;
+      }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      fields.push(cur);
+      cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  fields.push(cur);
+  return fields;
+}
+
+// UTC hour -> Bangkok-time column label used by the hourly sheet tab
+// ("10.00".."24.00","1.00".."9.00" - midnight is "24.00", not "0.00").
+function utcHourToBangkokLabel(isoTimestamp) {
+  const utcHour = new Date(isoTimestamp).getUTCHours();
+  const bangkokHour = (utcHour + 7) % 24;
+  return (bangkokHour === 0 ? 24 : bangkokHour) + '.00';
+}
+
+// Sortable "YYYY-MM-DD" Bangkok calendar date, for finding the earliest one
+// across a file's rows (string comparison works since it's zero-padded ISO
+// order). Separate from the display label below, which isn't sortable.
+function bangkokDateKey(isoTimestamp) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(isoTimestamp));
+}
+
+// "Thu-13-Aug" - same weekday-day-month style the sheet itself uses.
+function bangkokDateLabel(isoTimestamp) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short' })
+    .formatToParts(new Date(isoTimestamp))
+    .reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+  return `${parts.weekday}-${parts.day}-${parts.month}`;
+}
+
+function parseHourlyCsv(text) {
+  const lines = text.split(/\r?\n/).map(parseCsvLine);
+  let osList = [];
+  let platformValue = null;
+  const hourValues = {}; // label -> percentage string, newest CSV row wins on duplicate labels
+  let earliestDateKey = null;
+  let earliestDateLabel = null;
+
+  let dataStarted = false;
+  for (const fields of lines) {
+    const first = (fields[0] || '').trim();
+    if (!dataStarted) {
+      if (first === 'OPERATINGSYSTEM') {
+        osList = (fields[2] || '').split(',').map(s => s.trim()).filter(Boolean);
+      } else if (first === 'PLATFORM') {
+        platformValue = (fields[2] || '').trim();
+      } else if (first === 'Date' && (fields[1] || '').trim() === 'Error Sessions') {
+        dataStarted = true;
+      }
+      continue;
+    }
+    // Data row: Date, Error Sessions, Sessions Considered, Percentage
+    if (!first) continue;
+    const isoTimestamp = first;
+    const percentage = (fields[3] || '').trim();
+    if (!percentage || isNaN(new Date(isoTimestamp).getTime())) continue;
+    const label = utcHourToBangkokLabel(isoTimestamp);
+    if (!(label in hourValues)) hourValues[label] = percentage; // file lists newest-first
+
+    // Data spans a UTC day boundary (Bangkok is UTC+7), so "the file's
+    // date" is the earliest Bangkok calendar date among its rows, not
+    // whichever row happens to be listed first/last.
+    const dateKey = bangkokDateKey(isoTimestamp);
+    if (earliestDateKey === null || dateKey < earliestDateKey) {
+      earliestDateKey = dateKey;
+      earliestDateLabel = bangkokDateLabel(isoTimestamp);
+    }
+  }
+
+  return { osList, platformValue, hourValues, earliestDateLabel, detectedPlatform: detectHourlyPlatform(osList, platformValue) };
+}
+
+let hourlyParsed = null;
+
+function handleHourlyCsvFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      hourlyParsed = parseHourlyCsv(String(reader.result));
+      renderHourlyCsvPreview();
+    } catch (err) {
+      document.getElementById('hourly-csv-result').textContent = `Error: อ่านไฟล์ไม่สำเร็จ - ${err.message}`;
+    }
+  };
+  reader.readAsText(file);
+}
+
+// Renders the parsed file into the two columns: a compact heat strip of the
+// 24 hours on the left, and the Platform + Date that will actually be written
+// on the right. Both of those are editable and must be valid before Sync
+// unlocks - the file's own filter can be ambiguous (Android vs Android TV
+// share an OS) and its date is inferred, so neither is trusted silently.
+function renderHourlyCsvPreview() {
+  const hoursEl = document.getElementById('hourly-csv-hours');
+  const validateEl = document.getElementById('hourly-validate');
+  if (!hourlyParsed) {
+    hoursEl.innerHTML = '';
+    validateEl.innerHTML = '<div class="hint">ยังไม่ได้เลือกไฟล์</div>';
+    updateHourlySyncState();
+    return;
+  }
+
+  const { osList, platformValue, hourValues, detectedPlatform, earliestDateLabel } = hourlyParsed;
+  const filledCount = Object.keys(hourValues).length;
+
+  // 24 hours as one strip rather than a 24-row table - the page has to fit
+  // without scrolling, and the shape of the day reads faster this way anyway.
+  const strip = HOUR_COLUMNS_JS.map(label => {
+    const v = hourValues[label];
+    const color = v === undefined ? '' : heatColorForValue(parseFloat(v));
+    const style = color ? `background:${color};` : 'background:var(--surface-2);';
+    return `<div class="strip-cell" style="${style}" title="${escapeHtml(label)} = ${v === undefined ? 'ไม่มีข้อมูล' : formatPct(v)}"></div>`;
+  }).join('');
+
+  hoursEl.innerHTML = `
+    <div class="hint" style="margin:10px 0 4px;">พบข้อมูล <strong>${filledCount}/24</strong> ชั่วโมง (เวลาไทย)${filledCount < 24 ? ' — ชั่วโมงที่ขาดจะไม่ถูกเขียนทับ' : ''}</div>
+    <div class="hour-strip">${strip}</div>
+    <div class="strip-scale"><span>10.00</span><span>16.00</span><span>22.00</span><span>4.00</span><span>9.00</span></div>
+  `;
+
+  const options = HOURLY_ALL_PLATFORMS
+    .map(pf => `<option value="${escapeHtml(pf)}" ${pf === detectedPlatform ? 'selected' : ''}>${escapeHtml(pf)}</option>`)
+    .join('');
+
+  validateEl.innerHTML = `
+    <div class="validate-row">
+      <span class="validate-label">Filter ในไฟล์</span>
+      <code class="validate-value">OS: ${escapeHtml(osList.join(', ') || '-')}${platformValue ? ' · Platform: ' + escapeHtml(platformValue) : ''}</code>
+    </div>
+    <div class="validate-row">
+      <span class="validate-label">Platform</span>
+      <select id="hourly-platform-pick" onchange="updateHourlySyncState()">
+        <option value="">— เลือก platform —</option>${options}
+      </select>
+      ${detectedPlatform
+        ? '<span class="validate-ok">✓ อ่านได้จากไฟล์</span>'
+        : '<span class="validate-warn">⚠ ไฟล์ไม่ได้บอกชัด เลือกเอง</span>'}
+    </div>
+    <div class="validate-row">
+      <span class="validate-label">Date</span>
+      <input class="date-cell-input" id="hourly-date-pick" value="${escapeHtml(earliestDateLabel || '')}" oninput="updateHourlySyncState()" placeholder="เช่น Thu-14-Aug">
+      ${earliestDateLabel ? '<span class="validate-ok">✓ วันแรกในไฟล์</span>' : '<span class="validate-warn">⚠ อ่านวันที่จากไฟล์ไม่ได้</span>'}
+    </div>
+    <div id="hourly-validate-msg" class="result-text"></div>
+  `;
+  updateHourlySyncState();
+}
+
+// Sync stays locked until both fields are actually filled, so a file whose
+// platform couldn't be inferred can't be written to whichever row happened to
+// be first in the list.
+function updateHourlySyncState() {
+  const btn = document.getElementById('hourly-sync-btn');
+  const msg = document.getElementById('hourly-validate-msg');
+  const platform = (document.getElementById('hourly-platform-pick') || {}).value || '';
+  const date = ((document.getElementById('hourly-date-pick') || {}).value || '').trim();
+
+  const problems = [];
+  if (!hourlyParsed) problems.push('ยังไม่ได้เลือกไฟล์');
+  if (hourlyParsed && !platform) problems.push('ยังไม่ได้เลือก Platform');
+  if (hourlyParsed && !date) problems.push('ยังไม่ได้ใส่ Date');
+
+  btn.disabled = problems.length > 0;
+  if (msg) msg.textContent = problems.length ? problems.join(' · ') : `พร้อม sync → ${platform} (${date})`;
+}
+
+const HOUR_COLUMNS_JS = [
+  '10.00', '11.00', '12.00', '13.00', '14.00', '15.00', '16.00', '17.00', '18.00', '19.00', '20.00',
+  '21.00', '22.00', '23.00', '24.00', '1.00', '2.00', '3.00', '4.00', '5.00', '6.00', '7.00', '8.00', '9.00',
+];
+
+async function syncHourlyCsv() {
+  if (!hourlyParsed) return;
+  const platform = (document.getElementById('hourly-platform-pick') || {}).value || '';
+  const dateLabel = ((document.getElementById('hourly-date-pick') || {}).value || '').trim();
+  const btn = document.getElementById('hourly-sync-btn');
+  const resultEl = document.getElementById('hourly-csv-result');
+  if (!platform || !dateLabel) {
+    resultEl.textContent = 'ต้องเลือก Platform และใส่ Date ก่อน sync';
+    return;
+  }
+  btn.disabled = true;
+  resultEl.textContent = 'กำลัง sync...';
+  try {
+    const data = await fetchJson('/api/tvn/error-sessions-hourly/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, values: hourlyParsed.hourValues, dateLabel }),
+    });
+    resultEl.textContent = '✓ ' + data.result;
+    await loadHourlyTable(); // reflect the just-written row immediately
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  } finally {
+    updateHourlySyncState();
+  }
+}
+
+// The two views are the whole page - only one is ever in the DOM flow, which
+// is what keeps each of them inside a viewport without scrolling.
+function switchTvnView(view) {
+  ['input', 'dash'].forEach(v => {
+    document.getElementById('view-' + v).hidden = v !== view;
+    document.getElementById('tab-' + v).classList.toggle('active', v === view);
+  });
+}
+
+// Same platform->filter reference as the Top Error Codes page, but sourced
+// from the matcher this page actually uses, so the instructions can't drift
+// from the detection.
+function renderSharedFilterRef() {
+  const el = document.getElementById('shared-filter-ref');
+  if (!el) return;
+  // The matcher lowercases everything; these are the labels Bitmovin shows.
+  const LABEL = {
+    ipados: 'iPadOS', ios: 'iOS', tvos: 'tvOS', android: 'Android',
+    tizen: 'Tizen', web0s: 'Web0S', vidaa: 'VIDAA', androidtv: 'androidTV',
+  };
+  const show = (v) => LABEL[v] || v;
+  el.innerHTML = HOURLY_PLATFORM_FILTERS.map(def => {
+    const os = escapeHtml(def.os.map(show).join(', '));
+    const pv = def.platformValue ? `<code>Platform: ${escapeHtml(show(def.platformValue))}</code>` : '';
+    return `<tr><th>${escapeHtml(def.platform)}</th><td><code>Operating System (OS): ${os}</code></td><td>${pv}</td></tr>`;
+  }).join('');
+}
+
+// ---- Error Sessions รายชั่วโมง: heatmap view of the current hourly sheet
+// tab, one row per platform - Platform, Date, 24 hours (color-coded),
+// Average (a sheet formula, displayed as-is, never written from here).
+// Split at 2.00%: green->yellow at/below it, light-red->dark-red above.
+
+let hourlyTableData = []; // last-fetched platforms, so the date filter can re-render without a fetch
+let hourlyTableColumns = [];
+let hourlyHistory = [];
+
+async function loadHourlyTable() {
+  const body = document.getElementById('hourly-table-body');
+  try {
+    const data = await fetchJson('/api/tvn/error-sessions-hourly');
+    hourlyTableData = data.platforms;
+    hourlyHistory = data.history || data.platforms;
+    hourlyTableColumns = data.hourColumns;
+    populateHourlyDateFilter();
+    renderHourlyTable();
+  } catch (err) {
+    body.innerHTML = `<div id="hourly-table-empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// Different platforms can carry different Date values (each is synced
+// independently, sometimes from files covering different days), so the
+// filter lists whichever dates are actually present rather than a fixed set.
+function populateHourlyDateFilter() {
+  const select = document.getElementById('hourly-date-filter');
+  const current = select.value;
+  const dates = [...new Set(hourlyTableData.map(p => p.date).filter(Boolean))];
+  select.innerHTML = '<option value="">ทุกวันที่</option>' + dates.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(prettyDate(d))}</option>`).join('');
+  if (dates.includes(current)) select.value = current;
+}
+
+function renderHourlyTable() {
+  const body = document.getElementById('hourly-table-body');
+  const filterVal = document.getElementById('hourly-date-filter').value;
+  const platforms = filterVal ? hourlyTableData.filter(p => p.date === filterVal) : hourlyTableData;
+
+  if (!platforms.length) {
+    body.innerHTML = `<div id="hourly-table-empty">ไม่มีข้อมูลตรงกับวันที่ที่เลือก</div>`;
+    return;
+  }
+
+  // Only the row's own peak hour prints its number - every other hour is
+  // colour-only, which is what keeps 24 columns readable at this width. The
+  // hidden values stay available on hover via the title attribute.
+  const heatCell = (raw, hour, isPeak) => {
+    const num = raw ? parseFloat(raw) : NaN;
+    const color = heatColorForValue(num);
+    const title = raw ? ` title="${escapeHtml(hour)} = ${formatPct(raw)}"` : '';
+    const text = isPeak ? formatPct(raw) : '';
+    if (!color) return `<td class="col-hour"${title}>${text}</td>`;
+    return `<td class="col-hour" style="background:${color};color:${heatTextColorFor(color)};"${title}>${text}</td>`;
+  };
+
+  // Prefer the sheet's own Peak Time so the highlighted cell always agrees
+  // with the Peak Time column shown beside it; fall back to computing the
+  // max locally if that formula column is empty.
+  const peakHourFor = (p) => {
+    if (p.peakTime && hourlyTableColumns.includes(p.peakTime)) return p.peakTime;
+    let best = -Infinity, bestHour = null;
+    hourlyTableColumns.forEach(h => {
+      const n = parseFloat(p.values[h]);
+      if (!isNaN(n) && n > best) { best = n; bestHour = h; }
+    });
+    return bestHour;
+  };
+
+  const dash = '<span style="color:var(--ink-faint)">—</span>';
+
+  // Peak Time is a clock reading, not a percentage - it keeps the sheet's own
+  // "16.00" form rather than being run through formatPct.
+  const timeCell = (v, date) => `<td class="col-stat col-time">${v ? `<span class="time-value">${escapeHtml(v)}</span><span class="time-date">${escapeHtml(compactDate(date))}</span>` : dash}</td>`;
+
+  // Peak is the day's worst hour, so it gets the critical colour outright -
+  // a fixed colour rather than Avg's scaled one, since "this is the maximum"
+  // is a fact about the row, not a magnitude to be read off a ramp.
+  const peakCell = (raw) => {
+    const text = formatPct(raw);
+    return `<td class="col-stat col-peak">${text || dash}</td>`;
+  };
+
+  // Average shares the hour cells' colour scale (green->yellow up to 2.00,
+  // then light->dark red), so a platform's overall day still reads at a
+  // glance the same way its individual hours do - but as a font colour, not
+  // a filled background, so it doesn't get mistaken for another hour cell.
+  const avgCell = (raw) => {
+    const color = heatColorForValue(raw ? parseFloat(raw) : NaN);
+    const text = formatPct(raw);
+    const style = color && text ? ` style="color:${color};font-weight:700;"` : '';
+    return `<td class="col-stat col-avg"${style}>${text || dash}</td>`;
+  };
+
+  const rowsHtml = platforms.map(p => {
+    const peakHour = peakHourFor(p);
+    return `
+    <tr>
+      <td class="col-id">
+        <span class="id-platform">${escapeHtml(p.platform)}</span>
+        <span class="id-date">${escapeHtml(compactDate(p.date))}</span>
+      </td>
+      ${avgCell(p.average)}
+      ${peakCell(p.peak)}
+      ${timeCell(p.peakTime, p.date)}
+      ${hourlyTableColumns.map(h => heatCell(p.values[h], h, h === peakHour)).join('')}
+    </tr>`;
+  }).join('');
+
+  // Label every 3rd hour only - 24 labels don't fit without colliding. The
+  // offset lands them on 12.00/15.00/18.00/21.00/24.00/3.00/6.00/9.00, and
+  // the hour column is now wide enough (at its own smaller font) for "12.00"
+  // to sit on one line entirely inside its own cell. That matters beyond
+  // looks: a label that overflowed into neighbouring columns got clipped when
+  // the table was captured as an export image.
+  const headHours = hourlyTableColumns
+    .map((h, i) => `<th class="col-hour">${i % HOUR_LABEL_EVERY === HOUR_LABEL_OFFSET ? escapeHtml(h) : ''}</th>`)
+    .join('');
+
+  body.innerHTML = `
+    ${heatLegendHtml()}
+    <div id="hourly-export-panel" style="overflow-x:auto;background:var(--surface);">
+      <div class="export-head"><span class="export-title">BITMOVIN Error Session in 24 hours</span></div>
+      <table class="data hourly-heatmap">
+        <thead><tr><th class="col-id"><span class="id-platform">Platform</span><span class="id-date">Date</span></th><th class="col-stat col-avg">Avg</th><th class="col-stat col-peak">Peak</th><th class="col-stat col-time">Time</th>${headHours}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      ${hourlySummaryHtml(platforms)}
+    </div>
+  `;
+}
+
+const pctOf = (v) => { const n = parseFloat(String(v == null ? '' : v).replace('%', '').trim()); return isNaN(n) ? null : n; };
+
+// Mean of a platform row's own Avg column (a formula in the sheet), skipping
+// rows that never got an Average - a partially filled day would otherwise
+// drag a platform's standing down for a reason that isn't about errors.
+function meanAvg(rows) {
+  const nums = rows.map(r => pctOf(r.average)).filter(n => n !== null);
+  return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
+}
+
+// Averages every platform's value for each hour column, so "the worst hour of
+// the day" means worst across the whole service, not worst on one platform.
+function worstHourAcross(rows) {
+  let worst = null;
+  hourlyTableColumns.forEach(hour => {
+    const nums = rows.map(r => pctOf(r.values[hour])).filter(n => n !== null);
+    if (!nums.length) return;
+    const mean = nums.reduce((a, b) => a + b, 0) / nums.length;
+    if (!worst || mean > worst.mean) worst = { hour, mean };
+  });
+  return worst;
+}
+
+// Two lines per heading, no more - the panel fills the gap under the heatmap
+// and is meant to be readable at a glance, not another table.
+function hourlySummaryHtml(shown) {
+  if (!shown.length) return '';
+
+  const day = shown[0].date || '';
+  const worstPlatform = shown.reduce((a, b) => ((pctOf(b.average) ?? -1) > (pctOf(a.average) ?? -1) ? b : a));
+  const peakRow = shown.reduce((a, b) => ((pctOf(b.peak) ?? -1) > (pctOf(a.peak) ?? -1) ? b : a));
+  const worstHour = worstHourAcross(shown);
+  const dayMean = meanAvg(shown);
+
+  // History spans several days; group by date to compare today with the day
+  // before and to rank platforms over the whole collection period.
+  const byDate = new Map();
+  hourlyHistory.forEach(r => {
+    if (!r.date) return;
+    if (!byDate.has(r.date)) byDate.set(r.date, []);
+    byDate.get(r.date).push(r);
+  });
+  // Newest first. Row order already happens to be newest-first, but sorting
+  // on the parsed label means a hand-edited sheet can't quietly flip
+  // "yesterday" into some other day.
+  const dates = [...byDate.keys()].sort((a, b) => tecDateKey(b) - tecDateKey(a));
+  const prevDate = dates.find(d => d !== day);
+  const prevMean = prevDate ? meanAvg(byDate.get(prevDate)) : null;
+
+  const byPlatform = new Map();
+  hourlyHistory.forEach(r => {
+    const key = (r.platform || '').trim();
+    if (!key) return;
+    if (!byPlatform.has(key)) byPlatform.set(key, []);
+    byPlatform.get(key).push(r);
+  });
+  const ranked = [...byPlatform.entries()]
+    .map(([platform, rows]) => ({ platform, mean: meanAvg(rows), days: rows.length }))
+    .filter(x => x.mean !== null)
+    .sort((a, b) => b.mean - a.mean);
+  const allTimePeak = hourlyHistory.reduce(
+    (a, b) => ((pctOf(b.peak) ?? -1) > (pctOf(a?.peak) ?? -1) ? b : a), null);
+
+  const pct = (n) => (n === null || n === undefined ? '—' : `${n.toFixed(2)}%`);
+  const hh = (h) => String(h || '').replace('.00', ':00');
+  let trend = 'ยังไม่มีวันก่อนหน้าให้เทียบ';
+  if (prevMean !== null && dayMean !== null) {
+    const diff = dayMean - prevMean;
+    const dir = diff > 0 ? 'สูงขึ้น' : diff < 0 ? 'ลดลง' : 'เท่ากับ';
+    const cls = diff > 0 ? 'sum-up' : 'sum-down';
+    trend = `เฉลี่ยรวมวันนี้ <b>${pct(dayMean)}</b> <span class="${cls}">${dir} ${pct(Math.abs(diff))}</span> จาก ${escapeHtml(prettyDate(prevDate))} (${pct(prevMean)})`;
+  }
+
+  return `
+    <div class="sum-grid">
+      <section class="sum-card">
+        <h3 class="sum-head">สรุปข้อมูลประจำวัน<span class="sum-when">${escapeHtml(prettyDate(day))}</span></h3>
+        <ol class="sum-list">
+          <li><b>${escapeHtml(worstPlatform.platform)}</b> เฉลี่ยสูงสุด <b>${pct(pctOf(worstPlatform.average))}</b> — ทั้งวันเฉลี่ย ${pct(dayMean)} จาก ${shown.length} platform</li>
+          <li>Peak หนักสุด <b>${pct(pctOf(peakRow.peak))}</b> ที่ ${escapeHtml(peakRow.platform)} เวลา ${escapeHtml(hh(peakRow.peakTime))}${worstHour ? ` · ชั่วโมงที่แย่ที่สุดข้ามทุก platform คือ ${escapeHtml(hh(worstHour.hour))} (${pct(worstHour.mean)})` : ''}</li>
+        </ol>
+      </section>
+      <section class="sum-card">
+        <h3 class="sum-head">สรุปตั้งแต่เริ่มเก็บข้อมูล<span class="sum-when">${dates.length} วัน · ${escapeHtml(prettyDate(dates[dates.length - 1] || day))} – ${escapeHtml(prettyDate(dates[0] || day))}</span></h3>
+        <ol class="sum-list">
+          <li>${ranked.length ? `<b>${escapeHtml(ranked[0].platform)}</b> แย่ที่สุดสะสม เฉลี่ย <b>${pct(ranked[0].mean)}</b>${ranked[1] ? ` · รองลงมา ${escapeHtml(ranked[1].platform)} ${pct(ranked[1].mean)}` : ''}` : 'ยังไม่มีข้อมูลสะสม'}${allTimePeak ? ` — peak สูงสุดที่เคยเจอ <b>${pct(pctOf(allTimePeak.peak))}</b> (${escapeHtml(allTimePeak.platform)} ${escapeHtml(prettyDate(allTimePeak.date))} ${escapeHtml(hh(allTimePeak.peakTime))})` : ''}</li>
+          <li>${trend}</li>
+        </ol>
+      </section>
+    </div>`;
+}
+
+// Sheet stores hours as "10.00" (dot, not colon) - reformat to "10:00" for
+// display, split as "10" / ":00" so it always fits the narrow column on two
+// lines instead of getting clipped on one.
+
+const HOUR_LABEL_EVERY = 3; // show an hour label every N columns
+// Which column within each group of 3 carries the label. HOUR_COLUMNS starts
+// at 10.00, so an offset of 2 lands the labels on the round 12/15/18/21 hours.
+const HOUR_LABEL_OFFSET = 2;
+
+// ---- Top Error Codes input (moved here so all data entry lives on one page;
+// the Top Error Codes page keeps only its dashboard) ----
+let tecBlocks = [];
+
+async function loadTopErrorCodes() {
+  const select = document.getElementById('tec-platform');
+  const previous = select.value;
+  try {
+    const data = await fetchJson('/api/tvn/top-error-codes');
+    tecBlocks = data.blocks || [];
+    populateTecFilters();
+    renderTecDashboard();
+    select.innerHTML = '<option value="">— เลือก platform —</option>' + tecBlocks
+      .map(b => `<option value="${escapeHtml(b.platform)}">${escapeHtml(b.platform)}</option>`)
+      .join('');
+    if (previous && tecBlocks.some(b => b.platform === previous)) {
+      select.value = previous;
+      onTecPlatformChange(false);
+    } else {
+      onTecPlatformChange(true);
+    }
+  } catch (err) {
+    select.innerHTML = '<option value="">โหลด platform ไม่สำเร็จ</option>';
+    document.getElementById('error-codes-result').textContent = 'Error: ' + err.message;
+  }
+}
+
+// Built from the sheet's own Filters column so the reference can't drift from
+// the blocks a sync actually writes to.
+
+function tecFilledEntries(block) {
+  return (block.entries || []).filter(e => (e.playerVersion || '').trim() || (e.errorCode || '').trim());
+}
+
+// Which kind of data is being entered. Only one card is in the DOM flow at a
+
+function currentTecBlock() {
+  const platform = document.getElementById('tec-platform').value;
+  return tecBlocks.find(b => b.platform === platform) || null;
+}
+
+// Shows the sheet's own Filters text for the selected platform so it can be
+// eyeballed against the Filters panel in the screenshot, and loads whatever
+// that block currently holds so a sync starts from the existing snapshot.
+// `byHand` is true when a human moved the dropdown, which drops the
+// auto-filled highlight - the value is no longer Claude's suggestion.
+// The table starts empty on every platform change. It used to prefill with
+// whatever the sheet held, from back when a sync overwrote that block - now
+// that syncing only ever inserts, a prefilled table one stray click away from
+// Sync would append a duplicate of the previous snapshot. Past data belongs
+// on the Dashboard tab, not in the entry form.
+function onTecPlatformChange(byHand) {
+  if (byHand) setPlatformAutofilled(false, '');
+  const block = currentTecBlock();
+  const preview = document.getElementById('tec-filters-preview');
+  renderTecRows([], TEC_DEFAULT_ROWS);
+  if (!block) { preview.textContent = ''; return; }
+  preview.innerHTML = `Filters ในชีต: <code>${escapeHtml(block.filters.replace(/\n/g, '  ·  '))}</code> — แทรกที่แถว ${block.startRow} (ของเดิมเลื่อนลง)`;
+}
+
+// "Thu-14-Aug" - matches the label format the other tabs in this sheet use.
+function todayBangkokLabel() {
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short' })
+    .formatToParts(new Date())
+    .reduce((acc, part) => { acc[part.type] = part.value; return acc; }, {});
+  return `${p.weekday}-${p.day}-${p.month}`;
+}
+
+function renderTecRows(entries, capacity) {
+  const tbody = document.getElementById('error-codes-table-body');
+  tbody.innerHTML = '';
+  for (let i = 0; i < capacity; i++) {
+    const e = entries[i] || {};
+    addErrorCodeRow(i + 1, e.playerVersion, e.errorCode, e.approxSession);
+  }
+}
+
+function addErrorCodeRow(rank, playerVersion, errorCode, approxSession) {
+  const tbody = document.getElementById('error-codes-table-body');
+  const nextRank = rank !== undefined ? rank : tbody.children.length + 1;
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td>${escapeHtml(nextRank)}</td>
+    <td><input class="cell-input tec-version" style="width:100%;min-width:170px;text-align:left;font-weight:400;" value="${escapeHtml(playerVersion || '')}"></td>
+    <td><input class="cell-input tec-code" style="width:100px;" value="${escapeHtml(errorCode || '')}"></td>
+    <td><input class="cell-input tec-session" style="width:100px;" value="${escapeHtml(approxSession || '')}"></td>
+  `;
+  tbody.appendChild(row);
+  return row;
+}
+
+const TEC_DEFAULT_ROWS = 10;
+const TEC_MAX_ROWS = 50; // matches TEC_MAX_ROWS_PER_SYNC in routes/tvn.js
+
+function clearTecRows() {
+  renderTecRows([], TEC_DEFAULT_ROWS);
+  document.getElementById('error-codes-result').textContent = '';
+}
+
+// Blank slate after a successful sync so the next platform starts clean -
+// leaving the pasted text behind with no platform picked is exactly the
+// mismatch that once sent one platform's numbers into another's rows.
+function resetTecInput() {
+  document.getElementById('tec-paste-input').value = '';
+  document.getElementById('tec-date').value = '';
+  document.getElementById('tec-platform').value = '';
+  // Drops the autofill highlight, the Filters preview and every table row in
+  // one go, so nothing that was just synced can be left sitting in the form.
+  onTecPlatformChange(true);
+}
+
+// Clears only the pasted text, leaving the table and platform alone - useful
+// when a second platform's answer is about to be pasted over the first.
+function clearTecPasteInput() {
+  document.getElementById('tec-paste-input').value = '';
+  document.getElementById('tec-date').value = ''; // back to "blank until pasted"
+  document.getElementById('error-codes-result').textContent = 'ล้างข้อความที่วางแล้ว (ตารางกับ Platform ยังอยู่)';
+}
+
+// Splits "avplayer-26.6: -12643, 600" into its three fields. The version can
+// itself contain hyphens and dots, and the error code can be negative, so the
+// split happens on the last colon rather than on any separator.
+function parseErrorCodeLine(line) {
+  const raw = String(line).trim();
+  if (!raw) return null;
+  const colon = raw.lastIndexOf(':');
+  if (colon === -1) return null;
+  const rest = raw.slice(colon + 1).trim();
+  const m = /^(-?\d+)\s*(?:[,\t]\s*|\s+)?([\d,]+)?$/.exec(rest);
+  if (!m) return null;
+  return {
+    playerVersion: raw.slice(0, colon).trim(),
+    errorCode: m[1],
+    approxSession: (m[2] || '').replace(/,/g, ''),
+  };
+}
+
+// Claude is asked to lead its answer with "Platform: <name>", read off the
+// Filters box in the screenshot - that line is what prefills the dropdown, so
+// the platform never has to be matched by hand.
+function parsePlatformLine(line) {
+  const m = /^platform\s*[:=]\s*(.+)$/i.exec(String(line).trim());
+  return m ? m[1].trim() : null;
+}
+
+// Marks the dropdown as machine-filled (blue) rather than hand-picked, so a
+// wrong auto-detection is obvious instead of silently trusted.
+function setPlatformAutofilled(on, note) {
+  const select = document.getElementById('tec-platform');
+  select.classList.toggle('autofilled', !!on);
+  document.getElementById('tec-platform-source').textContent = note || '';
+}
+
+// Applies a "Platform:" line found in the pasted text to the dropdown.
+// Returns notes describing what happened, for the caller to surface.
+// Switching platform re-renders the table from that block, which would
+// discard rows already in it - so this no-ops when the platform is already
+// the one named, letting it run on every keystroke without clobbering work.
+function applyPlatformHintFromText(text) {
+  const notes = [];
+  const select = document.getElementById('tec-platform');
+  const hinted = text
+    .split('\n')
+    .map(l => parsePlatformLine(l))
+    .find(Boolean);
+  if (!hinted) return notes;
+
+  const match = [...select.options].find(o => o.value && o.value.toLowerCase() === hinted.toLowerCase());
+  if (!match) {
+    notes.push(`คำตอบระบุ Platform "${hinted}" ซึ่งไม่ตรงกับตัวเลือกใดในชีต - เลือกเองด้านล่าง`);
+    return notes;
+  }
+  if (select.value !== match.value) {
+    select.value = match.value;
+    onTecPlatformChange(false);
+  }
+  setPlatformAutofilled(true, '← ตั้งจากคำตอบของ Claude');
+  notes.push(`เลือก Platform เป็น "${match.value}" จากบรรทัดบนสุดของคำตอบ`);
+  return notes;
+}
+
+function parseTecPasted() {
+  const resultEl = document.getElementById('error-codes-result');
+  const raw = document.getElementById('tec-paste-input').value;
+  const notes = applyPlatformHintFromText(raw);
+  const remaining = raw.split('\n').map(l => l.trim()).filter(l => l && !parsePlatformLine(l));
+
+  // Rows are inserted now, not written into a fixed block, so the only cap
+  // is the server's per-sync limit - the table just grows to fit the paste.
+  const parsed = [];
+  const skipped = [];
+  remaining.forEach(line => {
+    const entry = parseErrorCodeLine(line);
+    if (entry) parsed.push(entry); else skipped.push(line);
+  });
+
+  const say = (msg) => { resultEl.textContent = [...notes, msg].join('\n'); };
+
+  if (!parsed.length) {
+    say('อ่านค่าไม่ได้สักบรรทัด - รูปแบบที่รองรับคือ "avplayer-26.6: -12643, 600"');
+    return;
+  }
+  if (parsed.length > TEC_MAX_ROWS) {
+    say(`แยกได้ ${parsed.length} บรรทัด แต่ sync ได้สูงสุด ${TEC_MAX_ROWS} - ตัดเหลือ ${TEC_MAX_ROWS} อันดับแรก`);
+    parsed.length = TEC_MAX_ROWS;
+  } else {
+    say(`แยกลงตารางแล้ว ${parsed.length} อันดับ` + (skipped.length ? ` (ข้าม ${skipped.length} บรรทัดที่อ่านไม่ออก: ${skipped.join(' | ')})` : ''));
+  }
+  renderTecRows(parsed, Math.max(TEC_DEFAULT_ROWS, parsed.length));
+}
+
+function readTecRows() {
+  return [...document.querySelectorAll('#error-codes-table-body tr')].map(tr => ({
+    playerVersion: (tr.querySelector('.tec-version') || {}).value || '',
+    errorCode: (tr.querySelector('.tec-code') || {}).value || '',
+    approxSession: (tr.querySelector('.tec-session') || {}).value || '',
+  }));
+}
+
+async function syncTopErrorCodes() {
+  const btn = document.getElementById('tec-sync-btn');
+  const resultEl = document.getElementById('error-codes-result');
+  const block = currentTecBlock();
+  if (!block) { resultEl.textContent = 'ยังไม่ได้เลือก platform'; return; }
+
+  const entries = readTecRows();
+  const filled = entries.filter(e => e.playerVersion.trim() || e.errorCode.trim() || e.approxSession.trim());
+  if (!filled.length) {
+    resultEl.textContent = 'ตารางว่างอยู่ - ยังไม่มีอะไรให้ sync';
+    return;
+  }
+
+  const date = document.getElementById('tec-date').value.trim() || todayBangkokLabel();
+
+  btn.disabled = true;
+  resultEl.textContent = 'กำลัง sync...';
+  try {
+    const data = await fetchJson('/api/tvn/top-error-codes/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform: block.platform, entries, dateLabel: date }),
+    });
+    await loadTopErrorCodes(); // pull back what the sheet now holds
+    resetTecInput(); // runs last - loadTopErrorCodes restores the platform it found
+    resultEl.textContent = data.result + '\nล้างฟอร์มให้แล้ว - พร้อมใส่ platform ถัดไป';
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// The screenshot goes straight into the Claude Code chat rather than through
+// this page - it can't reach Claude Code anyway, and routing the image
+// through here only added a copy step. This just hands over the prompt text.
+async function copyClaudePrompt() {
+  const resultEl = document.getElementById('error-codes-result');
+  try {
+    await navigator.clipboard.writeText(document.getElementById('tec-claude-prompt').textContent.trim());
+    resultEl.textContent = 'copy คำสั่งแล้ว - ไปวางต่อจาก screenshot ในแชท Claude Code ได้เลย';
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  }
+}
+
+// Pick the platform up the moment the answer is pasted, rather than making
+// "แยกลงตาราง" the only thing that reads that first line.
+// Date stays blank until an answer is actually pasted, so a stale-looking
+// date never sits there next to an empty form. Only filled when empty, so a
+// hand-typed date survives further edits to the pasted text.
+document.getElementById('tec-paste-input').addEventListener('input', () => {
+  const text = document.getElementById('tec-paste-input').value;
+  applyPlatformHintFromText(text);
+  const dateInput = document.getElementById('tec-date');
+  if (text.trim() && !dateInput.value) dateInput.value = todayBangkokLabel();
+});
+
+function toSessions(v) {
+  const n = parseFloat(String(v || '').replace(/,/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+
+function renderBars(el, rows, opts) {
+  const max = Math.max(...rows.map(r => r.value), 0);
+  el.innerHTML = rows.length ? rows.map(r => `
+    <div class="bar-row" title="${escapeHtml(r.title || r.label)}">
+      <div class="bar-label">${escapeHtml(r.label)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${max > 0 ? Math.max(1.5, (r.value / max) * 100) : 0}%"></div></div>
+      <div class="bar-value">${r.value.toLocaleString()} <span class="bar-unit">sessions</span></div>
+    </div>
+  `).join('') : `<div class="hint">ยังไม่มีข้อมูล</div>`;
+}
+
+const TEC_MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+
+// "Fri-14-Aug" carries no year, so this only needs to be good enough to sort
+// and range-compare labels within the same reporting period.
+function tecDateKey(label) {
+  const m = /^[A-Za-z]{3}-(\d{1,2})-([A-Za-z]{3})$/.exec(String(label || '').trim());
+  if (!m) return -1;
+  const month = TEC_MONTHS[m[2].toLowerCase()];
+  return month === undefined ? -1 : month * 100 + parseInt(m[1], 10);
+}
+
+const TEC_TOP_N = 10; // rows shown before "view more"
+let tecShowAllCodes = false;
+
+function toggleTecViewMore() {
+  tecShowAllCodes = !tecShowAllCodes;
+  renderTecDashboard();
+}
+
+// Defaults to the newest date on both ends rather than the full span: the
+// sheet keeps every past day now, and a range that quietly widens as history
+// piles up would turn "top 10 today" into "top 10 of all time".
+function resetTecFilters() {
+  const dates = tecAvailableDates();
+  document.getElementById('tec-f-date-from').value = dates[dates.length - 1] || '';
+  document.getElementById('tec-f-date-to').value = dates[dates.length - 1] || '';
+  document.getElementById('tec-f-platform').value = '';
+  document.getElementById('tec-f-code').value = '';
+  tecShowAllCodes = false;
+  renderTecDashboard();
+}
+
+function tecAvailableDates() {
+  const dates = new Set();
+  tecBlocks.forEach(b => tecFilledEntries(b).forEach(e => { if (e.date) dates.add(e.date.trim()); }));
+  return [...dates].sort((a, b) => tecDateKey(a) - tecDateKey(b));
+}
+
+// Populated once per load; keeps the current picks if they still exist so a
+// re-render after a sync doesn't silently widen the range being viewed.
+function populateTecFilters() {
+  const dates = tecAvailableDates();
+  const from = document.getElementById('tec-f-date-from');
+  const to = document.getElementById('tec-f-date-to');
+  const platform = document.getElementById('tec-f-platform');
+  const keep = { from: from.value, to: to.value, platform: platform.value };
+
+  const dateOpts = dates.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(prettyDate(d))}</option>`).join('');
+  from.innerHTML = dateOpts;
+  to.innerHTML = dateOpts;
+  from.value = dates.includes(keep.from) ? keep.from : (dates[dates.length - 1] || '');
+  to.value = dates.includes(keep.to) ? keep.to : (dates[dates.length - 1] || '');
+
+  const platforms = tecBlocks.filter(b => tecFilledEntries(b).length).map(b => b.platform);
+  platform.innerHTML = '<option value="">ทุก platform</option>' +
+    platforms.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+  platform.value = platforms.includes(keep.platform) ? keep.platform : '';
+}
+
+// Flattens the blocks to one row per error code, then applies the filters -
+// doing it in this order keeps each filter independent of the others.
+// `ignoreDate` powers the cumulative summary, which has to span every day on
+// record while still honouring the platform/code filters the person is looking
+// at - otherwise the two summary blocks would describe different slices.
+function tecFilteredRows({ ignoreDate = false } = {}) {
+  const fromKey = tecDateKey(document.getElementById('tec-f-date-from').value);
+  const toKey = tecDateKey(document.getElementById('tec-f-date-to').value);
+  const platformPick = document.getElementById('tec-f-platform').value;
+  const codeQuery = document.getElementById('tec-f-code').value.trim().toLowerCase();
+
+  const rows = [];
+  tecBlocks.forEach(b => tecFilledEntries(b).forEach(e => {
+    rows.push({
+      platform: b.platform,
+      date: (e.date || '').trim(),
+      label: `${(e.playerVersion || '').trim()}: ${(e.errorCode || '').trim()}`,
+      sessions: toSessions(e.approxSession),
+    });
+  }));
+
+  return rows.filter(r => {
+    if (platformPick && r.platform !== platformPick) return false;
+    if (codeQuery && !r.label.toLowerCase().includes(codeQuery)) return false;
+    if (ignoreDate) return true;
+    const k = tecDateKey(r.date);
+    if (fromKey >= 0 && k >= 0 && k < fromKey) return false;
+    if (toKey >= 0 && k >= 0 && k > toKey) return false;
+    return true;
+  });
+}
+
+// Two headings, two lines each, in the gap under the platform chart. Built on
+// the same .sum-card markup as the hourly heatmap's summary so the page has one
+// summary component rather than two that merely resemble each other.
+function renderTecSummary({ perPlatform, allCodes, total, dates }) {
+  const share = (v) => (total > 0 ? Math.round((v / total) * 100) : 0);
+  const worst = allCodes[0];
+  const topPlatform = perPlatform[0];
+
+  const dayLines = [];
+  if (worst) {
+    dayLines.push(`<b>${escapeHtml(worst.label)}</b> นำที่ <b>${worst.value.toLocaleString()}</b> sessions (${share(worst.value)}% ของทั้งหมด) — พบใน ${worst.platforms.length} platform`);
+  }
+  if (topPlatform) {
+    dayLines.push(`<b>${escapeHtml(topPlatform.label)}</b> รับหนักสุด <b>${topPlatform.value.toLocaleString()}</b> sessions (${share(topPlatform.value)}%) จาก ${perPlatform.length} platform ที่มีข้อมูล`);
+  }
+  if (!dayLines.length) dayLines.push('ไม่มีข้อมูลตรงกับฟิลเตอร์ที่เลือก');
+
+  // Spans every recorded day, but keeps the platform/code filters - otherwise
+  // the two cards would silently describe different slices of the sheet.
+  const allRows = tecFilteredRows({ ignoreDate: true });
+  const allDates = [...new Set(allRows.map(r => r.date).filter(Boolean))].sort((a, b) => tecDateKey(a) - tecDateKey(b));
+  const grand = allRows.reduce((s, r) => s + r.sessions, 0);
+
+  // How often each code took the #1 spot: a code that leads every single day is
+  // a standing problem, one that leads once was a spike - the totals alone
+  // can't tell those apart.
+  const wins = new Map();
+  allDates.forEach(d => {
+    const byCode = new Map();
+    allRows.forEach(r => { if (r.date === d) byCode.set(r.label, (byCode.get(r.label) || 0) + r.sessions); });
+    const top = [...byCode.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (top) wins.set(top[0], (wins.get(top[0]) || 0) + 1);
+  });
+  const champion = [...wins.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  const allLines = [
+    `บันทึกแล้ว <b>${allDates.length}</b> วัน · รวม <b>${grand.toLocaleString()}</b> sessions${allDates.length ? ` · เฉลี่ย ${Math.round(grand / allDates.length).toLocaleString()} ต่อวัน` : ''}`,
+    allDates.length > 1 && champion
+      ? `<b>${escapeHtml(champion[0])}</b> ขึ้นอันดับ 1 บ่อยที่สุด <b>${champion[1]}</b> จาก ${allDates.length} วัน`
+      : 'มีข้อมูลวันเดียว — ต้องบันทึกอย่างน้อย 2 วันถึงจะเทียบแนวโน้มได้',
+  ];
+
+  const dayWhen = dates.length === 1
+    ? prettyDate(dates[0])
+    : (dates.length ? `${prettyDate(dates[0])} – ${prettyDate(dates[dates.length - 1])}` : '—');
+  const allWhen = allDates.length
+    ? `${allDates.length} วัน · ${prettyDate(allDates[0])} – ${prettyDate(allDates[allDates.length - 1])}`
+    : '—';
+
+  document.getElementById('tec-summary').innerHTML = `
+    <div class="sum-grid sum-stack">
+      <section class="sum-card">
+        <h3 class="sum-head">สรุปจากข้อมูลประจำวัน<span class="sum-when">${escapeHtml(dayWhen)}</span></h3>
+        <ol class="sum-list">${dayLines.map(l => `<li>${l}</li>`).join('')}</ol>
+      </section>
+      <section class="sum-card">
+        <h3 class="sum-head">สรุปตั้งแต่เริ่มเก็บข้อมูล<span class="sum-when">${escapeHtml(allWhen)}</span></h3>
+        <ol class="sum-list">${allLines.map(l => `<li>${l}</li>`).join('')}</ol>
+      </section>
+    </div>`;
+}
+
+function renderTecDashboard() {
+  const dash = document.getElementById('tec-dash');
+  const empty = document.getElementById('tec-dash-empty');
+  const hasAny = tecBlocks.some(b => tecFilledEntries(b).length > 0);
+
+  if (!hasAny) {
+    dash.hidden = true;
+    empty.hidden = false;
+    empty.textContent = 'ยังไม่มีข้อมูลในชีต — sync อย่างน้อย 1 platform ก่อน แล้ว dashboard จะขึ้นให้เอง';
+    return;
+  }
+  empty.hidden = true;
+  dash.hidden = false;
+
+  const rows = tecFilteredRows();
+
+  const platformTotals = new Map();
+  const byCode = new Map();
+  rows.forEach(r => {
+    platformTotals.set(r.platform, (platformTotals.get(r.platform) || 0) + r.sessions);
+    // Same "version: code" identity Bitmovin shows, summed across platforms -
+    // this is what surfaces a single code dominating several at once.
+    const hit = byCode.get(r.label) || { label: r.label, value: 0, platforms: new Set() };
+    hit.value += r.sessions;
+    hit.platforms.add(r.platform);
+    byCode.set(r.label, hit);
+  });
+
+  const perPlatform = [...platformTotals.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value);
+
+  const allCodes = [...byCode.values()]
+    .map(r => ({ ...r, platforms: [...r.platforms] }))
+    .sort((a, b) => b.value - a.value);
+  const shown = tecShowAllCodes ? allCodes : allCodes.slice(0, TEC_TOP_N);
+
+  const total = perPlatform.reduce((s, r) => s + r.value, 0);
+  const worst = allCodes[0];
+  const dates = [...new Set(rows.map(r => r.date).filter(Boolean))].sort((a, b) => tecDateKey(a) - tecDateKey(b));
+
+  // The exported PNG travels without the page around it, so it has to say
+  // which window and which filters produced these numbers - otherwise a
+  // filtered export is indistinguishable from the full picture.
+  const platformPick = document.getElementById('tec-f-platform').value;
+  const codeQuery = document.getElementById('tec-f-code').value.trim();
+  const meta = [];
+  meta.push(dates.length === 1 ? prettyDate(dates[0]) : (dates.length ? `${prettyDate(dates[0])} – ${prettyDate(dates[dates.length - 1])}` : 'ไม่มีข้อมูล'));
+  if (platformPick) meta.push(`Platform: ${platformPick}`);
+  if (codeQuery) meta.push(`Error code มี "${codeQuery}"`);
+  if (!platformPick && !codeQuery) meta.push('ทุก platform');
+  document.getElementById('tec-export-meta').textContent = meta.join('  ·  ');
+
+  document.getElementById('tec-stats').innerHTML = [
+    { label: 'Approx sessions รวม', value: total.toLocaleString() },
+    { label: 'Platform ที่มีข้อมูล', value: `${perPlatform.length}/${tecBlocks.length}` },
+    { label: 'Error code ที่ต่างกัน', value: allCodes.length.toLocaleString() },
+    { label: 'วันที่บันทึก', value: dates.length === 1 ? prettyDate(dates[0]) : (dates.length ? `${dates.length} วัน` : '—') },
+  ].map(s => `
+    <div class="stat">
+      <div class="stat-value">${escapeHtml(s.value)}</div>
+      <div class="stat-label">${escapeHtml(s.label)}</div>
+    </div>
+  `).join('');
+
+  renderBars(document.getElementById('tec-chart-platform'), perPlatform);
+  renderBars(document.getElementById('tec-chart-code'), shown.map(r => ({
+    ...r,
+    title: `${r.label}\n${r.value.toLocaleString()} sessions\nพบใน: ${r.platforms.join(', ')}`,
+  })));
+
+  const viewMore = document.getElementById('tec-view-more');
+  viewMore.hidden = allCodes.length <= TEC_TOP_N;
+  viewMore.textContent = tecShowAllCodes
+    ? `▲ ย่อกลับเหลือ ${TEC_TOP_N} อันดับ`
+    : `▼ View more — ดู error ทั้งหมด ${allCodes.length} รายการ`;
+
+  const note = [];
+  if (worst) {
+    const share = total > 0 ? Math.round((worst.value / total) * 100) : 0;
+    const list = worst.platforms.map((p, i) => `${i + 1}. ${p}`).join(', ');
+    note.push(`<div>Top error code คือ <strong class="note-bad">${escapeHtml(worst.label)} — ${worst.value.toLocaleString()} sessions (${share}% ของทั้งหมด)</strong></div>`);
+    note.push(`<div>พบใน <span class="note-info">${worst.platforms.length}</span> platform: <span class="note-info">${escapeHtml(list)}</span></div>`);
+  } else {
+    note.push('<div>ไม่มีข้อมูลตรงกับฟิลเตอร์ที่เลือก</div>');
+  }
+  if (dates.length > 1) {
+    note.push(`<div>⚠️ ข้อมูลมาจากหลายวัน (${dates.map(prettyDate).join(', ')}) ตัวเลขรวมจึงเทียบกันตรง ๆ ไม่ได้</div>`);
+  }
+  document.getElementById('tec-dash-note').innerHTML = note.join('');
+
+  renderTecSummary({ perPlatform, allCodes, total, dates });
+}
+
+
+setupPasteArea('paste-area-sessions');
+renderSharedFilterRef();
+loadHourlyTable();
+loadTopErrorCodes();
+</script>
+</body>
+</html>

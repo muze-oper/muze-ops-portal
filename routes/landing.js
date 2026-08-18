@@ -1,5 +1,183 @@
 const router = require('express').Router();
 const path = require('path');
+const drive = require('../storage/googleDrive');
+const { searchRecentTickets } = require('../services/jiraKtc');
+
+const DIGEST_LIVE_FILENAME = 'digestlivecounts.json';
+const ACTION_CATEGORY = '🔴 ต้อง Action';
+const MUSTREAD_CATEGORY = '🟡 ควรรับรู้';
+const DIGEST_STATUS_BADGE = {
+  [ACTION_CATEGORY]: { label: 'ต้อง Action', tone: 'red' },
+  [MUSTREAD_CATEGORY]: { label: 'ควรรับรู้', tone: 'yellow' },
+};
+
+// Reformats digest.js's "06Aug26 14:30" into "6 Aug 2026, 14:30" for
+// display - keeps the time so the hot-issues list shows when the email
+// actually arrived, not just the day.
+function formatDigestDateLabel(dateStr) {
+  const m = /^(\d{2})([A-Za-z]{3})(\d{2}) (\d{2}:\d{2})/.exec(dateStr || '');
+  return m ? `${+m[1]} ${m[2]} 20${m[3]}, ${m[4]}` : (dateStr || '');
+}
+
+function formatKtcDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Jira's real status names, mapped to the Thai badge labels ops actually
+// think in. Anything not listed falls back to showing the raw status name -
+// no fabricated status, just an unstyled badge.
+const JIRA_STATUS_BADGE = {
+  'To Do': { label: 'รอตอบ', tone: 'yellow' },
+  'Open': { label: 'รอตอบ', tone: 'yellow' },
+  'Waiting for support': { label: 'รอตอบ', tone: 'yellow' },
+  'In Progress': { label: 'กำลังดำเนินการ', tone: 'blue' },
+  'Escalated': { label: 'กำลังดำเนินการ', tone: 'blue' },
+};
+function jiraStatusBadge(status) {
+  return JIRA_STATUS_BADGE[status] || { label: status || '-', tone: 'gray' };
+}
+
+function cleanPreview(text, limit = 160) {
+  if (!text) return '';
+  const cleaned = String(text).replace(/\s+/g, ' ').trim();
+  return cleaned.length > limit ? `${cleaned.slice(0, limit)}…` : cleaned;
+}
+
+// Ported from public/digest.html's own defaultActionDone()/extractMnTag()/
+// extractZendeskId() - the Action Done column there shows this computed
+// value whenever no explicit override has been saved, so treating it as
+// still-blank here would disagree with what the Digest page itself shows.
+const NISSAN_ACCOUNT = 'nissan-ma@muze.co.th';
+const TVN_ACCOUNT = 'support-tvn@muze.co.th';
+const SUPPORT_ACCOUNT = 'support@muze.co.th';
+
+function extractMnTag(subject) {
+  const m = /\[MN-\d+\]/i.exec(subject || '');
+  return m ? m[0].toUpperCase() : null;
+}
+
+function extractZendeskId(text) {
+  const urlMatch = /support\.truedigital\.com\/hc\/requests\/(\d+)/i.exec(text || '');
+  if (urlMatch) return urlMatch[1];
+  const reqMatch = /request \((\d+)\)/i.exec(text || '');
+  return reqMatch ? reqMatch[1] : null;
+}
+
+function defaultActionDone(account, subject, snippet) {
+  if (account === NISSAN_ACCOUNT) {
+    const tag = extractMnTag(subject);
+    return tag ? `Jira ${tag.replace(/[[\]]/g, '')}` : '';
+  }
+  if (account === TVN_ACCOUNT || account === SUPPORT_ACCOUNT) {
+    const zid = extractZendeskId(snippet) || extractZendeskId(subject);
+    return zid ? `Zendesk ${zid}` : '';
+  }
+  return '';
+}
+
+// Same assignment record digest.js's "Action Done" column reads/writes
+// (routes/digest.js's POST /api/digest/assign) - an explicit override, if
+// someone's saved one, wins over the computed default above.
+async function fetchActionDone(account, msgId, subject, snippet) {
+  if (!account || !msgId) return defaultActionDone(account, subject, snippet);
+  const key = `assignment_${account.replace(/@|\./g, '_')}_${msgId}`;
+  const data = await drive.readFile(key).catch(() => null);
+  const saved = (data?.actionDone || '').trim();
+  return saved || defaultActionDone(account, subject, snippet);
+}
+
+// Groups a digest email's inbox account under the client project it belongs
+// to. support@/support-mea@ don't belong to any single client project - they
+// go under the landing page's "All Project" card instead.
+function projectForAccount(account) {
+  const a = (account || '').toLowerCase();
+  if (a.includes('nissan')) return 'Nissan';
+  if (a.includes('tvn')) return 'TVN';
+  if (a.includes('ktc')) return 'KTC';
+  if (a === 'support@muze.co.th' || a === 'support-mea@muze.co.th') return 'All';
+  return account || 'Other';
+}
+
+// Turns digest.js's "06Aug26 14:30" into a real, sortable ISO timestamp
+// (Bangkok is a fixed UTC+7, no DST) - the display label stays separate.
+function digestSortKey(dateStr) {
+  const m = /^(\d{2})([A-Za-z]{3})(\d{2}) (\d{2}):(\d{2})$/.exec(dateStr || '');
+  if (!m) return '';
+  const MONTHS = { Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12' };
+  return `20${m[3]}-${MONTHS[m[2]] || '01'}-${m[1]}T${m[4]}:${m[5]}:00+07:00`;
+}
+
+// Pulls together "what's new/needs attention" for the landing page's
+// hot-issues summary:
+// - Email Digest: every 🔴 ต้อง Action / 🟡 ควรรับรู้ email currently on the
+//   Live dashboard (same default view/categories as digest.html itself,
+//   ⚪ Auto excluded, no date cutoff - a pending item stays until resolved)
+// - KTC: still-open Jira tickets created in the last 2 days
+// MTS, Nissan, and TVN's OWN ticket sources (Google Sheet exports / an
+// external Apps Script, separate from their email accounts above) are
+// excluded - no per-ticket created/updated date field to filter by, only a
+// month tag embedded in the ticket summary text.
+router.get('/api/hot-issues', async (req, res) => {
+  const items = [];
+
+  try {
+    const data = await drive.readFile(DIGEST_LIVE_FILENAME);
+    const digestItems = [];
+    for (const [account, entry] of Object.entries(data?.counts || {})) {
+      for (const e of entry?.emails || []) {
+        // Every email the Live dashboard shows by default (🔴 Action + 🟡
+        // ควรรับรู้, ⚪ Auto excluded) - no date restriction, so anything
+        // still pending/carried-forward on the dashboard shows here too.
+        const badge = DIGEST_STATUS_BADGE[e.category];
+        if (!badge) continue;
+        digestItems.push({
+          source: 'digest', key: null, title: e.subject || '(no subject)',
+          dateLabel: formatDigestDateLabel(e.date), status: badge,
+          meta: account, preview: cleanPreview(e.snippet), replyCount: null,
+          project: projectForAccount(account), sortKey: digestSortKey(e.date),
+          msgId: e.msgId || null, account, // so the landing page can deep-link straight to this one email
+          rawSnippet: e.snippet || '', // full, untruncated - extractZendeskId needs this, not the shortened `preview`
+        });
+      }
+    }
+    // Dot color reflects whether this email's own "Action Done" reference
+    // has actually been filled in - either an explicit save, or the same
+    // computed default (Zendesk/Jira ref extracted from the email itself)
+    // digest.js's Action Done column already shows for it. Not the triage
+    // category, which stays 🔴/🟡 regardless of progress made since.
+    await Promise.all(digestItems.map(async item => {
+      const actionDone = await fetchActionDone(item.account, item.msgId, item.title, item.rawSnippet);
+      item.actionDone = actionDone;
+      item.dotColor = actionDone ? 'green' : 'red';
+      delete item.rawSnippet;
+    }));
+    items.push(...digestItems);
+  } catch (err) {
+    console.error('hot-issues digest fetch failed:', err.message);
+  }
+
+  try {
+    const issues = await searchRecentTickets(2, 10);
+    for (const i of issues) {
+      const f = i.fields || {};
+      const comments = (f.comment && f.comment.comments) || [];
+      const last = comments[comments.length - 1];
+      items.push({
+        source: 'ktc', key: i.key, title: f.summary || '',
+        dateLabel: formatKtcDate(f.created), status: jiraStatusBadge(f.status?.name),
+        meta: f.assignee?.displayName || 'ยังไม่มอบหมาย',
+        preview: last ? cleanPreview(last.body) : '', replyCount: comments.length,
+        project: 'KTC', sortKey: f.created || '',
+        dotColor: 'gray', // no "Action Done" concept for Jira tickets
+      });
+    }
+  } catch (err) {
+    console.error('hot-issues KTC fetch failed:', err.message);
+  }
+
+  res.json({ items, excludedProjects: ['mtscs', 'nissan-mn', 'tvn'] });
+});
 
 // Vercel's serverless functions ship neither .git nor a git binary, so these
 // dates can't be computed at request time in production - they're baked into
@@ -11,6 +189,16 @@ function readCardInfo() {
 
 router.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'landing.html'));
+});
+
+router.get('/assets/muze-logo.png', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'assets', 'muze-logo.png'));
+});
+
+// Unused by the current landing page (superseded by the design above), left
+// in place in case anything still links to the old asset directly.
+router.get('/muze-mark-blue.png', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'muze-mark-blue.png'));
 });
 
 router.get('/api/me', (req, res) => {

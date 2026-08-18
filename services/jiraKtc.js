@@ -10,7 +10,7 @@ const JIRA_SITE = (process.env.JIRA_BASE_URL || 'https://mymuze.atlassian.net').
 const JIRA_API_EMAIL = process.env.JIRA_API_EMAIL;
 const JIRA_API_TOKEN = process.env.JIRA_API_TOKEN;
 const PROJECT_KEY = process.env.JIRA_KTC_PROJECT_KEY || 'KTC';
-const FIELDS = ['summary', 'description', 'comment', 'status', 'created', 'issuetype'];
+const FIELDS = ['summary', 'description', 'comment', 'status', 'created', 'issuetype', 'assignee'];
 
 function authHeader() {
   return `Basic ${Buffer.from(`${JIRA_API_EMAIL}:${JIRA_API_TOKEN}`).toString('base64')}`;
@@ -94,6 +94,16 @@ async function searchKtcCases(question, maxResults = 8) {
   return relevant.slice(0, maxResults);
 }
 
+// Recently-created, still-open cases for the landing page's hot-issues
+// summary - unlike searchKtcCases this isn't a question match, just "what
+// still needs attention". Excludes Done since a closed ticket isn't "hot".
+async function searchRecentTickets(days = 2, maxResults = 10) {
+  if (!JIRA_API_EMAIL || !JIRA_API_TOKEN) {
+    throw new Error('JIRA_API_EMAIL / JIRA_API_TOKEN is not configured');
+  }
+  return runSearch(`project = ${PROJECT_KEY} AND created >= -${days}d AND status != Done ORDER BY created DESC`, maxResults);
+}
+
 function cleanText(text, limit = 4000) {
   if (!text) return '(none)';
   const cleaned = String(text).replace(/\n{3,}/g, '\n\n').trim();
@@ -120,4 +130,4 @@ function formatIssueRaw(issue) {
   return lines.join('\n');
 }
 
-module.exports = { searchKtcCases, formatIssueRaw };
+module.exports = { searchKtcCases, formatIssueRaw, searchRecentTickets };

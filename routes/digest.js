@@ -2,6 +2,9 @@ const router = require('express').Router();
 const path = require('path');
 const drive = require('../storage/googleDrive');
 const { sendMail } = require('../utils/mailer');
+const { encryptToken } = require('../auth/tokenCrypto');
+const { getGmailClient, getOAuthClient } = require('../utils/gmailAccounts');
+const { classify, loadTrainingRules, CAT_LABEL, formatDate, bangkokMidnightUTC, bangkokDateParts, gmailQueryYMD, extractBody, extractAttachments } = require('../utils/gmailClassify');
 
 const ASSIGNEES = [
   { name: 'Aum',   email: 'thiranattada.n@muze.co.th' },
@@ -29,6 +32,40 @@ function statusKey(account, msgId) {
 // stay small regardless of how much history accumulates.
 function logFilename(date) {
   return `activitylog_${date}.json`;
+}
+
+// Email History archive — one file per account per Bangkok calendar day
+// (bucketed by the EMAIL's own arrival date, not the fetch time), so a
+// History query for a date range just reads exactly those day-files,
+// same "wide net over small files" shape as the snapshot/activity-log
+// convention already used elsewhere. Only static email facts are stored
+// (msgId/subject/from/date/snippet/category) — status/assignee/actionDone
+// are looked up fresh from their own per-msgId records at read time, same
+// as Live/Filter mode already do, so there's nothing here to go stale.
+function historyFilename(account, ymd) {
+  return `digesthistory_${account.replace(/@|\./g, '_')}_${ymd}.json`;
+}
+function ymdOf(dateStr) {
+  const p = bangkokDateParts(new Date(dateStr));
+  return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+}
+async function archiveEmailHistory(account, emails) {
+  const byDay = {};
+  emails.forEach(e => {
+    if (!e.msgId || !e.date) return;
+    const ymd = ymdOf(e.date);
+    (byDay[ymd] = byDay[ymd] || []).push(e);
+  });
+  await Promise.all(Object.entries(byDay).map(async ([ymd, dayEmails]) => {
+    const file = historyFilename(account, ymd);
+    const existing = await drive.readFile(file).catch(() => null);
+    const byMsgId = {};
+    (existing?.emails || []).forEach(e => { byMsgId[e.msgId] = e; });
+    dayEmails.forEach(e => {
+      byMsgId[e.msgId] = { msgId: e.msgId, subject: e.subject, from: e.from, date: e.date, snippet: e.snippet, category: e.category };
+    });
+    await drive.writeFile(file, { emails: Object.values(byMsgId) });
+  }));
 }
 
 async function appendLog(entry) {
@@ -97,12 +134,15 @@ const SHARED_ACCOUNTS = ['support@muze.co.th','support-mea@muze.co.th','support-
 // POST /api/digest/live — store live unread counts + email list (no SSO, secret-protected)
 //
 // Carries forward any 🔴/🟡 email that drops out of the new fetch (read on
-// Gmail, aged past maxResults, etc.) as long as its status isn't Done/Ignore
-// yet — otherwise an item a user hasn't finished triaging could silently
-// vanish from the dashboard just because someone opened it or a day rolled
-// over. ⚪ แจ้งเตือนอัตโนมัติ is excluded entirely — automated notifications
-// don't need triage, so they should just disappear normally instead of
-// piling up. "Ignore" remains the escape valve for the other two categories.
+// Gmail, aged past maxResults, etc.) as long as its status isn't Done/
+// Ignore/Skip yet — otherwise an item a user hasn't finished triaging could
+// silently vanish from the dashboard just because someone opened it or a day
+// rolled over. ⚪ แจ้งเตือนอัตโนมัติ is excluded entirely — automated
+// notifications don't need triage, so they should just disappear normally
+// instead of piling up. Skip (like Ignore/Done) also removes an item that's
+// STILL inside this fetch's own window, not just ones aging out of it — it
+// means "hide this going forward", so it shouldn't reappear just because
+// Gmail's own query still naturally returns it.
 router.post('/api/digest/live', async (req, res) => {
   const secret = req.headers['x-digest-secret'];
   if (secret !== DIGEST_SECRET) return res.status(403).json({ error: 'Forbidden' });
@@ -111,6 +151,7 @@ router.post('/api/digest/live', async (req, res) => {
     const existing = await drive.readFile(LIVE_FILENAME).catch(() => null);
 
     const merged = {};
+    const historyWrites = [];
     for (const [acc, entry] of Object.entries(counts || {})) {
       if (!entry) { merged[acc] = entry; continue; }
       const newEmails = entry.emails || [];
@@ -120,15 +161,42 @@ router.post('/api/digest/live', async (req, res) => {
         e.msgId && !newIds.has(e.msgId) && e.category !== '⚪ แจ้งเตือนอัตโนมัติ'
       );
 
-      const carried = (await Promise.all(candidates.map(async e => {
-        const statusData = await drive.readFile(statusKey(acc, e.msgId)).catch(() => null);
-        const status = statusData?.status || 'To Do';
-        return (status === 'Done' || status === 'Ignore') ? null : { ...e, carried: true };
-      }))).filter(Boolean);
+      // One status lookup per account (shared token + read-by-id, not each
+      // read doing its own token refresh + name search) covers BOTH: which
+      // carry-forward candidates are done/ignored/skipped, AND which items
+      // still inside this fetch's own window are flagged Skip - Skip means
+      // "hide this going forward", not just "stop carrying it once Gmail's
+      // own query stops returning it", so a still-in-window item needs the
+      // same check the carry-forward candidates already got.
+      const statusFiles = await drive.listFiles(`emailstatus_${acc.replace(/@|\./g, '_')}_`);
+      const accessToken = await drive.getAdminAccessToken();
+      const statusDocs = await Promise.all(statusFiles.map(f => drive.readFileById(f.id, accessToken).catch(() => null)));
+      const statusByMsgId = {};
+      statusDocs.filter(Boolean).forEach(s => { statusByMsgId[s.msgId] = s.status; });
 
-      merged[acc] = { counts: entry.counts, emails: [...newEmails, ...carried] };
+      const carried = candidates
+        .map(e => {
+          const status = statusByMsgId[e.msgId] || 'To Do';
+          return (status === 'Done' || status === 'Ignore' || status === 'Skip') ? null : { ...e, carried: true };
+        })
+        .filter(Boolean);
+
+      const freshFiltered = newEmails.filter(e => statusByMsgId[e.msgId] !== 'Skip');
+
+      merged[acc] = { counts: entry.counts, emails: [...freshFiltered, ...carried] };
+
+      // History archive gets the UNFILTERED fresh fetch (Auto/Skip included -
+      // "history of all email" means all of them, not just what the Live
+      // dashboard currently shows) plus whatever's still being carried
+      // forward. A carried item was already archived on the day it first
+      // appeared in newEmails, so this is just re-affirming it, not a gap.
+      // Collected and awaited below (not fire-and-forget) - a serverless
+      // function's event loop can get torn down right after the response
+      // is sent, which would silently kill an un-awaited write mid-flight.
+      historyWrites.push(archiveEmailHistory(acc, [...newEmails, ...carried]).catch(err => console.error('history archive failed:', acc, err.message)));
     }
 
+    await Promise.all(historyWrites);
     await drive.writeFile(LIVE_FILENAME, { counts: merged, updatedAt });
     res.json({ ok: true });
   } catch (err) {
@@ -138,6 +206,7 @@ router.post('/api/digest/live', async (req, res) => {
 
 // GET /api/digest/live — return live unread counts + emails filtered by logged-in user
 router.get('/api/digest/live', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
   try {
     const data = await drive.readFile(LIVE_FILENAME);
     if (!data) return res.json({ counts: {}, updatedAt: null });
@@ -263,7 +332,7 @@ router.get('/api/digest/emailstatus', async (req, res) => {
 // POST /api/digest/assign — save assignment + send email notification
 router.post('/api/digest/assign', async (req, res) => {
   try {
-    const { msgId, account, assigneeEmail, expectedAction, dueDate, status, emailSubject, emailFrom } = req.body;
+    const { msgId, account, assigneeEmail, expectedAction, dueDate, status, emailSubject, emailFrom, actionDone } = req.body;
     if (!msgId || !account) return res.status(400).json({ error: 'msgId and account required' });
 
     const assignee = ASSIGNEES.find(a => a.email === assigneeEmail);
@@ -273,7 +342,7 @@ router.post('/api/digest/assign', async (req, res) => {
       msgId, account, assigneeEmail,
       assigneeName: assignee?.name || assigneeEmail,
       expectedAction, dueDate, status: status || 'To Do',
-      emailSubject, emailFrom,
+      emailSubject, emailFrom, actionDone,
       updatedAt: new Date().toISOString(),
       updatedBy: req.user?.email,
     };
@@ -469,6 +538,217 @@ router.post('/api/digest/holidays', async (req, res) => {
     await drive.writeFile('holidays.json', { holidays: normalized, updatedAt: new Date().toISOString(), updatedBy: req.user?.email });
     res.json({ ok: true, count: normalized.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/digest/gmail-tokens — store Gmail refresh tokens (secret-protected,
+// used once by the local migration script in muze-email-digest). Tokens arrive
+// as plaintext in the request body (same trust model as /api/digest/live,
+// which already carries email content this way — TLS + shared-secret auth)
+// and are encrypted HERE with SESSION_SECRET before ever touching Drive,
+// since SESSION_SECRET is a Vercel "Sensitive" var and can't be read back out
+// to a local script — only the running server process has it in memory.
+// Merge-only: a partial body (e.g. one account being re-authorized) never
+// wipes the other accounts' tokens.
+router.post('/api/digest/gmail-tokens', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET) return res.status(403).end();
+  try {
+    const { tokens } = req.body;
+    if (!tokens || typeof tokens !== 'object' || Array.isArray(tokens)) {
+      return res.status(400).json({ error: 'tokens must be an object of account -> refresh_token' });
+    }
+    const encrypted = {};
+    for (const [account, token] of Object.entries(tokens)) {
+      if (typeof token === 'string' && token) encrypted[account] = encryptToken(token, process.env.SESSION_SECRET);
+    }
+    const existing = await drive.readFile('gmailtokens.json').catch(() => null);
+    const merged = { ...(existing?.tokens || {}), ...encrypted };
+    await drive.writeFile('gmailtokens.json', { tokens: merged, updatedAt: new Date().toISOString() });
+    res.json({ ok: true, accounts: Object.keys(merged) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/digest/gmail-tokens — list which accounts have a stored token (never
+// returns the encrypted blob itself over HTTP — no reason to, even encrypted).
+// ?diag=1 additionally decrypts and exchanges each refresh_token for a fresh
+// access token (no Gmail data touched) to confirm the whole chain actually works.
+router.get('/api/digest/gmail-tokens', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
+  try {
+    const data = await drive.readFile('gmailtokens.json').catch(() => null);
+    const accounts = Object.keys(data?.tokens || {});
+    if (!req.query.diag) return res.json({ accounts, updatedAt: data?.updatedAt || null });
+
+    const diag = {};
+    for (const acc of accounts) {
+      try {
+        const client = await getOAuthClient(acc);
+        if (!client) { diag[acc] = 'no client (decrypt failed or missing)'; continue; }
+        await client.getAccessToken();
+        diag[acc] = 'ok';
+      } catch (e) { diag[acc] = e.message; }
+    }
+    res.json({ accounts, updatedAt: data?.updatedAt || null, diag });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/digest/range — Filter mode's live query: fetches Gmail directly
+// for an account (or all 5) over an arbitrary date range and classifies every
+// matching message, rather than filtering the already-loaded Live dataset
+// (which only ever contains today's fetch + carried-forward pending items,
+// so a resolved or Auto-category email from an earlier date can never
+// reappear there no matter what range is picked). Secret or logged-in, same
+// convention as holidays/daily-totals — the dashboard calls it with a
+// session cookie, but the shared secret lets it be exercised directly too.
+router.get('/api/digest/range', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
+  try {
+    const { account, from, to } = req.query;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(to || '')) {
+      return res.status(400).json({ error: 'from and to must be YYYY-MM-DD' });
+    }
+    const targetAccounts = account && account !== 'all' ? [account] : SHARED_ACCOUNTS;
+
+    const rules = await loadTrainingRules();
+
+    // Same wide-net-then-precise-filter approach as live.js: Gmail's own
+    // after:/before: day boundary isn't Bangkok-local, so query a day of
+    // margin on each side and enforce the real cutoff from each message's
+    // internalDate afterward.
+    const marginBefore = new Date(`${from}T12:00:00Z`); marginBefore.setUTCDate(marginBefore.getUTCDate() - 1);
+    const marginAfter = new Date(`${to}T12:00:00Z`); marginAfter.setUTCDate(marginAfter.getUTCDate() + 1);
+    const rangeStartMs = bangkokMidnightUTC(new Date(`${from}T12:00:00Z`)).getTime();
+    const rangeEndMs = bangkokMidnightUTC(new Date(`${to}T12:00:00Z`)).getTime() + 24 * 3600 * 1000;
+    const q = `after:${gmailQueryYMD(marginBefore)} before:${gmailQueryYMD(marginAfter)} in:inbox`;
+
+    const skipped = [];
+    const counts = {};
+
+    await Promise.all(targetAccounts.map(async acc => {
+      const gmail = await getGmailClient(acc);
+      if (!gmail) { skipped.push(acc); return; }
+
+      const listRes = await gmail.users.messages.list({ userId: 'me', q, maxResults: 500 });
+      const messages = listRes.data.messages || [];
+
+      const CONCURRENCY = 20;
+      const withDates = [];
+      for (let i = 0; i < messages.length; i += CONCURRENCY) {
+        const batch = messages.slice(i, i + CONCURRENCY);
+        const results = await Promise.all(batch.map(async msg => {
+          try {
+            const min = await gmail.users.messages.get({ userId: 'me', id: msg.id, format: 'minimal' });
+            return { id: msg.id, internalDate: Number(min.data.internalDate) };
+          } catch { return null; }
+        }));
+        withDates.push(...results.filter(Boolean));
+      }
+      const inRange = withDates
+        .filter(m => m.internalDate >= rangeStartMs && m.internalDate < rangeEndMs)
+        .sort((a, b) => b.internalDate - a.internalDate);
+
+      const emails = [];
+      const tally = { action: 0, mustRead: 0, auto: 0, total: inRange.length };
+      for (let i = 0; i < inRange.length; i += CONCURRENCY) {
+        const batch = inRange.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map(async ({ id }) => {
+          try {
+            const detail = await gmail.users.messages.get({
+              userId: 'me', id, format: 'metadata', metadataHeaders: ['Subject', 'From', 'Date'],
+            });
+            const h = detail.data.payload.headers;
+            const subject = h.find(x => x.name === 'Subject')?.value || '(no subject)';
+            const from_ = h.find(x => x.name === 'From')?.value || '';
+            const date = h.find(x => x.name === 'Date')?.value || '';
+            const snippet = detail.data.snippet || '';
+            const cat = classify(subject, snippet, from_, rules);
+            tally[cat]++;
+            emails.push({
+              msgId: id, subject, from: from_.replace(/<.*?>/g, '').trim(),
+              date: formatDate(date), snippet, category: CAT_LABEL[cat], carried: false,
+            });
+          } catch { /* skip individual message errors */ }
+        }));
+      }
+      emails.sort((a, b) => {
+        const order = { '🔴 ต้อง Action': 0, '🟡 ควรรับรู้': 1, '⚪ แจ้งเตือนอัตโนมัติ': 2 };
+        return (order[a.category] ?? 3) - (order[b.category] ?? 3);
+      });
+
+      counts[acc] = { counts: tally, emails };
+    }));
+
+    res.json({ counts, skipped });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+      code: err.code,
+      status: err.response?.status,
+      detail: err.response?.data,
+    });
+  }
+});
+
+// GET /api/digest/history — reads the persistent per-day email archive
+// (written by archiveEmailHistory() inside POST /api/digest/live) instead of
+// re-querying Gmail live — a fast, already-stored record of every email ever
+// seen (Auto/Skip/Done all included), not bounded by what the Live dashboard
+// currently carries forward or by another live Gmail API round-trip.
+router.get('/api/digest/history', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
+  try {
+    const { account, from, to } = req.query;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(to || '')) {
+      return res.status(400).json({ error: 'from and to must be YYYY-MM-DD' });
+    }
+    const targetAccounts = account && account !== 'all' ? [account] : SHARED_ACCOUNTS;
+
+    const days = [];
+    for (let d = new Date(`${from}T00:00:00Z`); d <= new Date(`${to}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) {
+      days.push(d.toISOString().slice(0, 10));
+    }
+
+    const counts = {};
+    await Promise.all(targetAccounts.map(async acc => {
+      const files = await Promise.all(days.map(ymd => drive.readFile(historyFilename(acc, ymd)).catch(() => null)));
+      const byMsgId = {};
+      files.filter(Boolean).forEach(f => (f.emails || []).forEach(e => { byMsgId[e.msgId] = e; }));
+      const emails = Object.values(byMsgId).sort((a, b) => new Date(b.date) - new Date(a.date));
+      const tally = { action: 0, mustRead: 0, auto: 0, total: emails.length };
+      emails.forEach(e => {
+        if (e.category === CAT_LABEL.action) tally.action++;
+        else if (e.category === CAT_LABEL.mustRead) tally.mustRead++;
+        else tally.auto++;
+      });
+      counts[acc] = { counts: tally, emails };
+    }));
+
+    res.json({ counts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/digest/email-body — full body text + attachment filenames for one
+// email, fetched on demand when the detail modal opens (not upfront for
+// every row in the list — the list view only ever needed the snippet).
+// format:'full' inlines every part's body.data including attachments, but
+// extractAttachments() only reads filename/mimeType/size off each part — the
+// attachment bytes it also contains are simply never touched, so this never
+// downloads the actual file.
+router.get('/api/digest/email-body', async (req, res) => {
+  if (req.headers['x-digest-secret'] !== DIGEST_SECRET && !req.user) return res.status(403).end();
+  try {
+    const { account, msgId } = req.query;
+    if (!account || !msgId) return res.status(400).json({ error: 'account and msgId required' });
+    const gmail = await getGmailClient(account);
+    if (!gmail) return res.status(404).json({ error: 'no Gmail token for this account' });
+    const detail = await gmail.users.messages.get({ userId: 'me', id: msgId, format: 'full' });
+    const body = extractBody(detail.data.payload);
+    const attachments = extractAttachments(detail.data.payload);
+    res.json({ body, attachments });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/digest/:index — get digest content by index (filtered by logged-in user)

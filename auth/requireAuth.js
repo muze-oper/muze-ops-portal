@@ -3,6 +3,12 @@ const { readSession } = require('./session');
 function requireAuth(req, res, next) {
   const session = readSession(req);
   if (!session) {
+    // fetch() calls expect JSON back - redirecting them to the HTML login
+    // page just breaks res.json() on the client with a cryptic parse error.
+    // Page navigations (everything else) still get the normal redirect.
+    if (req.path.startsWith('/api/')) {
+      return res.status(401).json({ error: 'unauthenticated', message: 'Your session has expired - please log in again.' });
+    }
     return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
   }
   req.user = session;
