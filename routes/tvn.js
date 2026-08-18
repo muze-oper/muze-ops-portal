@@ -578,34 +578,36 @@ router.post('/api/tvn/top-error-codes/record', async (req, res) => {
   }
 });
 
-// --- Firebase Crashlytics "Crashlytics Error" tab: Top Issues list, laid
-// out exactly like the BitMovin Top Error Codes tab above - one block of
-// consecutive rows per platform, Filters (A) + Platform (B) established per
-// block, this only ever inserts new rows at the top of a block (newest
-// snapshot first), never rewrites/removes what's already there. Columns
-// line up 1:1 with what Firebase's own issue list table shows (Issue,
-// Versions, Trend, Events, Users), so a row copy-pasted straight out of
-// that UI lands as tab-separated fields in the same order.
+// --- Firebase Crashlytics "Crashlytics Issue Log" tab: Top Issues list,
+// grouped exactly like the BitMovin Top Error Codes tab above - one block
+// of consecutive rows per platform, this only ever inserts new rows at the
+// top of a block (newest snapshot first), never rewrites/removes what's
+// already there. Column order has already drifted once (originally
+// Filters/Platform/Date Check/Issue/Versions/Trends/Events/Users - Trends
+// has since been dropped entirely and Date Check/Platform moved to the
+// front), so columns are read by their own fixed index here rather than
+// assumed from Firebase's UI order - re-check against the live sheet
+// before trusting this if it looks stale.
 const CRASHLYTICS_ERR_SHEET_GID = 570219984;
-const CRASHLYTICS_ERR_FILTERS_COL_IDX = 0; // column A
+const CRASHLYTICS_ERR_DATE_COL_IDX = 0; // column A
 const CRASHLYTICS_ERR_PLATFORM_COL_IDX = 1; // column B
-const CRASHLYTICS_ERR_DATE_COL_IDX = 2; // column C - first of the six written columns (C:H)
-const CRASHLYTICS_ERR_WRITE_COLS = 6; // Date Check, Issue, Versions, Trends, Events, Users
+const CRASHLYTICS_ERR_FILTERS_COL_IDX = 2; // column C
+const CRASHLYTICS_ERR_ISSUE_COL_IDX = 3; // column D - first of the four written data columns (D:G)
+const CRASHLYTICS_ERR_WRITE_COLS = 4; // Issue, Versions, Events, Users
 
 async function fetchCrashlyticsErrorsTitleAndRows() {
   const title = await resolveSheetTitleByGid(SHEET_ID, CRASHLYTICS_ERR_SHEET_GID);
-  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:H5000`);
+  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:G5000`);
   return { title, rows };
 }
 
 function readCrashlyticsErrorEntry(row) {
   return {
     date: row[CRASHLYTICS_ERR_DATE_COL_IDX] || '',
-    issue: row[CRASHLYTICS_ERR_DATE_COL_IDX + 1] || '',
-    versions: row[CRASHLYTICS_ERR_DATE_COL_IDX + 2] || '',
-    trend: row[CRASHLYTICS_ERR_DATE_COL_IDX + 3] || '',
-    events: row[CRASHLYTICS_ERR_DATE_COL_IDX + 4] || '',
-    users: row[CRASHLYTICS_ERR_DATE_COL_IDX + 5] || '',
+    issue: row[CRASHLYTICS_ERR_ISSUE_COL_IDX] || '',
+    versions: row[CRASHLYTICS_ERR_ISSUE_COL_IDX + 1] || '',
+    events: row[CRASHLYTICS_ERR_ISSUE_COL_IDX + 2] || '',
+    users: row[CRASHLYTICS_ERR_ISSUE_COL_IDX + 3] || '',
   };
 }
 
@@ -677,19 +679,18 @@ router.post('/api/tvn/crashlytics-errors/record', async (req, res) => {
 
     await insertSheetRows(SHEET_ID, CRASHLYTICS_ERR_SHEET_GID, block.startRow, list.length);
 
-    // Filters and Platform go on every row - they're what groups the rows
-    // into a block, so a row missing them would split the platform's run.
+    // Date Check and Platform go on every row - Platform is what groups the
+    // rows into a block, so a row missing it would split the platform's run.
     const grid = list.map(e => [
-      filtersValue,
-      block.platform,
       date,
+      block.platform,
+      filtersValue,
       String(e.issue || '').trim(),
       String(e.versions || '').trim(),
-      String(e.trend || '').trim(),
       String(e.events || '').trim(),
       String(e.users || '').trim(),
     ]);
-    const lastCol = colLetter(CRASHLYTICS_ERR_DATE_COL_IDX + CRASHLYTICS_ERR_WRITE_COLS - 1);
+    const lastCol = colLetter(CRASHLYTICS_ERR_ISSUE_COL_IDX + CRASHLYTICS_ERR_WRITE_COLS - 1);
     const endRow = block.startRow + list.length - 1;
     await updateSheetGrid(SHEET_ID, `'${title}'!A${block.startRow}:${lastCol}${endRow}`, grid);
 
