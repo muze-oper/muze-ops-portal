@@ -449,15 +449,14 @@ router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
       color: v ? null : NO_SYNC_DATA_COLOR,
     })));
 
-    // The hour columns run 10.00->24.00 then wrap to 1.00->9.00, crossing
-    // midnight into the next calendar day. Labeled relative to the synced
-    // row ("D" / "D+1") rather than a real calendar date - a real date would
-    // assume a year nothing else in this sheet tracks, and would be wrong
-    // for every row except the one just synced (the header is shared by
-    // every platform, so it can only ever agree with the most recent sync).
-    const rolloverIdx = HOUR_COLUMNS.indexOf('1.00');
-    const headerValues = HOUR_COLUMNS.map((h, i) => `${i < rolloverIdx ? 'D' : 'D+1'}\n${h}`);
-    await updateSheetRow(SHEET_ID, `'${title}'!${firstColLetter}1:${lastColLetter}1`, headerValues);
+    // Row 1 is never touched by a sync: the sheet's own "Peak Time" formula
+    // is `=INDEX($D$1:$Y$1, MATCH(MAX(...), ..., 0))` - it reads the hour
+    // label straight out of this row, so anything beyond the bare "10.00"
+    // style label (a D/D+1 prefix, a date, a newline) corrupts every
+    // platform's Peak Time into that same garbled text. The D/D+1 grouping
+    // shown on the Dashboard is rendered client-side from this route's own
+    // `hourColumns` list, not from row 1's cell contents, so it doesn't need
+    // row 1 to hold anything beyond the plain hour labels it started with.
 
     res.json({ result: `${platform}: แทรกแถวใหม่ ${date} ที่แถว ${rowNum} (ของเดิมเลื่อนลง) — ${updatedCount} ช่วงเวลา` });
   } catch (err) {

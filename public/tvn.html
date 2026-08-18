@@ -586,9 +586,14 @@ function renderHourlyTable() {
 
   const dash = '<span style="color:var(--ink-faint)">—</span>';
 
+  // "Mon-17-Aug" -> "Mon.17" - the month is dropped here; the Platform
+  // column already carries the full date, so this just needs enough to tell
+  // two rows' peak hours apart at a glance.
+  const shortCompactDate = (label) => String(label || '').split('-').slice(0, 2).join('.');
+
   // Peak Time is a clock reading, not a percentage - it keeps the sheet's own
   // "16.00" form rather than being run through formatPct.
-  const timeCell = (v, date) => `<td class="col-stat col-time">${v ? `<span class="time-value">${escapeHtml(v)}</span><span class="time-date">${escapeHtml(compactDate(date))}</span>` : dash}</td>`;
+  const timeCell = (v, date) => `<td class="col-stat col-time">${v ? `<span class="time-value">${escapeHtml(v)}</span><span class="time-date">${escapeHtml(shortCompactDate(date))}</span>` : dash}</td>`;
 
   // Peak is the day's worst hour, so it gets the critical colour outright -
   // a fixed colour rather than Avg's scaled one, since "this is the maximum"
