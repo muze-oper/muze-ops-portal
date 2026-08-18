@@ -166,9 +166,18 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .hourly-heatmap td.col-stat { white-space: nowrap; }
 .hourly-heatmap .col-time { width: 58px; }
 /* Time stacks with its date the same way Platform stacks with its date -
-   the two are one reading, so they share the same two-line treatment. */
+   the two are one reading, so they share the same two-line treatment. The
+   header reuses these same two classes with example content ("HH:HH" /
+   "Mon.17.Aug") instead of a real value, so the header shows the shape of
+   what's below it rather than just the word "Time". */
 .hourly-heatmap .time-value { display: block; font-family: var(--font-sans); font-size: 9px; font-weight: 600; color: var(--ink); white-space: nowrap; }
 .hourly-heatmap .time-date { display: block; font-family: var(--font-mono); font-size: 8.5px; color: var(--info); font-weight: 600; white-space: nowrap; }
+/* Peak's header spells out that the column is a percentage, the same way
+   the Time header spells out its format - a unit, not a real value, so it
+   stays muted rather than borrowing Time's blue (which means "this is a
+   date" everywhere else on the page). */
+.hourly-heatmap .peak-label { display: block; }
+.hourly-heatmap .peak-unit { display: block; font-size: 8.5px; color: var(--ink-faint); font-weight: 600; }
 /* Peak is the day's maximum - a fixed critical colour, not a point on the
    ramp, so it never reads as "just another value". */
 .hourly-heatmap td.col-peak { color: var(--critical); font-weight: 700; }
