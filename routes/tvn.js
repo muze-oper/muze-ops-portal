@@ -322,6 +322,14 @@ async function fetchHourlyTitleAndRows() {
   return { title, rows };
 }
 
+// "Thu-14-Aug" -> "14 Aug" - drops the weekday since the header row's hour
+// cells only have room for day + month, stacked above the hour on a second
+// line.
+function dayMonthLabel(dateLabel) {
+  const parts = String(dateLabel || '').split('-').filter(Boolean);
+  return parts.slice(-2).join(' ');
+}
+
 // "Thu-13-Aug" - same weekday-day-month label style used elsewhere in this
 // sheet, computed from the Bangkok calendar date (not the server's own TZ).
 function formatBangkokWeekdayLabel() {
@@ -427,6 +435,14 @@ router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
       date,
     ]);
     await updateSheetRow(SHEET_ID, `'${title}'!${firstColLetter}${rowNum}:${lastColLetter}${rowNum}`, merged);
+
+    // The header row is shared by every platform, so it can only ever show
+    // one date - the one just synced. Each hour cell gets that date stacked
+    // above the hour label ("14 Aug" / "11.00") so the sheet says at a
+    // glance which day's numbers are on top, without checking column C.
+    const headerLabel = dayMonthLabel(date);
+    const headerValues = HOUR_COLUMNS.map(h => `${headerLabel}\n${h}`);
+    await updateSheetRow(SHEET_ID, `'${title}'!${firstColLetter}1:${lastColLetter}1`, headerValues);
 
     res.json({ result: `${platform}: แทรกแถวใหม่ ${date} ที่แถว ${rowNum} (ของเดิมเลื่อนลง) — ${updatedCount} ช่วงเวลา` });
   } catch (err) {

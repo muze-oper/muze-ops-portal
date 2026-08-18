@@ -126,12 +126,12 @@
           <div class="tec-paste-col">
             <label class="field-label" for="tec-platform">Platform ที่จะเขียนลงชีต</label>
             <div class="field-row" style="margin-top:2px;">
-              <select id="tec-platform" onchange="onTecPlatformChange(true)"><option value="">กำลังโหลด...</option></select>
+              <select id="tec-platform" onchange="onTecPlatformChange(true); maybeAutoParseTec();"><option value="">กำลังโหลด...</option></select>
               <span id="tec-platform-source" class="platform-source"></span>
             </div>
             <div class="field-row" style="margin-top:8px;">
               <label class="field-label" for="tec-date">Date</label>
-              <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
+              <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug" oninput="maybeAutoParseTec()">
             </div>
             <div id="tec-filters-preview" class="hint" style="margin-top:8px;"></div>
           </div>
@@ -141,9 +141,8 @@
           <div class="tec-btn-col">
             <div class="step">
               <span class="step-no">Step 5</span>
-              <span class="step-text">กด <strong>แยกลงตาราง</strong> → ตรวจค่าในตาราง + Date → กด <strong>Sync to Google Sheet</strong></span>
+              <span class="step-text">พอ Platform + Date ครบ ตารางจะขึ้นเอง → ตรวจค่าในตาราง → กด <strong>Sync to Google Sheet</strong></span>
             </div>
-            <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
             <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync to Google Sheet</button>
             <button class="btn-ghost" id="tec-clear-btn" onclick="clearTecRows()">ล้างตาราง</button>
             <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
@@ -960,6 +959,16 @@ function parseTecPasted() {
   renderTecRows(parsed, Math.max(TEC_DEFAULT_ROWS, parsed.length));
 }
 
+// Replaces the old "แยกลงตาราง" button - once Platform and Date are both
+// filled (by auto-detection or by hand) and there's pasted text to read, the
+// table fills itself instead of waiting for a manual click.
+function maybeAutoParseTec() {
+  const platform = document.getElementById('tec-platform').value;
+  const date = document.getElementById('tec-date').value.trim();
+  const text = document.getElementById('tec-paste-input').value.trim();
+  if (platform && date && text) parseTecPasted();
+}
+
 function readTecRows() {
   return [...document.querySelectorAll('#error-codes-table-body tr')].map(tr => ({
     playerVersion: (tr.querySelector('.tec-version') || {}).value || '',
@@ -1024,6 +1033,7 @@ document.getElementById('tec-paste-input').addEventListener('input', () => {
   applyPlatformHintFromText(text);
   const dateInput = document.getElementById('tec-date');
   if (text.trim() && !dateInput.value) dateInput.value = todayBangkokLabel();
+  maybeAutoParseTec();
 });
 
 function toSessions(v) {
