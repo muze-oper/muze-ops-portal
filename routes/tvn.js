@@ -2,7 +2,7 @@ const router = require('express').Router();
 const path = require('path');
 const {
   fetchSheetRows, resolveSheetTitleByGid, updateSheetRow, updateSheetGrid,
-  insertSheetRows,
+  insertSheetRows, setCellBackgrounds,
 } = require('../storage/googleSheets');
 const { readValueFromScreenshot } = require('../lib/anthropicVision');
 
@@ -306,6 +306,10 @@ const HOUR_COLUMNS = [
   '10.00', '11.00', '12.00', '13.00', '14.00', '15.00', '16.00', '17.00', '18.00', '19.00', '20.00',
   '21.00', '22.00', '23.00', '24.00', '1.00', '2.00', '3.00', '4.00', '5.00', '6.00', '7.00', '8.00', '9.00',
 ];
+// Marks an hour cell that the sync had no data for, so a blank cell (nothing
+// synced yet) reads differently from one the sheet's own formulas or a human
+// left empty on purpose.
+const NO_SYNC_DATA_COLOR = { red: 0.788, green: 0.855, blue: 0.973 }; // #c9daf8
 const HOURLY_FILTERS_COL_IDX = 0; // column A
 const HOURLY_PLATFORM_COL_IDX = 1; // column B
 const HOURLY_DATE_COL_IDX = 2; // column C
@@ -320,14 +324,6 @@ async function fetchHourlyTitleAndRows() {
   const title = await resolveSheetTitleByGid(SHEET_ID, HOURLY_SHEET_GID);
   const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:AD2000`);
   return { title, rows };
-}
-
-// "Thu-14-Aug" -> "14 Aug" - drops the weekday since the header row's hour
-// cells only have room for day + month, stacked above the hour on a second
-// line.
-function dayMonthLabel(dateLabel) {
-  const parts = String(dateLabel || '').split('-').filter(Boolean);
-  return parts.slice(-2).join(' ');
 }
 
 // "Thu-13-Aug" - same weekday-day-month label style used elsewhere in this
@@ -411,7 +407,12 @@ router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
     await insertSheetRows(SHEET_ID, HOURLY_SHEET_GID, rowNum, 1, [HOURLY_AVERAGE_COL_IDX, HOURLY_PEAK_TIME_COL_IDX + 1]);
 
     // The row is brand new, so hours the CSV didn't cover stay blank - there
-    // is no previous value on this row to preserve.
+    // is no previous value on this row to preserve. Built by walking
+    // HOUR_COLUMNS and looking each one up in `values`, not the other way
+    // around - any key in `values` that isn't exactly one of these 24 hour
+    // labels (a typo, a stale format, a client-side bug) is never read and
+    // so never written anywhere: it's flushed rather than risking a write to
+    // the wrong column.
     let updatedCount = 0;
     const merged = HOUR_COLUMNS.map(label => {
       const provided = values ? values[label] : undefined;
@@ -436,12 +437,26 @@ router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
     ]);
     await updateSheetRow(SHEET_ID, `'${title}'!${firstColLetter}${rowNum}:${lastColLetter}${rowNum}`, merged);
 
-    // The header row is shared by every platform, so it can only ever show
-    // one date - the one just synced. Each hour cell gets that date stacked
-    // above the hour label ("14 Aug" / "11.00") so the sheet says at a
-    // glance which day's numbers are on top, without checking column C.
-    const headerLabel = dayMonthLabel(date);
-    const headerValues = HOUR_COLUMNS.map(h => `${headerLabel}\n${h}`);
+    // The inserted row starts out blank, but insertSheetRows pulls its cell
+    // formatting from the platform's previous top row (now pushed down one
+    // row) - which may itself be colored blue from an earlier sync's gaps.
+    // Every hour cell is set explicitly here, not just the blank ones, so
+    // none of that stale color survives onto an hour this sync did fill.
+    const rowIndex0 = rowNum - 1;
+    await setCellBackgrounds(SHEET_ID, HOURLY_SHEET_GID, merged.map((v, i) => ({
+      row: rowIndex0,
+      col: HOURLY_FIRST_HOUR_COL_IDX + i,
+      color: v ? null : NO_SYNC_DATA_COLOR,
+    })));
+
+    // The hour columns run 10.00->24.00 then wrap to 1.00->9.00, crossing
+    // midnight into the next calendar day. Labeled relative to the synced
+    // row ("D" / "D+1") rather than a real calendar date - a real date would
+    // assume a year nothing else in this sheet tracks, and would be wrong
+    // for every row except the one just synced (the header is shared by
+    // every platform, so it can only ever agree with the most recent sync).
+    const rolloverIdx = HOUR_COLUMNS.indexOf('1.00');
+    const headerValues = HOUR_COLUMNS.map((h, i) => `${i < rolloverIdx ? 'D' : 'D+1'}\n${h}`);
     await updateSheetRow(SHEET_ID, `'${title}'!${firstColLetter}1:${lastColLetter}1`, headerValues);
 
     res.json({ result: `${platform}: แทรกแถวใหม่ ${date} ที่แถว ${rowNum} (ของเดิมเลื่อนลง) — ${updatedCount} ช่วงเวลา` });

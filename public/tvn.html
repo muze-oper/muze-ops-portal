@@ -634,12 +634,37 @@ function renderHourlyTable() {
     .map((h, i) => `<th class="col-hour">${i % HOUR_LABEL_EVERY === HOUR_LABEL_OFFSET ? escapeHtml(h) : ''}</th>`)
     .join('');
 
+  // Hours run 10.00->24.00 then wrap to 1.00->9.00, crossing midnight into
+  // the next calendar day - this spans the two groups with "D" / "D+1"
+  // rather than a real date, mirroring the same relative labels the sheet's
+  // own header row (D1:AA1) now uses for the same reason: no row here has a
+  // single date of its own, since a day's hours split across two sheet dates.
+  const rolloverIdx = hourlyTableColumns.indexOf('1.00');
+  const daygroupRow = rolloverIdx === -1 ? '' : `<tr class="daygroup-row">
+        <th class="col-id" colspan="4"></th>
+        <th class="daygroup" colspan="${rolloverIdx}">D</th>
+        <th class="daygroup" colspan="${hourlyTableColumns.length - rolloverIdx}">D+1</th>
+      </tr>`;
+
+  // Fixed-layout column widths have to come from a colgroup once the header
+  // has a colspan row in it - table-layout:fixed otherwise sizes columns off
+  // whichever row it reads first, which would ignore col-id/col-stat/col-hour's
+  // own widths the moment that row's cells are span-merged.
+  const colgroup = `<colgroup>
+        <col style="width:86px"><col style="width:42px"><col style="width:42px"><col style="width:58px">
+        ${hourlyTableColumns.map(() => '<col style="width:32px">').join('')}
+      </colgroup>`;
+
   body.innerHTML = `
     ${heatLegendHtml()}
     <div id="hourly-export-panel" style="overflow-x:auto;background:var(--surface);">
       <div class="export-head"><span class="export-title">BITMOVIN Error Session in 24 hours</span></div>
       <table class="data hourly-heatmap">
-        <thead><tr><th class="col-id"><span class="id-platform">Platform</span><span class="id-date">Date</span></th><th class="col-stat col-avg">Avg</th><th class="col-stat col-peak">Peak</th><th class="col-stat col-time">Time</th>${headHours}</tr></thead>
+        ${colgroup}
+        <thead>
+          ${daygroupRow}
+          <tr><th class="col-id"><span class="id-platform">Platform</span><span class="id-date">Date</span></th><th class="col-stat col-avg">Avg</th><th class="col-stat col-peak">Peak</th><th class="col-stat col-time">Time</th>${headHours}</tr>
+        </thead>
         <tbody>${rowsHtml}</tbody>
       </table>
       ${hourlySummaryHtml(platforms)}

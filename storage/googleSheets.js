@@ -133,6 +133,22 @@ function colorToHex(c) {
   return `#${[r, g, b].map(n => n.toString(16).padStart(2, '0')).join('')}`;
 }
 
+// Sets (or clears) a solid background color on individual cells in one
+// batchUpdate call. `cells` is [{ row, col, color }], 0-based row/col;
+// `color` is {red,green,blue} (0-1 floats) or falsy to clear back to white.
+async function setCellBackgrounds(spreadsheetId, gid, cells) {
+  if (!cells.length) return;
+  const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+  const requests = cells.map(({ row, col, color }) => ({
+    repeatCell: {
+      range: { sheetId: gid, startRowIndex: row, endRowIndex: row + 1, startColumnIndex: col, endColumnIndex: col + 1 },
+      cell: { userEnteredFormat: { backgroundColor: color || { red: 1, green: 1, blue: 1 } } },
+      fields: 'userEnteredFormat.backgroundColor',
+    },
+  }));
+  await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
+}
+
 // แถวแรกเป็น header — แปลงแถวที่เหลือเป็น object ตามชื่อคอลัมน์
 function rowsToObjects(rows) {
   if (rows.length < 2) return [];
@@ -146,6 +162,6 @@ function rowsToObjects(rows) {
 
 module.exports = {
   fetchSheetRows, rowsToObjects, updateSheetRow, updateSheetGrid,
-  insertSheetRows,
+  insertSheetRows, setCellBackgrounds,
   fetchSheetFormatting, colorToHex, resolveSheetTitleByGid, listSheetTitles,
 };
