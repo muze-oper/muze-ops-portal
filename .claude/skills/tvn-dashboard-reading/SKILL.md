@@ -102,12 +102,14 @@ Aug 13	99.85
 - Every line after that is one plotted day, `<date>` then `<value>`
   (tab or spaces both parse fine), read from the chart line only.
 - This axis is usually 95-100% (or similar) while the real values often sit
-  in the top ~0.5 of that range - a verified read-vs-actual comparison on
-  exactly this chart type found every point read low, worst (−0.08 to
-  −0.15) on days sitting flat at a round ceiling like 100%, best (−0.03 to
-  −0.04) on the days that visibly dipped - flag this as a real visual
-  estimate, not a precise read, and say so plainly rather than presenting
-  it as exact.
+  in the top ~0.5 of that range, which makes reads noisier than they look -
+  two verified comparisons on this exact chart type landed within about
+  ±0.02-0.15, one running low on every point, the other mixed +/-, with no
+  shared pattern between them (not even "flat near the ceiling reads low" -
+  that held on one and was flatly contradicted on the other, same
+  platform/shape/axis). Don't try to correct for a remembered bias from an
+  earlier chart - flag every read as a real visual estimate, not a precise
+  one, and say so plainly rather than presenting it as exact.
 - If the same chart has already been read and verified against real
   tooltip/API values earlier in the conversation, reuse those verified
   numbers instead of re-estimating from the image - don't discard known
