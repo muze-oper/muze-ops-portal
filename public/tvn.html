@@ -624,26 +624,31 @@ function renderHourlyTable() {
     </tr>`;
   }).join('');
 
+  // Hours run 10.00->24.00 then wrap to 1.00->9.00, crossing midnight into
+  // the next calendar day - "D" / "D+1" rather than a real date, mirroring
+  // the same relative labels the sheet's own header row (D1:AA1) now uses
+  // for the same reason: no row here has a single date of its own, since a
+  // day's hours split across two sheet dates.
+  const rolloverIdx = hourlyTableColumns.indexOf('1.00');
+  const daygroupClass = (i) => (rolloverIdx !== -1 && i >= rolloverIdx ? 'daygroup-next' : 'daygroup-cur');
+
   // Label every 3rd hour only - 24 labels don't fit without colliding. The
   // offset lands them on 12.00/15.00/18.00/21.00/24.00/3.00/6.00/9.00, and
   // the hour column is now wide enough (at its own smaller font) for "12.00"
   // to sit on one line entirely inside its own cell. That matters beyond
   // looks: a label that overflowed into neighbouring columns got clipped when
-  // the table was captured as an export image.
+  // the table was captured as an export image. Each hour cell also carries
+  // its D/D+1 group as a background tint, not just the label row above it -
+  // the two rows read as one coloured block per group instead of a label
+  // floating disconnected from the hours it describes.
   const headHours = hourlyTableColumns
-    .map((h, i) => `<th class="col-hour">${i % HOUR_LABEL_EVERY === HOUR_LABEL_OFFSET ? escapeHtml(h) : ''}</th>`)
+    .map((h, i) => `<th class="col-hour ${daygroupClass(i)}">${i % HOUR_LABEL_EVERY === HOUR_LABEL_OFFSET ? escapeHtml(h) : ''}</th>`)
     .join('');
 
-  // Hours run 10.00->24.00 then wrap to 1.00->9.00, crossing midnight into
-  // the next calendar day - this spans the two groups with "D" / "D+1"
-  // rather than a real date, mirroring the same relative labels the sheet's
-  // own header row (D1:AA1) now uses for the same reason: no row here has a
-  // single date of its own, since a day's hours split across two sheet dates.
-  const rolloverIdx = hourlyTableColumns.indexOf('1.00');
   const daygroupRow = rolloverIdx === -1 ? '' : `<tr class="daygroup-row">
         <th class="col-id" colspan="4"></th>
-        <th class="daygroup" colspan="${rolloverIdx}">D</th>
-        <th class="daygroup" colspan="${hourlyTableColumns.length - rolloverIdx}">D+1</th>
+        <th class="daygroup daygroup-cur" colspan="${rolloverIdx}">D · 10.00-24.00</th>
+        <th class="daygroup daygroup-next" colspan="${hourlyTableColumns.length - rolloverIdx}">D+1 · 1.00-9.00</th>
       </tr>`;
 
   // Fixed-layout column widths have to come from a colgroup once the header

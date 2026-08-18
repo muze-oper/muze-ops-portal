@@ -184,10 +184,17 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 
 /* The two halves of the day (before/after midnight) get their own labelled
    row above the hour header - "D" / "D+1" rather than a real date, since one
-   row here can span two different sheet dates. */
-.hourly-heatmap .daygroup-row th { border-top: none; padding-top: 2px; padding-bottom: 2px; }
-.hourly-heatmap .daygroup { font-size: 8px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-faint); background: var(--surface-2); }
-.hourly-heatmap .daygroup + .daygroup { border-left: 1px solid var(--border); }
+   row here can span two different sheet dates. Each half also tints the hour
+   cells directly below its label the same colour, so the label row and the
+   hour row it describes read as one block per group instead of a thin
+   border being the only thing marking where the day rolls over. */
+.hourly-heatmap .daygroup-row th { border-top: none; padding-top: 3px; padding-bottom: 3px; }
+.hourly-heatmap .daygroup { font-size: 9.5px; font-weight: 800; letter-spacing: 0.03em; }
+.hourly-heatmap .daygroup-cur { color: var(--info-ink); background: var(--info-soft); }
+.hourly-heatmap .daygroup-next { color: var(--warn); background: var(--warn-soft); }
+.hourly-heatmap th.col-hour.daygroup-cur { background: var(--info-soft); }
+.hourly-heatmap th.col-hour.daygroup-next { background: var(--warn-soft); }
+.hourly-heatmap .daygroup-cur + .daygroup-next { border-left: 1px solid var(--border); }
 
 .cell-input, .date-cell-input {
   font-family: var(--font-mono); font-size: 12.5px; padding: 5px 7px; border: 1px solid var(--border);
