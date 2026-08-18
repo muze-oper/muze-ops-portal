@@ -25,6 +25,14 @@ stat or a ranked list:
   with a session count). This is a **list read**, not a single value.
 - **Firebase Crashlytics** - shows "Crash-free users", usually with a big
   percentage stat near a "Users" count and a trend line above it.
+- **Firebase Crashlytics - full dashboard with an Issues table** - the same
+  tool, but a wider screenshot that also shows a "Trends" panel (daily
+  crash-count bar chart) and an **Issues** list below it (one row per crash
+  type: title, package/file breadcrumb, badges like "Repetitive crashes" /
+  "Early crashes" / "Fresh issue", a Versions range, and printed Events +
+  Users counts). This is a **third read mode** - only read the **Issues**
+  table when this shape shows up; leave the Trends bar chart alone unless
+  asked for it specifically, it has no destination yet (see Step 3/4).
 
 For the two single-stat tools, identify the platform from the visible
 app/filter name (iOS, iOS Mobile, Android, Android Mobile, Apple TV,
@@ -167,6 +175,39 @@ If any digit or character is genuinely unreadable (blur, glare, cropped),
 say which part is uncertain rather than silently rounding or guessing -
 for a list read this means flagging the specific row, not the whole table.
 
+**Issues list read (Crashlytics full-dashboard Issues table):** Events and
+Users are printed numbers, not bar lengths - read them directly, no
+estimation involved (this is the one Crashlytics read that doesn't need the
+"never trust the chart line" caution). Output tab-separated rows matching
+the destination sheet's own columns exactly (see Step 4) - no header row,
+since the sheet already has one and rows just get appended below:
+
+```
+19-Aug-26	Android TV	4.0.28,4.0.27,4.0.26	DataStoreModule.provideAead — android.security.KeyStoreException - Unknown error [Repetitive crashes]	4.0.6-tv – 4.0.27-tv	662	102
+```
+
+- **Date Check**: today's date in Bangkok, `DD-Mon-YY` (matches
+  `formatBangkokShortDate()` in `routes/tvn.js`) - the screenshot itself
+  never prints an "as of" date for the Issues table, so this is an
+  assumption; say so and offer to use a different date if asked.
+- **Platform**: from Step 1 (version-suffix / app-picker method).
+- **Filters**: the platform's current Version to Monitor list as plain
+  comma-separated numbers (e.g. `4.0.28,4.0.27,4.0.26`), matching the
+  existing rows' convention - not the raw truncated "Versions = ... and N
+  more" chip text from the screenshot.
+- **Issue**: `<bold title> — <exception/subtitle line>`, with any badges
+  (`Repetitive crashes`, `Early crashes`, `Fresh issue`) appended as
+  `[badge, badge]` when present. A row with no separate title line (just a
+  bare exception name) uses that alone.
+- **Versions**: the version range shown (e.g. `4.0.6-tv – 4.0.27-tv`),
+  copied as-is - don't normalize the `-tv` suffix in or out here, unlike
+  the Filters column.
+- **Events** / **Users**: copied directly from their columns.
+- Read every row on the current page, and say how many total/pages there
+  are if the table shows pagination (e.g. "1-25 of 55") - don't silently
+  stop at the top few, and don't claim to have the full set if more pages
+  exist that weren't shown.
+
 ## Step 4 - tell them exactly where it goes in muze-ops-portal
 
 This skill only reads, it never writes anywhere itself - and where a read
@@ -210,6 +251,12 @@ before trusting it, since this input UI has already been redesigned twice):
   ย้อนหลังเข้าชีต" - each date is written under its own row (existing
   placeholder filled in place, otherwise a new row inserted after that
   platform's block), so re-running it doesn't overwrite prior days.
+- **Crashlytics Issues list -> the "Crashlytics Issue Log" sheet tab
+  directly** (same spreadsheet, gid `570219984`, header `Date Check |
+  Platform | Filters | Issue | Versions | Events | Users`) - there is
+  **no portal page for this yet**, unlike the other reads. Give the
+  tab-separated block from Step 3 and the human pastes it into that sheet
+  tab by hand, appended below whatever's already there.
 
 The human still reviews what's in the table/paste box and clicks the
 existing Sync/ลงตาราง buttons themselves before anything is written.
