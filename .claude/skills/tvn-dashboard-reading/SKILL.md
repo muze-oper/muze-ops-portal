@@ -34,10 +34,13 @@ Android TV, Tizen, LG, Vidaa).
 Crashlytics screenshot usually shows the "Versions" filter chip (e.g.
 `Versions = "4.0.18 (55)" and 17 more`) but not the app/platform picker
 above it, since that's typically cropped out of what gets pasted. When it
-*is* visible, it reads something like `[PROD][TVS] TrueVisions NOW
-(Android + An...)` or `(iOS + ...)` - this alone only tells you Android vs
-iOS, not which of the two platforms sharing that OS (Android Mobile /
-Android TV, or iOS Mobile / Apple TV).
+*is* visible, it reads `[PROD][TVS] TrueVisions NOW (iOS + tvOS)` for the
+iOS-family app (confirmed) or something like `(Android + Android TV...)`
+for the Android one (inferred from a truncated `(Android + An...)` sighting
+- not yet seen in full) - this alone only tells you which **app** it is
+(iOS-family vs Android-family), not which of the two platforms sharing it
+(iOS Mobile / Apple TV, or Android Mobile / Android TV) - the app itself is
+shared across both, so the picker can't separate them further.
 
 To narrow it the rest of the way (or when the picker is cropped out
 entirely), cross-check the version number in the Versions chip:
