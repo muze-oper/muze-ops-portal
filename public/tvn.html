@@ -161,7 +161,7 @@
   </section>
 
   <section class="block" id="view-dash">
-    <div class="block-head"><h2 class="h">BITMOVIN Error Sessions ต่อชั่วโมง</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">BITMOVIN % Error Session in 24 hours</h2><div class="rule"></div></div>
     <div class="card">
       <div class="toolbar">
         <button class="btn-ghost" id="hourly-refresh-btn" onclick="loadHourlyTable()">🔄 รีเฟรชข้อมูล</button>
@@ -663,7 +663,7 @@ function renderHourlyTable() {
   body.innerHTML = `
     ${heatLegendHtml()}
     <div id="hourly-export-panel" style="overflow-x:auto;background:var(--surface);">
-      <div class="export-head"><span class="export-title">BITMOVIN Error Session in 24 hours</span></div>
+      <div class="export-head"><span class="export-title">BITMOVIN % Error Session in 24 hours</span></div>
       <table class="data hourly-heatmap">
         ${colgroup}
         <thead>
