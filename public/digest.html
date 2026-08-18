@@ -458,8 +458,36 @@ function extractCaseRef(subject) {
 // middle, both invisible to the eye) - confirmed as the cause of two visibly
 // identical subjects not grouping. NFC-normalize and collapse all whitespace
 // (JS's \s already matches  ) before comparing instead of just trim().
+// Reply/forward chains pile up "Re: "/"RE: "/"Fwd: "/"FW: " prefixes (often
+// several deep — "RE: FW: ...") plus ticketing-system bracket tags inserted
+// or appended along the way ("[Ticket ID : 308527][CRM]", "[17 Aug 2026]",
+// "[Please confirm]") and a stray leading colon left over once a bracket tag
+// that was followed by ": " gets stripped off. None of that changes what the
+// thread is actually about, but left in place it makes every reply in the
+// chain compare as a different subject, so the exact-subject fallback below
+// failed to group e.g. "FW: ลูกค้า...", "RE: FW: ...", "Re: FW: ...", and
+// "RE: [Ticket ID : 308527][CRM] FW: ... [Please confirm]" together — same
+// issue confirmed on "[17 Aug 2026] No detail for..." vs "RE: [17 Aug 2026]
+// No detail for..." vs "RE: [MyNISSAN] : No detail for...". Strip
+// repeatedly from the front (prefixes/tags/colons can alternate: "RE:
+// [Ticket ID : x][CRM] FW: ..."), then drop any bracket tag left elsewhere
+// (e.g. a trailing one), leaving just the human-written subject.
+function stripThreadNoise(subject) {
+  let s = (subject || '').trim();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const prefixMatch = /^(re|fw|fwd)\s*:\s*/i.exec(s);
+    if (prefixMatch) { s = s.slice(prefixMatch[0].length).trim(); changed = true; continue; }
+    const bracketMatch = /^\[[^\]]*\]\s*/.exec(s);
+    if (bracketMatch) { s = s.slice(bracketMatch[0].length).trim(); changed = true; continue; }
+    const colonMatch = /^:\s*/.exec(s);
+    if (colonMatch) { s = s.slice(colonMatch[0].length).trim(); changed = true; continue; }
+  }
+  return s.replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+}
 function normalizeSubjectKey(subject) {
-  return (subject || '').normalize('NFC').replace(/\s+/g, ' ').trim();
+  return stripThreadNoise(subject).normalize('NFC').replace(/\s+/g, ' ').trim();
 }
 const TVN_ACCOUNT = 'support-tvn@muze.co.th';
 // support@ is CC'd on the same True Digital Group/Zendesk tickets as
