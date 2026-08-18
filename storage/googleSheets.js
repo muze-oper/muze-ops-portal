@@ -21,11 +21,25 @@ async function fetchSheetRows(spreadsheetId, range) {
 // break when someone renames the tab (observed happening live on the TVN
 // sheet - the tab title changed between two checks a few minutes apart while
 // its gid stayed the same).
+//
+// Cached for a few minutes per (spreadsheetId, gid): every TVN read AND write
+// resolves a title first, so with no cache a single page load plus a sync
+// burns 2+ reads just on this lookup alone - this is what tipped Sheets API's
+// per-minute read quota over in practice ("Quota exceeded ... Read requests
+// per minute per user"). A short TTL still self-heals within minutes of a
+// rename instead of requiring a server restart.
+const titleCache = new Map(); // `${spreadsheetId}:${gid}` -> { title, ts }
+const TITLE_CACHE_MS = 5 * 60 * 1000;
+
 async function resolveSheetTitleByGid(spreadsheetId, gid) {
+  const key = `${spreadsheetId}:${gid}`;
+  const cached = titleCache.get(key);
+  if (cached && (Date.now() - cached.ts) < TITLE_CACHE_MS) return cached.title;
   const sheets = google.sheets({ version: 'v4', auth: getAuth() });
   const res = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties' });
   const match = (res.data.sheets || []).find(s => s.properties.sheetId === gid);
   if (!match) throw new Error(`ไม่พบแท็บที่มี gid=${gid} ใน spreadsheet ${spreadsheetId}`);
+  titleCache.set(key, { title: match.properties.title, ts: Date.now() });
   return match.properties.title;
 }
 
