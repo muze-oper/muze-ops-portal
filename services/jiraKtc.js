@@ -4,6 +4,8 @@
 // deliberately over v3: v2 returns description/comment bodies as plain
 // strings (Jira wiki markup) instead of ADF JSON, which is far simpler to
 // display as-is.
+const { significantWords, charNgrams, scoreText, isRelevant } = require('./textRelevance');
+
 const JIRA_SITE = (process.env.JIRA_BASE_URL || 'https://mymuze.atlassian.net').replace(/\/$/, '');
 const JIRA_API_EMAIL = process.env.JIRA_API_EMAIL;
 const JIRA_API_TOKEN = process.env.JIRA_API_TOKEN;
@@ -48,14 +50,18 @@ async function runSearch(jql, maxResults) {
   throw lastErr || new Error('Jira search failed');
 }
 
-// \p{M} (combining marks) must stay alongside \p{L}/\p{N} in the "word"
-// character class — Thai tone marks/vowel signs are separate code points
-// from their base consonant, so splitting on "not letter/number" alone
-// chops words apart mid-character.
-function significantWords(text) {
-  return Array.from(new Set(
-    text.split(/[^\p{L}\p{M}\p{N}]+/u).filter((w) => w.length >= 3)
-  ));
+// Jira's `text ~` operator is a fuzzy/tokenized search — it can return
+// issues that only share a common word with the question, especially via
+// the per-keyword fallback below (OR-ing single generic words in easily
+// pulls unrelated tickets). Re-score every candidate against the actual
+// question text ourselves and drop anything that doesn't clear the same
+// relevance bar the handover-doc matcher uses, instead of trusting Jira's
+// ranking blindly.
+function isIssueRelevant(question, words, questionGrams, issue) {
+  const f = issue.fields || {};
+  const lastComment = f.comment?.comments?.[f.comment.comments.length - 1];
+  const haystack = [f.summary, f.description, lastComment?.body].filter(Boolean).join(' ');
+  return isRelevant(scoreText(words, questionGrams, haystack));
 }
 
 // Searches the full question first (Jira's `text ~` operator already does
@@ -81,7 +87,11 @@ async function searchKtcCases(question, maxResults = 8) {
     }
   }
 
-  return issues.slice(0, maxResults);
+  const words = significantWords(trimmed);
+  const questionGrams = charNgrams(trimmed);
+  const relevant = issues.filter((issue) => isIssueRelevant(trimmed, words, questionGrams, issue));
+
+  return relevant.slice(0, maxResults);
 }
 
 function cleanText(text, limit = 4000) {
