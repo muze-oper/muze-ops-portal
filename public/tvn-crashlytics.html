@@ -41,7 +41,7 @@
        and wraps instead of overflowing sideways. */
     .cr-err-table { table-layout: fixed; width: 100%; }
     .cr-err-table th, .cr-err-table td { padding: 3px 5px; font-size: 10.5px; overflow-wrap: break-word; }
-    .cr-err-table th:nth-child(n+6), .cr-err-table td:nth-child(n+6) { text-align: center; }
+    .cr-err-table th:nth-child(n+7), .cr-err-table td:nth-child(n+7) { text-align: center; }
     .cr-err-table input { width: 100%; box-sizing: border-box; font-size: 10.5px; padding: 3px 5px; }
   </style>
 </head>
@@ -111,7 +111,7 @@
 
     <div class="block-head"><h2 class="h">Crashlytics Issues</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">วางแถวที่มี 7 field คั่นด้วย Tab เรียงตามหัวตารางของชีต: <code>Date Check, Platform, Filters, Issue, Versions, Events, Users</code> — Platform จะถูกเลือกให้อัตโนมัติจากค่าที่เจอในแถว</div>
+      <div class="hint">วางแถวที่มี 8 field คั่นด้วย Tab เรียงตามหัวตารางของชีต: <code>วันที่ตรวจ, ช่วงเวลาที่ตรวจสอบ, Platform, Filters, Issue, Versions, Events, Users</code> — Platform จะถูกเลือกให้อัตโนมัติจากค่าที่เจอในแถว</div>
 
       <div class="step" style="margin:12px 0 6px;">
         <span class="step-no">Step 1</span>
@@ -133,11 +133,11 @@
       </div>
       <table class="data cr-err-table" id="cr-err-table">
         <colgroup>
-          <col style="width:7%"><col style="width:8%"><col style="width:11%">
-          <col style="width:38%"><col style="width:20%"><col style="width:8%"><col style="width:8%">
+          <col style="width:6%"><col style="width:9%"><col style="width:7%"><col style="width:10%">
+          <col style="width:34%"><col style="width:18%"><col style="width:8%"><col style="width:8%">
         </colgroup>
-        <thead><tr><th style="text-align:left;">Date Check</th><th style="text-align:left;">Platform</th><th style="text-align:left;">Filters</th><th style="text-align:left;">Issue</th><th style="text-align:left;">Versions</th><th>Events</th><th>Users</th></tr></thead>
-        <tbody id="cr-err-table-body"><tr><td colspan="7" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr></tbody>
+        <thead><tr><th style="text-align:left;">วันที่ตรวจ</th><th style="text-align:left;">ช่วงเวลาที่ตรวจสอบ</th><th style="text-align:left;">Platform</th><th style="text-align:left;">Filters</th><th style="text-align:left;">Issue</th><th style="text-align:left;">Versions</th><th>Events</th><th>Users</th></tr></thead>
+        <tbody id="cr-err-table-body"><tr><td colspan="8" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr></tbody>
       </table>
 
       <div class="step" style="margin:16px 0 8px;">
@@ -687,20 +687,22 @@ function setCrErrPlatformAutofilled(on) {
   document.getElementById('cr-err-platform').classList.toggle('autofilled', !!on);
 }
 
-// "19-Aug-26<TAB>Android TV<TAB>4.0.28,4.0.27,4.0.26<TAB>Issue text<TAB>
-// Versions<TAB>Events<TAB>Users" - the sheet's own column order. Trailing
-// fields can be short (a line missing Users when it equals Events, seen in
-// practice) - only Date/Platform/Issue are required, the rest default to ''.
+// "19-Aug-26<TAB>7d<TAB>Android TV<TAB>4.0.28,4.0.27,4.0.26<TAB>Issue text
+// <TAB>Versions<TAB>Events<TAB>Users" - the sheet's own column order
+// (วันที่ตรวจ, ช่วงเวลาที่ตรวจสอบ, Platform, Filters, Issue, Versions,
+// Events, Users). Trailing fields can be short (a line missing Users when
+// it equals Events, seen in practice) - only Date/Platform/Issue are
+// required, the rest default to ''.
 function parseCrErrLine(line) {
   const parts = line.split('\t').map(s => s.trim());
-  if (parts.length < 4 || !parts[0] || !parts[1] || !parts[3]) return null;
-  const [date, platform, filters, issue, versions, events, users] = parts;
-  return { date, platform, filters: filters || '', issue, versions: versions || '', events: events || '', users: users || '' };
+  if (parts.length < 5 || !parts[0] || !parts[2] || !parts[4]) return null;
+  const [date, period, platform, filters, issue, versions, events, users] = parts;
+  return { date, period: period || '', platform, filters: filters || '', issue, versions: versions || '', events: events || '', users: users || '' };
 }
 
-// Scans the parsed rows' own Platform field (column 2) rather than a
-// separate "Platform:" header line - this paste format already carries
-// Platform per row, so there's nothing extra to write by hand.
+// Scans the parsed rows' own Platform field rather than a separate
+// "Platform:" header line - this paste format already carries Platform per
+// row, so there's nothing extra to write by hand.
 function applyCrErrPlatformHint(entries) {
   const hinted = entries.map(e => e.platform).find(Boolean);
   if (!hinted) return null;
@@ -734,7 +736,7 @@ function parseCrErrPasted() {
       : `แถวระบุ Platform "${platformHint}" ซึ่งไม่ตรงกับตัวเลือกใด - เลือกเองด้านล่าง`);
   }
   if (!lines.length) { note.textContent = ''; return; }
-  if (!entries.length) notes.push('อ่านค่าไม่ได้สักบรรทัด - ต้องมีอย่างน้อย Date, Platform, Issue คั่นด้วย Tab');
+  if (!entries.length) notes.push('อ่านค่าไม่ได้สักบรรทัด - ต้องมีอย่างน้อย วันที่ตรวจ, Platform, Issue คั่นด้วย Tab');
   else notes.push(`แยกได้ ${entries.length} issue` + (skipped.length ? ` (ข้าม ${skipped.length} บรรทัดที่อ่านไม่ออก)` : ''));
   note.textContent = notes.join(' · ');
 }
@@ -742,12 +744,13 @@ function parseCrErrPasted() {
 function renderCrErrTable(entries) {
   const tbody = document.getElementById('cr-err-table-body');
   if (!entries.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr>';
     return;
   }
   tbody.innerHTML = entries.map((e, i) => `
     <tr>
       <td><input data-idx="${i}" data-field="date" value="${escapeHtml(e.date)}"></td>
+      <td><input data-idx="${i}" data-field="period" value="${escapeHtml(e.period)}"></td>
       <td><input data-idx="${i}" data-field="platform" value="${escapeHtml(e.platform)}"></td>
       <td><input data-idx="${i}" data-field="filters" value="${escapeHtml(e.filters)}"></td>
       <td><input data-idx="${i}" data-field="issue" value="${escapeHtml(e.issue)}"></td>
