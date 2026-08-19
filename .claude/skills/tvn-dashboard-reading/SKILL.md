@@ -74,6 +74,26 @@ entirely), cross-check the version number in the Versions chip:
   text, the version string, or both), so it can be double-checked against
   the dropdown before syncing.
 
+**⚠ Open question, unresolved as of 2026-08-19 - flag it again if seen,
+don't just proceed with a guess:** for the **Issues list** read
+specifically (not the single-stat/trend reads), a filter anchored on a
+plain non-`-tv` version (e.g. `4.0.27 (1)`) has been seen producing an
+Issues table where individual rows' own Versions ranges are a **mix** of
+`-tv` and non-`-tv` values in the same table (e.g. `SQLiteConnection.
+nativeExecute: 4.0.0-tv – 4.0.27-tv` sitting next to `MainActivity.
+onUserLeaveHint: 4.0.6 – 4.0.27`). Contrast: when the filter anchor *is*
+`-tv` (e.g. `4.0.28-tv`), every row's Versions range has been consistently
+`-tv` throughout. This suggests the "no `-tv` suffix = Android Mobile"
+read may not actually isolate Mobile from TV for the **Issues list** - the
+underlying data might be mixed-platform even when the filter chip looks
+Mobile-only. The user has taken this to discuss with the team and asked
+to be reminded, not asked again, the next time this pattern shows up (a
+non-`-tv` filter anchor with mixed-suffix rows in the Issues table) -
+**say what you're seeing and that it was flagged before, then wait; do not
+guess a Platform label or write anything for that read** until this is
+resolved. This caution is specific to the Issues list - the single-stat
+and trend reads aren't known to have this problem.
+
 ## Step 2 - sanity-check the filter before trusting the number(s)
 
 A wrong filter gives a real-looking but wrong result - check this before
