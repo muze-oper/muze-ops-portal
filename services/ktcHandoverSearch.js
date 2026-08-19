@@ -1,7 +1,7 @@
 // Plain keyword matching over the static Handover Document — no LLM call,
 // so this has zero incremental cost. Splits the doc into its "### heading"
 // incident sections and scores each by how much a question overlaps with it.
-const { significantWords, charNgrams, scoreText, isRelevant } = require('./textRelevance');
+const { significantWords, scoreText, isRelevant } = require('./textRelevance');
 
 function parseSections(markdown) {
   const lines = markdown.split('\n');
@@ -26,12 +26,11 @@ function parseSections(markdown) {
 
 function findRelevantSections(question, markdown, maxSections = 2) {
   const words = significantWords(question);
-  const questionGrams = charNgrams(question);
-  if (!words.length && !questionGrams.size) return [];
+  if (!words.length && !question.trim()) return [];
 
   const scored = parseSections(markdown)
     .map((s) => {
-      const score = scoreText(words, questionGrams, `${s.heading} ${s.body}`);
+      const score = scoreText(words, question, `${s.heading} ${s.body}`);
       return { ...s, ...score, score: score.total };
     })
     .filter(isRelevant)

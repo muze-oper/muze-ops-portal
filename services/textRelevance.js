@@ -37,27 +37,40 @@ function charNgrams(text, n = 4) {
   return grams;
 }
 
-// wordScore counts real shared terms (strong signal); gramScore counts
-// coincidental character overlap (weak signal, mainly useful for unspaced
-// Thai sentences where word tokenization found nothing at all).
-function scoreText(words, questionGrams, targetText) {
+// wordScore counts real shared terms (strong signal). gramScore is meant to
+// be a SEPARATE, additional signal — mainly for unspaced Thai clauses the
+// word tokenizer couldn't break up at all — not just the same matched
+// word's own characters restated as n-grams. Without masking, a single
+// shared word like "landing" (itself a 7-character run) generates enough
+// overlapping 4-grams on its own to look like strong independent evidence,
+// letting one weak word match sneak back in twice under different names.
+// Masking matched words out of the question before computing grams keeps
+// gramScore honestly measuring only the leftover, un-tokenized text.
+function scoreText(words, questionText, targetText) {
   const haystack = targetText.toLowerCase();
-  const wordScore = words.reduce((score, w) => score + (haystack.includes(w) ? 1 : 0), 0);
+  const matchedWords = words.filter((w) => haystack.includes(w));
+  const wordScore = matchedWords.length;
 
+  let residual = questionText.toLowerCase();
+  for (const w of matchedWords) residual = residual.split(w).join(' ');
+
+  const residualGrams = charNgrams(residual);
   const targetGrams = charNgrams(haystack);
   let gramScore = 0;
-  for (const g of questionGrams) if (targetGrams.has(g)) gramScore++;
+  for (const g of residualGrams) if (targetGrams.has(g)) gramScore++;
 
   return { wordScore, gramScore, total: wordScore * 4 + gramScore };
 }
 
-// A single real word match (wordScore >= 1) is trustworthy on its own.
-// Without any word match, character overlap needs to clear a much higher
-// bar before counting as relevant — a handful of coincidental 4-grams
-// between two unrelated Thai sentences is common and was previously
-// surfacing unrelated entries (e.g. 2-3 stray grams outscoring nothing).
+// A single shared word isn't enough on its own — this corpus is all KTC
+// website support tickets, so plenty of unrelated tickets share one generic
+// domain word ("landing", "page", "form", "code") without being about the
+// same issue at all. Requiring 2+ distinct shared words, OR one word plus
+// genuinely separate corroborating overlap in the rest of the sentence
+// (gramScore, now measured only on the un-matched residual — see above),
+// cuts that noise while still passing genuine matches.
 function isRelevant({ wordScore, gramScore }) {
-  return wordScore >= 1 || gramScore >= 8;
+  return wordScore >= 2 || gramScore >= 9;
 }
 
 module.exports = { significantWords, charNgrams, scoreText, isRelevant };

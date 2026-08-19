@@ -1,8 +1,9 @@
 // Searches the KTC Jira project for cases related to a customer's question.
 // Uses API-token Basic Auth (a real user/service account, not OAuth) since
 // this runs server-side with no interactive login.
-const { significantWords, charNgrams, scoreText, isRelevant } = require('./textRelevance');
+const { significantWords, scoreText, isRelevant } = require('./textRelevance');
 const { extractText } = require('./adfText');
+const { shortDate } = require('./formatText');
 
 const JIRA_SITE = (process.env.JIRA_BASE_URL || 'https://mymuze.atlassian.net').replace(/\/$/, '');
 const JIRA_API_EMAIL = process.env.JIRA_API_EMAIL;
@@ -93,12 +94,12 @@ async function runSearch(jql, maxResults) {
 // question text ourselves and drop anything that doesn't clear the same
 // relevance bar the handover-doc matcher uses, instead of trusting Jira's
 // ranking blindly.
-function issueScore(words, questionGrams, issue) {
+function issueScore(words, questionText, issue) {
   const f = issue.fields || {};
   const lastComment = f.comment?.comments?.[f.comment.comments.length - 1];
   const haystack = [f.summary, extractText(f.description), extractText(lastComment?.body)]
     .filter(Boolean).join(' ');
-  return scoreText(words, questionGrams, haystack);
+  return scoreText(words, questionText, haystack);
 }
 
 // Searches the full question first (Jira's `text ~` operator already does
@@ -125,14 +126,13 @@ async function searchKtcCases(question, maxResults = 8) {
   }
 
   const words = significantWords(trimmed);
-  const questionGrams = charNgrams(trimmed);
   // Score every candidate (attached as __score, same scale as the
   // handover-doc matcher's since both use textRelevance.scoreText) so the
   // route can tell whether Jira's own match is stronger than a doc match —
   // an exact-phrase Jira hit should outrank a merely-topical doc entry, not
   // get buried under it.
   const scored = issues
-    .map((issue) => ({ issue, score: issueScore(words, questionGrams, issue) }))
+    .map((issue) => ({ issue, score: issueScore(words, trimmed, issue) }))
     .filter(({ score }) => isRelevant(score))
     .sort((a, b) => b.score.total - a.score.total);
 
@@ -165,12 +165,12 @@ function formatIssueRaw(issue) {
 
   const lines = [
     `**${issue.key}: ${f.summary || ''}**`,
-    `สถานะ: ${f.status?.name || '-'} | เปิดเคสเมื่อ: ${f.created || '-'} | ${JIRA_SITE}/browse/${issue.key}`,
+    `สถานะ: ${f.status?.name || '-'} | เปิดเมื่อ: ${shortDate(f.created)} — ${JIRA_SITE}/browse/${issue.key}`,
     '',
-    `Description: ${cleanText(f.description, 1200)}`,
+    `รายละเอียด: ${cleanText(f.description, 1200)}`,
   ];
   if (lastComment) {
-    lines.push('', `Comment ล่าสุด (${lastComment.author?.displayName || 'unknown'}, ${lastComment.created}): ${cleanText(lastComment.body, 1200)}`);
+    lines.push('', `ความคืบหน้าล่าสุด (${lastComment.author?.displayName || 'unknown'}, ${shortDate(lastComment.created)}):\n${cleanText(lastComment.body, 1200)}`);
   }
   return lines.join('\n');
 }
