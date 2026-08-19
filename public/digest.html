@@ -527,10 +527,13 @@ function hasAutoCloseWarning(text) {
   return !!text && text.toLowerCase().includes(AUTO_CLOSE_PHRASE);
 }
 
-// A "[Closed]" tag on the subject is the ticketing system itself declaring
-// the case closed - not account-specific, so it applies to any group.
+// A "[Close]" or "[Closed]" tag on the subject is the ticketing system
+// itself declaring the case closed - not account-specific, so it applies to
+// any group. Confirmed both spellings occur in the wild (e.g. "[Ticket ID :
+// 308558][My Nissan] ... [Close]" uses the un-suffixed form), so match
+// either rather than just "[Closed]".
 function hasClosedTag(subject) {
-  return /\[closed\]/i.test(subject || '');
+  return /\[closed?\]/i.test(subject || '');
 }
 
 function defaultActionDone(account, subject, snippet) {
