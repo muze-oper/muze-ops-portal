@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nissan Contact & System Map · Muze Tech Ops</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #f4f6fc; color: #1c2340; font-family: 'Outfit', 'Noto Sans Thai', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #4f5bd5; text-decoration: none; }
+    a:hover { color: #6f7bf0; }
+    :focus-visible { outline: 2px solid #5b5fef; outline-offset: 2px; border-radius: 8px; }
+
+    .shell {
+      min-height: 100vh;
+      background:
+        radial-gradient(1000px 560px at 82% -10%, rgba(154,110,240,.12), transparent 60%),
+        radial-gradient(800px 480px at 4% 100%, rgba(79,209,229,.10), transparent 60%),
+        #f4f6fc;
+      padding-bottom: 56px;
+    }
+
+    /* Header */
+    .app-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 14px 28px; background: #04122e; }
+    .brand { display: flex; align-items: center; gap: 16px; }
+    .brand .logo-badge img { display: block; height: 45px; width: auto; }
+    .brand .divider { width: 1px; height: 32px; background: rgba(255,255,255,.16); }
+    .brand .brand-title { font-size: 17px; font-weight: 700; letter-spacing: -.01em; color: #fff; }
+    .brand .brand-subtitle { margin-top: 1px; font-size: 11.5px; color: #8fa6cc; }
+    .back-link { font-size: 12.5px; font-weight: 600; color: #8fa6cc; white-space: nowrap; }
+    .back-link:hover { color: #cfe0ff; }
+
+    .wrap { max-width: 1220px; margin: 0 auto; padding: 0 28px; }
+
+    .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 26px 0 16px; }
+    .page-title { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+    .subtitle { margin: 6px 0 0; font-size: 13px; color: #6b7396; max-width: 720px; line-height: 1.6; }
+    .count-meta { font-size: 11.5px; font-weight: 600; letter-spacing: .04em; color: #7a4bd8; background: rgba(154,110,240,.14); border-radius: 20px; padding: 6px 12px; white-space: nowrap; }
+
+    /* Search */
+    .searchbar { display: flex; align-items: center; gap: 10px; margin: 4px 0 22px; padding: 11px 14px; background: #fff; border: 1px solid #e3e7f2; border-radius: 12px; box-shadow: 0 2px 10px rgba(28,35,64,.05); }
+    .searchbar svg { flex: none; color: #9aa3c0; }
+    .searchbar input { flex: 1; min-width: 0; border: 0; outline: 0; font-family: inherit; font-size: 14px; color: #1c2340; background: transparent; }
+    .searchbar input::placeholder { color: #a4abc6; }
+    .search-count { font-size: 11.5px; font-weight: 600; color: #8891b0; white-space: nowrap; }
+
+    /* Generic card */
+    .card { background: #fff; border: 1px solid #e3e7f2; border-radius: 14px; box-shadow: 0 2px 12px rgba(28,35,64,.05); margin-bottom: 22px; overflow: hidden; }
+    .card-head { display: flex; align-items: center; gap: 10px; padding: 13px 18px; border-bottom: 1px solid #eef1f8; background: #fbfcff; }
+    .card-title { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 700; letter-spacing: -.01em; }
+    .card-hint { font-size: 11.5px; color: #8891b0; }
+    .card-body { padding: 16px 18px; }
+
+    /* Flow */
+    .flow { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+    .flow-step { flex: 1 1 170px; min-width: 160px; border-radius: 11px; padding: 11px 12px; background: #f7f8fd; border: 1px solid #e6e9f4; }
+    .flow-step .n { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #7a4bd8; color: #fff; font-size: 10.5px; font-weight: 700; margin-bottom: 7px; }
+    .flow-step h4 { margin: 0 0 4px; font-size: 12.5px; font-weight: 700; }
+    .flow-step p { margin: 0; font-size: 11.5px; line-height: 1.55; color: #6b7396; }
+    .flow-step code { font-family: inherit; font-size: 11px; background: rgba(154,110,240,.13); color: #6a3fc4; border-radius: 5px; padding: 1px 5px; }
+    .flow-arrow { align-self: center; color: #b9c0d8; font-size: 15px; }
+    @media (max-width: 860px) { .flow-arrow { display: none; } }
+
+    /* Routing table */
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eef1f8; vertical-align: top; }
+    th { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #8891b0; font-weight: 700; background: #fbfcff; white-space: nowrap; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #fbfaff; }
+    /* Owner leads the row, so it carries the weight; the system name keeps a
+       tint so it still reads as a label rather than prose. */
+    td.who { font-weight: 700; }
+    td .sys { font-weight: 600; color: #5c37a8; }
+    .mono-mail { font-size: 11.5px; }
+
+    /* Org groups */
+    .org { margin-bottom: 20px; }
+    .org-head { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px 10px 0 0; }
+    .org-head .monogram { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 22px; padding: 0 7px; border-radius: 6px; background: rgba(255,255,255,.7); font-size: 10.5px; font-weight: 800; letter-spacing: .06em; }
+    .org-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+    .org-note { font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; opacity: .85; }
+    .org-count { font-size: 11.5px; font-weight: 700; }
+    .org-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 9px; padding: 11px; border-radius: 0 0 10px 10px; }
+
+    .org--nmt  { background: rgba(154,110,240,.07); border: 1px solid rgba(154,110,240,.26); }
+    .org--nmt  .org-head { background: rgba(154,110,240,.15); color: #5c37a8; }
+    .org--dl   { background: rgba(91,95,239,.06); border: 1px solid rgba(91,95,239,.24); }
+    .org--dl   .org-head { background: rgba(91,95,239,.14); color: #3538a8; }
+    .org--muze { background: rgba(30,196,150,.07); border: 1px solid rgba(30,196,150,.26); }
+    .org--muze .org-head { background: rgba(30,196,150,.16); color: #0e6b52; }
+    .org--vendor { background: rgba(34,195,221,.06); border: 1px solid rgba(34,195,221,.26); }
+    .org--vendor .org-head { background: rgba(34,195,221,.15); color: #0e6b7a; }
+    .org--jp   { background: rgba(240,110,130,.06); border: 1px solid rgba(240,110,130,.24); }
+    .org--jp   .org-head { background: rgba(240,110,130,.14); color: #a83550; }
+    .org--lease { background: rgba(245,166,35,.07); border: 1px solid rgba(245,166,35,.28); }
+    .org--lease .org-head { background: rgba(245,166,35,.16); color: #8a5a06; }
+
+    /* Person card */
+    .person { background: #fff; border: 1px solid #e6e9f4; border-radius: 10px; padding: 10px 12px; }
+    .person-top { display: flex; align-items: baseline; gap: 7px; }
+    .person-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; letter-spacing: -.01em; }
+    .person-role { margin: 3px 0 0; font-size: 11.5px; line-height: 1.5; color: #6b7396; }
+    .person-mail { display: inline-block; margin-top: 6px; font-size: 11.5px; font-weight: 600; word-break: break-all; }
+    .person-tel { margin: 4px 0 0; font-size: 11px; color: #8891b0; }
+    .person-tags { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 4px; }
+    .tag { font-size: 10px; font-weight: 600; letter-spacing: .02em; padding: 2px 7px; border-radius: 20px; background: #f0f2f9; color: #6b7396; }
+    .badge-src { flex: none; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; padding: 2px 6px; border-radius: 20px; white-space: nowrap; }
+    .badge-src--sig { background: rgba(30,196,150,.15); color: #0e7d5f; }
+    .badge-src--inf { background: rgba(245,166,35,.18); color: #8a5a06; }
+    .badge-src--dl  { background: rgba(91,95,239,.14); color: #4b4fe0; }
+
+    .empty { display: none; padding: 30px 12px; text-align: center; font-size: 13px; color: #8891b0; }
+    .hidden { display: none !important; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 11.5px; color: #6b7396; margin-bottom: 18px; }
+    .legend span.badge-src { margin-right: 5px; }
+
+    footer.note { margin-top: 8px; font-size: 11.5px; line-height: 1.7; color: #8891b0; }
+    footer.note strong { color: #6b7396; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="app-header">
+      <div class="brand">
+        <span class="logo-badge"><img src="/muze-mark-blue.png" alt="Muze"></span>
+        <span class="divider"></span>
+        <span>
+          <div class="brand-title">Nissan Contact &amp; System Map</div>
+          <div class="brand-subtitle">ใครดูแลระบบไหน · ส่งเรื่องไปทางไหน</div>
+        </span>
+      </div>
+      <a class="back-link" href="/">← กลับหน้า Workspaces</a>
+    </header>
+
+    <div class="wrap">
+      <div class="title-row">
+        <div>
+          <h1 class="page-title">ระบบและผู้ติดต่อฝั่ง Nissan</h1>
+          <p class="subtitle">
+            รวมทุกคน ทุกทีม และทุกระบบที่เกี่ยวข้องกับงาน MyNISSAN MA ไว้ในหน้าเดียว
+            สรุปจากเมลจริงในกล่อง <strong>nissan-ma@muze.co.th</strong> ย้อนหลัง มี.ค.–ส.ค. 2026 (677 ฉบับ)
+          </p>
+        </div>
+        <span class="count-meta" id="totalMeta"></span>
+      </div>
+
+      <div class="searchbar">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <input id="q" type="search" placeholder="ค้นหาชื่อ · อีเมล · ระบบ · บริษัท เช่น &quot;LMS&quot;, &quot;CRM&quot;, &quot;Zanroo&quot;, &quot;นัดหมาย&quot;" autocomplete="off">
+        <span class="search-count" id="searchCount"></span>
+      </div>
+
+      <!-- Escalation flow -->
+      <section class="card">
+        <div class="card-head">
+          <span class="card-title">เส้นทางของเคส (Escalation flow)</span>
+          <span class="card-hint">จากลูกค้า → ถึงเรา</span>
+        </div>
+        <div class="card-body">
+          <div class="flow">
+            <div class="flow-step">
+              <span class="n">1</span>
+              <h4>ลูกค้า / ดีลเลอร์</h4>
+              <p>โทรเข้า Call Center, ทักโซเชียล, หรือดีลเลอร์แจ้งเข้ามาเอง</p>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step">
+              <span class="n">2</span>
+              <h4>ด่านรับเรื่อง</h4>
+              <p><strong>Mocap</strong> (voice / call center) · <strong>Zanroo</strong> (non-voice / social command) · ดีลเลอร์เมลตรง</p>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step">
+              <span class="n">3</span>
+              <h4>NMT-IS Servicedesk</h4>
+              <p>ออกเลข <code>Ticket ID</code> แล้วกระจายเข้าทีมที่เกี่ยวข้อง<br><a href="mailto:servicedesk@nissan.co.th">servicedesk@nissan.co.th</a></p>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step">
+              <span class="n">4</span>
+              <h4>NMT IS · Application Team</h4>
+              <p>Surachai / Varongsri / Komsan / Saranya / Sippapong เป็นคนตัดสินว่าเคสเป็นของระบบไหน</p>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step">
+              <span class="n">5</span>
+              <h4>Muze Nissan MA</h4>
+              <p><a href="mailto:nissan-ma@muze.co.th">nissan-ma@muze.co.th</a> รับเรื่อง → เปิด Jira <code>MN-xxx</code> → ตอบกลับ Servicedesk เพื่อปิดงาน</p>
+            </div>
+          </div>
+          <p style="margin:14px 0 0;font-size:11.5px;color:#6b7396;line-height:1.7">
+            <strong>ข้อควรรู้:</strong> เมลปิดงานของ Servicedesk จะระบุว่า “ระบบจะปิดหมายเลขงานนี้โดยอัตโนมัติภายใน 3 วัน”
+            ถ้ายังไม่จบต้องตอบกลับในเธรดเดิมก่อนครบกำหนด · ทุกครั้งที่ตอบให้ Reply All และคง
+            <code>servicedesk@nissan.co.th</code> ไว้ในเธรดเสมอ ไม่งั้นเลขงานจะหลุดจากระบบ ITSM ของ NMT
+          </p>
+        </div>
+      </section>
+
+      <!-- Routing -->
+      <section class="card">
+        <div class="card-head">
+          <span class="card-title">เรื่องแบบนี้ ส่งไปทางไหน</span>
+          <span class="card-hint">กฎการ route ที่ NMT ระบุไว้ในเมลจริง</span>
+        </div>
+        <div class="table-scroll">
+          <table id="routeTable">
+            <thead>
+              <tr><th>เจ้าของ / ผู้ดูแล</th><th>ระบบ / เรื่อง</th><th>ครอบคลุมอะไร</th><th>ติดต่อ</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Directory -->
+      <section class="card">
+        <div class="card-head">
+          <span class="card-title">สมุดรายชื่อ (Directory)</span>
+          <span class="card-hint">จัดกลุ่มตามองค์กร</span>
+        </div>
+        <div class="card-body">
+          <div class="legend">
+            <span><span class="badge-src badge-src--sig">SIG</span>ตำแหน่งยืนยันจาก signature ในเมล</span>
+            <span><span class="badge-src badge-src--inf">INF</span>อนุมานจากบทบาทที่เห็นในเธรด — ควรเช็กซ้ำก่อนอ้างอิง</span>
+            <span><span class="badge-src badge-src--dl">DL</span>Distribution list / mailbox กลาง ไม่ใช่รายบุคคล</span>
+          </div>
+          <div id="directory"></div>
+          <div class="empty" id="empty">ไม่พบรายชื่อหรือระบบที่ตรงกับคำค้นนี้</div>
+        </div>
+      </section>
+
+      <footer class="note">
+        <strong>ที่มาของข้อมูล:</strong> สกัดจากเมลในกล่อง nissan-ma@muze.co.th ช่วง 1 มี.ค. – 19 ส.ค. 2026 จำนวน 677 ฉบับ
+        (ผ่าน Gmail API เดิมของ Email Digest) โดยดึงชื่อ–อีเมลจากหัวเมลที่ถูก quote ไว้ และตำแหน่งจากบล็อก signature<br>
+        <strong>ข้อจำกัด:</strong> คนที่ไม่เคยปรากฏในเมลของกล่องนี้จะไม่อยู่ในหน้านี้ และตำแหน่งที่ติดป้าย
+        <span class="badge-src badge-src--inf">INF</span> เป็นการอนุมานจากพฤติกรรมในเธรด ไม่ใช่ตำแหน่งทางการ
+      </footer>
+    </div>
+  </div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Routing rules — every row here came from an explicit instruction in a real
+// thread (e.g. Varongsri's "ถ้าเป็นเรื่องการนัดหมาย ... รบกวนติดต่อ ทาง MA ของ
+// Aftersales LMS ดังนี้"), not from guessing.
+// ---------------------------------------------------------------------------
+const ROUTES = [
+  { sys: 'MyNISSAN App (iOS / Android / CMS)',
+    scope: 'ตัวแอปเอง, CMS, Recall campaign, เนื้อหา/แบนเนอร์, bug ในแอป',
+    who: 'Muze Nissan MA + NMT IS (M&S)',
+    mail: ['nissan-ma@muze.co.th', 'surachai.tan@nissan.co.th', 'varongsri.kit@nissan.co.th'] },
+  { sys: 'NMT-IS Servicedesk (ITSM)',
+    scope: 'ทุกเคสที่ต้องมีเลข Ticket ID · ประตูหน้าของทุกเรื่อง',
+    who: 'NMT Information System Dept',
+    mail: ['servicedesk@nissan.co.th'],
+    extra: 'โทร +66 (0) 2339 3200 ต่อ 1561 · สายตรง +66 (0) 2170 7211-4 · พอร์ทัล ito-servicedesk.nissan-th.com' },
+  { sys: 'นัดหมายเข้ารับบริการ → Aftersales LMS',
+    scope: 'ลูกค้าจองคิวจาก website / MyNISSAN / LINE แล้วศูนย์ไม่ได้รับข้อมูล, ไม่ได้รับ confirm',
+    who: 'Polymorph (MA ของ Aftersales LMS)',
+    mail: ['yuthakarn.k@polymorph.co.th', 'adiran.s@polymorph.co.th', 'chanagan.s@polymorph.co.th'],
+    extra: 'NMT ระบุชัดว่าเคสประเภทนี้ต้องส่งต่อทีม Aftersales LMS ไม่ใช่ทีมแอป' },
+  { sys: 'ประวัติการเข้ารับบริการ (Service History) → DMS',
+    scope: 'ประวัติเข้าศูนย์ไม่ขึ้น / ขึ้นไม่ครบในแอป, ข้อมูลจากศูนย์บริการ',
+    who: 'DMS Servicedesk + MA vendors (SMGO / AMO)',
+    mail: ['dmsservicedesk@nissan.co.th', 'ma@smartgosd.com', 'ms_is_amo@h-amo.com'] },
+  { sys: 'CRM / CDP (ข้อมูลลูกค้า)',
+    scope: 'ชื่อ–อีเมลลูกค้าผิด, Save Safe package แสดงผลไม่ถูก, record ค้างบน CDP, สมัคร/ลงทะเบียนไม่ได้',
+    who: 'NMT IS · Application Team',
+    mail: ['komsan.lue@nissan.co.th', 'sippapong.sut@nissan.co.th', 'servicedesk@nissan.co.th'] },
+  { sys: 'Social Command / Non-voice',
+    scope: 'เคสที่ลูกค้าร้องเรียนมาทางโซเชียล แล้วถูกเปิดเป็น “New Case”',
+    who: 'Zanroo (NMT Non-voice desk)',
+    mail: ['nonvoice-nmt@zanroo.com', 'support-nmt@zanroo.com'] },
+  { sys: 'Call Center (voice)',
+    scope: 'เคสที่ลูกค้าโทรเข้ามา แล้ว agent เปิดเรื่อง C26xxxxx',
+    who: 'Mocap (Outsource Contact Center)',
+    mail: ['chatwimon_d@mocap.co.th', 'pojjana_s@mocap.co.th'] },
+  { sys: 'แคมเปญ / อัตราดอกเบี้ยในแอป',
+    scope: 'ประกาศแคมเปญรายเดือน, ดอกเบี้ยพิเศษ, ตั้งค่า interest rate ใน CMS',
+    who: 'Nissan Leasing (NLTC) + NMT Sales Ops',
+    mail: ['pennapa.per@nissan.co.th'] },
+  { sys: 'AWS / Infra / สิทธิ์เข้าถึง',
+    scope: 'Secrets Manager, EKS, CircleCI, Vault, reset password, VPN',
+    who: 'NMT-IS Operation + NMT IS (M&S)',
+    mail: ['watthana.pha@nissan.co.th', 'servicedesk@nissan.co.th', 'varongsri.kit@nissan.co.th'] },
+  { sys: 'App Store / Play Store / Apple Developer',
+    scope: 'สิทธิ์บัญชี developer, invite ทีม, ปล่อยเวอร์ชัน',
+    who: 'Nissan Japan (NML) + NMT IS',
+    mail: ['hiroyoshi-mori@mail.nissan.co.jp', 'varongsri.kit@nissan.co.th'] },
+  { sys: 'SSI / CSI Survey',
+    scope: 'แบบสำรวจหลังเข้ารับบริการ, สถานะการอ่าน, การส่งเมื่อลูกค้าลบแอป',
+    who: 'Deloitte (TH T&T Nissan Support) + NMT CXT',
+    mail: ['thttnissansupport@deloitte.com', 'csrivilai@deloitte.com'] },
+  { sys: 'Website / ความปลอดภัย',
+    scope: 'เว็บ nissan.co.th, ช่องโหว่ (เช่น Next.js version), เนื้อหาบนเว็บ',
+    who: 'NMT IS + Digital Marketing',
+    mail: ['varongsri.kit@nissan.co.th', 'kullathida@nissan.co.th'] },
+  { sys: 'ดีลเลอร์ / งานภาคสนาม',
+    scope: 'ศูนย์บริการแจ้งปัญหา, แก้ข้อมูลผู้จำหน่าย, escalate ผ่าน field manager',
+    who: 'NMT Aftersales Field Management + CSM VDM',
+    mail: ['anusa.tho@nissan.co.th', 'csm.vdm@nissan.co.th', 'dmsservicedesk@nissan.co.th'] },
+];
+
+// ---------------------------------------------------------------------------
+// Directory. src: 'sig' = ตำแหน่งมาจาก signature จริง, 'inf' = อนุมานจากบทบาท
+// ในเธรด, 'dl' = distribution list / mailbox กลาง
+// ---------------------------------------------------------------------------
+const ORGS = [
+  {
+    id: 'nmt-is', cls: 'org--nmt', mono: 'NMT IS',
+    name: 'Nissan Motor (Thailand) · Information System Dept — Marketing & Sale Division',
+    note: 'เจ้าของระบบฝั่ง Nissan · คู่สายหลักของ Muze',
+    people: [
+      { n: 'Surachai Tangjitporn', e: 'surachai.tan@nissan.co.th', r: 'PIC หลักของงาน MyNISSAN MA ฝั่ง NMT — เป็นคนสั่งงาน/ติดตามกับ Muze มากที่สุดในกล่องเมลนี้', src: 'inf', tags: ['MyNISSAN', 'MA', 'ทุกเรื่อง'] },
+      { n: 'Varongsri Kitjawan', e: 'varongsri.kit@nissan.co.th', r: 'Information System Department, Marketing and Sale Division', tel: '+66 (0) 2-339-3300 ต่อ 2927', src: 'sig', tags: ['routing เคสข้ามระบบ', 'LMS', 'Web', 'Store'] },
+      { n: 'Komsan Luecha', e: 'komsan.lue@nissan.co.th', r: 'ทีม Application — เป็นคนเข้าไปแก้ข้อมูลหลังบ้าน CRM/CDP ให้ในเคสข้อมูลลูกค้าเพี้ยน', src: 'inf', tags: ['CRM', 'CDP', 'Save Safe'] },
+      { n: 'Saranya Fongchotip', e: 'saranya.fon@nissan.co.th', r: 'ประสานงานฝั่ง IS — งาน dealer list update และกระจายเรื่องให้ vendor', src: 'inf', tags: ['Dealer list', 'ประสานงาน'] },
+      { n: 'Sippapong Sutthinun', e: 'sippapong.sut@nissan.co.th', r: 'M&S MA — Thai Software Engineering Co.,Ltd. (contractor ประจำ NMT IS)', src: 'sig', tags: ['M&S MA', 'CRM'] },
+      { n: 'Jadej Phanka', e: 'jadej.pha@nissan.co.th', r: 'Information System Department, Marketing and Sale Division — เจ้าภาพ M&S AMO monthly report', src: 'sig', tags: ['AMO report', 'LMS', 'e-Warranty'] },
+      { n: 'Phatthanaphong Pansombut', e: 'phatthanaphong.pan@nissan.co.th', r: 'Information System Department', tel: '+66 (0) 2339-3300', src: 'sig', tags: ['IS'] },
+      { n: 'Watthana Phaluekrot', e: 'watthana.pha@nissan.co.th', r: 'NMT-IS Operation — ดูแลงาน infra / สิทธิ์เข้าถึงระบบ', tel: '02-339-3300 ต่อ 2043', src: 'sig', tags: ['AWS', 'Infra', 'Access'] },
+      { n: 'Phatcharaphon Matphanna', e: 'phatcharaphon.mat@nissan.co.th', r: 'Thai Software Engineering Co.,Ltd. (contractor ประจำ NMT IS)', src: 'sig', tags: ['M&S'] },
+      { n: 'Kanita Yingwatthana', e: 'kanita@nissan.co.th', r: 'ทีมข้อมูลลูกค้า/CRM — รับงานแก้ข้อมูล เช่น update SS remaining ตาม VIN', src: 'inf', tags: ['CRM', 'ข้อมูลลูกค้า'] },
+      { n: 'Sasisa Phosri', e: 'sasisa.pho@nissan.co.th', r: 'ทีมข้อมูลลูกค้า/CRM — อยู่ในสายเดียวกับ Kanita / Jiraporn', src: 'inf', tags: ['CRM', 'ข้อมูลลูกค้า'] },
+      { n: 'Jiraporn Palasak', e: 'jiraporn.pal@nissan.co.th', r: 'ทีมข้อมูลลูกค้า/CRM', src: 'inf', tags: ['CRM', 'ข้อมูลลูกค้า'] },
+      { n: 'Sirina Tarapet', e: 'sirina.tar@nissan.co.th', r: 'ฝั่ง PMS MA / ประชุม AMO รายเดือน', src: 'inf', tags: ['PMS MA', 'Meeting'] },
+      { n: 'Nattawut Chaikornkij', e: 'nattawut.cha@nissan.co.th', r: 'Nissan Motor (Thailand) Co., Ltd.', tel: '089 982 4098 · 02-339-3400', src: 'sig', tags: ['NMT'] },
+    ],
+  },
+  {
+    id: 'nmt-mkt', cls: 'org--nmt', mono: 'NMT MKT',
+    name: 'Nissan Motor (Thailand) · Brand & Digital Marketing',
+    note: 'คอนเทนต์ แคมเปญ และเว็บไซต์',
+    people: [
+      { n: 'Kukwan Sritiparkorn', e: 'kukwan.sri@nissan.co.th', r: 'Manager, Brand Marketing (Digital Marketing)', src: 'sig', tags: ['Brand', 'Asset ในแอป'] },
+      { n: 'Kullathida Rakthin', e: 'kullathida@nissan.co.th', r: 'Digital marketing — ดูแลเว็บไซต์และช่องทางโซเชียล เป็นคนกลางกับ Zanroo', src: 'inf', tags: ['Website', 'Social'] },
+      { n: 'Chayapak Laisuwan', e: 'chayapak@nissan.co.th', r: 'อยู่ในสาย Brand/Marketing และสายแคมเปญ', src: 'inf', tags: ['Brand'] },
+    ],
+  },
+  {
+    id: 'nmt-as', cls: 'org--nmt', mono: 'NMT AS',
+    name: 'Nissan Motor (Thailand) · Aftersales & Field',
+    note: 'ศูนย์บริการ ดีลเลอร์ และงานภาคสนาม',
+    people: [
+      { n: 'Phuvanat Thongkham', e: 'anusa.tho@nissan.co.th', r: 'Area Manager, After Sales Field Management', tel: '02-3393300 ต่อ 2636 · 081-987-7149', src: 'sig', tags: ['ดีลเลอร์', 'Field'] },
+      { n: 'Nattaphon Chaemsri', e: 'nattaphon.cha@nissan.co.th', r: 'Regional Manager Service & Parts — After Sales Field Management Department', src: 'sig', tags: ['ดีลเลอร์', 'Service'] },
+      { n: 'Charunee Wittanadecha', e: 'charunee.wit@nissan.co.th', r: 'Aftersales', tel: '+66 (0) 88-949-5516', src: 'sig', tags: ['Aftersales'] },
+      { n: 'Pongthep Chantayo', e: 'pongthep@nissan.co.th', r: 'Staff, Aftersales Marketing Department', tel: '+66 (0) 2339-3400 · 064-934-0447', src: 'sig', tags: ['Aftersales MKT'] },
+      { n: 'Pornpat Pimjaisai', e: 'pornpat.pim@nissan.co.th', r: 'Assistant General Manager', src: 'sig', tags: ['ผู้บริหาร'] },
+      { n: 'Noppadol Vitthayadolchai', e: 'noppadol.vit@nissan.co.th', r: 'Assistant General Manager, Sales Department', tel: '+66 (0) 2339 3400', src: 'sig', tags: ['Sales'] },
+      { n: 'Palada Yantasri', e: 'palada.yan@nissan.co.th', r: 'สายงาน DMS / ดีลเลอร์ — เข้ามาในเคสลูกค้าลงทะเบียนไม่ได้', src: 'inf', tags: ['DMS', 'ดีลเลอร์'] },
+      { n: 'Wariya Suwannabutr', e: 'wariya.suw@nissan.co.th', r: 'สายงาน DMS / ดีลเลอร์', src: 'inf', tags: ['DMS'] },
+    ],
+  },
+  {
+    id: 'dl', cls: 'org--dl', mono: 'DL',
+    name: 'Nissan — Mailbox กลาง / Distribution List',
+    note: 'ส่งเข้าที่นี่เพื่อให้มีเลขงาน อย่าส่งหาคนเดียวโดยไม่ CC',
+    people: [
+      { n: 'NMT-IS Servicedesk', e: 'servicedesk@nissan.co.th', r: 'ประตูหน้าของทุกเคส — ออกเลข Ticket ID. พอร์ทัล ito-servicedesk.nissan-th.com', tel: '+66 (0) 2339 3200 ต่อ 1561 · สายตรง +66 (0) 2170 7211-4', src: 'dl', tags: ['ITSM', 'Ticket ID'] },
+      { n: 'DMS Servicedesk', e: 'dmsservicedesk@nissan.co.th', r: 'ฝั่งระบบ DMS ของดีลเลอร์ — ประวัติเข้าศูนย์, ข้อมูลจากศูนย์บริการ', src: 'dl', tags: ['DMS'] },
+      { n: 'JP ASIA NMT DL CSM VDM', e: 'csm.vdm@nissan.co.th', r: 'Customer Service Management / VDM — ทำงานคู่กับ Differential', src: 'dl', tags: ['CSM', 'VDM'] },
+      { n: 'JP ASIA NMT DL Service Operation', e: 'serviceoperation@nissan.co.th', r: 'งาน service operation', src: 'dl', tags: ['Service Ops'] },
+      { n: 'JP ASIA NMT DL DND ND', e: 'network@nissan.co.th', r: 'Network Development Department — งานเครือข่ายผู้จำหน่าย', src: 'dl', tags: ['Network', 'ดีลเลอร์'] },
+      { n: 'JP ASIA NMT DL M&S_IS', e: 'm&s_is@nissan.co.th', r: 'DL ของ Marketing & Sale IS', src: 'dl', tags: ['M&S IS'] },
+      { n: 'S_IS', e: 's_is@nissan.co.th', r: 'DL ฝั่ง Service IS', src: 'dl', tags: ['Service IS'] },
+    ],
+  },
+  {
+    id: 'muze', cls: 'org--muze', mono: 'MUZE',
+    name: 'Muze — Nissan MA (ทีมเรา)',
+    note: 'ผู้รับผิดชอบ MyNISSAN App MA',
+    people: [
+      { n: 'Muze Nissan MA Support Team', e: 'nissan-ma@muze.co.th', r: 'Mailbox กลางของงาน Nissan ทั้งหมด — ทุกเธรดต้องมีอีเมลนี้', src: 'dl', tags: ['Mailbox กลาง'] },
+      { n: 'Muze Technical Operations Team', e: 'operation@muze.co.th', r: 'Mailbox ทีม Operation — ถูก CC ในเกือบทุกเธรดของ Nissan', src: 'dl', tags: ['Mailbox กลาง'] },
+      { n: 'Thiranattada Nanthama (Aum)', e: 'thiranattada.n@muze.co.th', r: 'Technical Operations Support Manager', tel: '+66 61 963 5395', src: 'sig', tags: ['MA', 'Access', 'AWS'] },
+      { n: 'Napasri Wattanopas', e: 'napasri.w@muze.co.th', r: 'Head of Product Owner Department 1', tel: '092-291-9163', src: 'sig', tags: ['Product', 'SSI/CSI'] },
+      { n: 'Shinnakrit Jirasopon', e: 'shinnakrit.j@muze.co.th', r: 'Technical Operations Support Manager', src: 'sig', tags: ['AWS', 'Infra'] },
+      { n: 'Waraporn Suphapha', e: 'waraporn@muze.co.th', r: 'Technical Operation Officer', src: 'sig', tags: ['Operation'] },
+      { n: 'Chitipat Mueanpaopong', e: 'chitipat@muze.co.th', r: 'Developer (ถูกขอสิทธิ์ระดับ Developer / App Manager ในระบบ Nissan)', src: 'sig', tags: ['Dev'] },
+      { n: 'Noppasit Kingsaingarm', e: 'noppasit.k@muze.co.th', r: 'ทีม Operation — งาน CMS / dealer data', src: 'inf', tags: ['Operation', 'CMS'] },
+      { n: 'Chartwit Thapket', e: 'chartwit.t@muze.co.th', r: 'ทีม Operation', src: 'inf', tags: ['Operation'] },
+      { n: 'Dusita Sujariyanurak', e: 'dusita@muze.co.th', r: 'ทีม Operation — งาน Firebase / Apple Developer', src: 'inf', tags: ['Firebase', 'Store'] },
+    ],
+  },
+  {
+    id: 'zanroo', cls: 'org--vendor', mono: 'ZANROO',
+    name: 'Zanroo (Internet Based Business Group Co.,Ltd.) — Social Command / Non-voice',
+    note: 'รับเรื่องลูกค้าจากโซเชียล แล้วเปิดเป็น New Case',
+    people: [
+      { n: 'NMT Zanroo Non-voice', e: 'nonvoice-nmt@zanroo.com', r: 'Social Data Moderator Department — Agent Non-Voice (mailbox ทีม)', src: 'sig', tags: ['Social Command'] },
+      { n: 'Support NMT (Zanroo)', e: 'support-nmt@zanroo.com', r: 'Mailbox ทีมซัพพอร์ต', src: 'dl', tags: ['Social Command'] },
+      { n: 'Chatita Phummuang (Yui)', e: 'chatita.p@zanroo.com', r: 'ทีม Non-voice — ติดตามเคสรายตัว', src: 'inf', tags: ['Social Command'] },
+      { n: 'Phuedchanon Mungjongruk (Neno)', e: 'phuedchanon.m@zanroo.com', r: 'ทีม Non-voice', src: 'inf', tags: ['Social Command'] },
+      { n: 'Pattaraporn Songsin (Nook)', e: 'pattaraporn.s@zanroo.com', r: 'ทีม Non-voice', src: 'inf', tags: ['Social Command'] },
+    ],
+  },
+  {
+    id: 'mocap', cls: 'org--vendor', mono: 'MOCAP',
+    name: 'Mocap — Outsource Contact Center / BPO',
+    note: 'Call center ของ Nissan · เคสรหัส C26xxxxx มาจากที่นี่',
+    people: [
+      { n: 'Chatwimon Duangdao (Funmui)', e: 'chatwimon_d@mocap.co.th', r: 'Team Leader, Operations Division', tel: '02 203 2025 · 091 775 9067', src: 'sig', tags: ['Call Center'] },
+      { n: 'Pojjana S.', e: 'pojjana_s@mocap.co.th', r: 'ทีม Operations — คู่กับ Chatwimon', src: 'inf', tags: ['Call Center'] },
+    ],
+  },
+  {
+    id: 'polymorph', cls: 'org--vendor', mono: 'POLY',
+    name: 'Polymorph Co., Ltd. — Aftersales LMS (Salesforce)',
+    note: 'ระบบรับการนัดหมายจาก website / MyNISSAN / LINE',
+    people: [
+      { n: 'Yuthakarn Kamolvarin (Pup)', e: 'yuthakarn.k@polymorph.co.th', r: 'Salesforce Platform Lead — NMT ระบุให้เป็นคนแรกที่ติดต่อเรื่องนัดหมาย', src: 'sig', tags: ['LMS', 'นัดหมาย', 'Salesforce'] },
+      { n: 'Adiran Salaemae (Mhee)', e: 'adiran.s@polymorph.co.th', r: 'Business Analyst', tel: '+66 64 236 9253', src: 'sig', tags: ['LMS'] },
+      { n: 'Chanagan Sakulteera', e: 'chanagan.s@polymorph.co.th', r: 'ทีม MA ของ Aftersales LMS', src: 'inf', tags: ['LMS'] },
+      { n: 'Polymorph Support', e: 'support@polymorph.co.th', r: 'Mailbox ซัพพอร์ตกลาง', src: 'dl', tags: ['LMS'] },
+    ],
+  },
+  {
+    id: 'amo', cls: 'org--vendor', mono: 'AMO',
+    name: 'AMO / MA Vendors — M&S Application Management',
+    note: 'ทีมดูแลระบบหลังบ้านของ Nissan ฝั่ง Marketing & Sale',
+    people: [
+      { n: 'AMO M&S IS', e: 'ms_is_amo@h-amo.com', r: 'Mailbox ทีม AMO ฝั่ง M&S IS', src: 'dl', tags: ['AMO', 'DMS', 'CRM'] },
+      { n: 'Pitak Thongchai', e: 'tpitak@h-amo.com', r: 'Service Management Officer (SMO)', src: 'sig', tags: ['SMO', 'AMO'] },
+      { n: 'SMGO-MA', e: 'ma@smartgosd.com', r: 'Mailbox ทีม MA ของ SmartGo — งาน DMS / dealer data', src: 'dl', tags: ['DMS', 'Dealer'] },
+      { n: 'Rittikiat Wilairat', e: 'rittikiat@smartgosd.com', r: 'System Analyst', src: 'sig', tags: ['DMS'] },
+      { n: 'Watcharapong (SmartGo)', e: 'watcharapong@smartgosd.com', r: 'ทีม SmartGo — อยู่ในสาย AMO monthly report', src: 'inf', tags: ['AMO'] },
+      { n: 'Pakawat (SmartGo)', e: 'pakawat@smartgosd.com', r: 'ทีม SmartGo', src: 'inf', tags: ['AMO'] },
+      { n: 'Salesforce PMO (Mintel)', e: 'sf.pmo@mintel.tech', r: 'PMO ฝั่ง Salesforce ในสาย M&S AMO', src: 'dl', tags: ['Salesforce', 'PMO'] },
+      { n: 'Wasana Jantamai (Hitachi)', e: 'wasana.j.df@hitachi.com', r: 'อยู่ในสาย M&S AMO monthly report', src: 'inf', tags: ['AMO'] },
+    ],
+  },
+  {
+    id: 'differential', cls: 'org--vendor', mono: 'DIFF',
+    name: 'Differential (Singapore) — CSM / VDM',
+    note: 'ทำงานคู่กับ csm.vdm@nissan.co.th',
+    people: [
+      { n: 'Natsramol Lattalo (DF)', e: 'lnatsramol@differential.com.sg', r: 'Project Manager', src: 'sig', tags: ['CSM', 'VDM'] },
+      { n: 'Differential — Siros', e: 'ssiros@differential.com.sg', r: 'ทีม Differential', src: 'inf', tags: ['CSM'] },
+      { n: 'Differential — Chaiyawat', e: 'kchaiyawat@differential.com.sg', r: 'ทีม Differential', src: 'inf', tags: ['CSM'] },
+      { n: 'Differential — Raschadaporn', e: 'kraschadaporn@differential.com.sg', r: 'ทีม Differential', src: 'inf', tags: ['CSM'] },
+    ],
+  },
+  {
+    id: 'deloitte', cls: 'org--vendor', mono: 'DTT',
+    name: 'Deloitte — SSI/CSI Survey & Analytics',
+    note: 'งานแบบสำรวจหลังเข้ารับบริการ',
+    people: [
+      { n: 'TH T&T Nissan Support', e: 'thttnissansupport@deloitte.com', r: 'Mailbox ซัพพอร์ตกลางของ Deloitte สำหรับงาน Nissan', src: 'dl', tags: ['SSI/CSI', 'Firebase'] },
+      { n: 'Chidchanok Srivilai', e: 'csrivilai@deloitte.com', r: 'Product Owner', src: 'sig', tags: ['SSI/CSI'] },
+    ],
+  },
+  {
+    id: 'nml', cls: 'org--jp', mono: 'NML',
+    name: 'Nissan Japan / Global (NML · RNTBCI)',
+    note: 'บัญชี store, มาตรฐานกลาง, งานข้ามประเทศ',
+    people: [
+      { n: 'Hiroyoshi Mori', e: 'hiroyoshi-mori@mail.nissan.co.jp', r: 'ผู้ดูแลบัญชี Apple Developer Program / App Store ของโปรเจกต์ MyNISSAN', src: 'inf', tags: ['App Store', 'Apple Developer'] },
+      { n: 'Shingo Tsuzaka', e: 'shingo-tsuzaka@mail.nissan.co.jp', r: 'ฝั่ง Nissan Japan — งานหน้า login / ภาษา', src: 'inf', tags: ['Global'] },
+      { n: 'Qiuqing Zhang', e: 'qiuqing_zhang@mail.nissan.co.jp', r: 'ฝั่ง Nissan Japan', src: 'inf', tags: ['Global'] },
+      { n: 'Shotaro Okuda', e: 'shotaro-okuda@mail.nissan.co.jp', r: 'ฝั่ง Nissan Japan', src: 'inf', tags: ['Global'] },
+      { n: 'Shamanth Priyadarshini', e: 'priyadarshini.sha@nissan.co.th', r: 'ฝั่ง RNTBCI / Nissan global ที่ประจำสาย NMT', src: 'inf', tags: ['Global'] },
+    ],
+  },
+  {
+    id: 'nltc', cls: 'org--lease', mono: 'NLTC',
+    name: 'Nissan Leasing (Thailand) + NMT Sales Ops — แคมเปญ & ดอกเบี้ย',
+    note: 'ที่มาของโปรโมชั่น/ดอกเบี้ยที่แสดงในแอป',
+    people: [
+      { n: 'Pennapa Perapunviroon', e: 'pennapa.per@nissan.co.th', r: 'ผู้ประกาศแคมเปญรายเดือน — เมลแคมเปญทุกฉบับออกจากที่นี่', src: 'inf', tags: ['แคมเปญ', 'ดอกเบี้ย'] },
+      { n: 'Supaporn Choiechuen', e: 'supaporn.choiechuen@nissanleasing.co.th', r: 'Nissan Leasing (Thailand) Co., Ltd.', src: 'inf', tags: ['NLTC'] },
+      { n: 'Tharinee Kongpongpeeti', e: 'tharinee.kongpongpeeti@nissanleasing.co.th', r: 'Nissan Leasing (Thailand) Co., Ltd.', tel: '+66 (0) 2207 4000', src: 'sig', tags: ['NLTC'] },
+      { n: 'Vasu Poonsombat', e: 'vasu.poonsombat@nissanleasing.co.th', r: 'Nissan Leasing (Thailand) Co., Ltd.', src: 'inf', tags: ['NLTC'] },
+      { n: 'Kritchakorn Intarungsri', e: 'kritchakorn.intarungsri@nissanleasing.co.th', r: 'Nissan Leasing (Thailand) Co., Ltd.', src: 'inf', tags: ['NLTC'] },
+      { n: 'Karan Wantanasittichok', e: 'karan.wantanasittichok@nissanleasing.co.th', r: 'Nissan Leasing (Thailand) Co., Ltd.', src: 'inf', tags: ['NLTC'] },
+      { n: 'Thawatchai Akpongpun', e: 'thawatchai.akpongpun@nissanleasing.co.th', r: 'Nissan Leasing (Thailand) Co., Ltd.', src: 'inf', tags: ['NLTC'] },
+      { n: 'Panupong Chatjindarat', e: 'panupong.chatjindarat@nissanleasing.co.th', r: 'Nissan Leasing (Thailand) Co., Ltd.', src: 'inf', tags: ['NLTC'] },
+      { n: 'Danupol Chaojean', e: 'danupol.chaojean@nissanleasing.co.th', r: 'Nissan Leasing (Thailand) Co., Ltd.', src: 'inf', tags: ['NLTC'] },
+      { n: 'Chatchawal Chaiphattarabumrung', e: 'chatchawal.cha@nissan.co.th', r: 'NMT — ผู้รับประกาศแคมเปญ (สาย Sales Ops)', src: 'inf', tags: ['แคมเปญ'] },
+      { n: 'Chaisit Paen-in', e: 'chaisit.pae@nissan.co.th', r: 'NMT — สายแคมเปญ / Sales Ops', src: 'inf', tags: ['แคมเปญ'] },
+      { n: 'Yuwanart Sinbowornsed', e: 'yuwanart.sin@nissan.co.th', r: 'NMT — สายแคมเปญ / Sales Ops', src: 'inf', tags: ['แคมเปญ'] },
+      { n: 'Pannaras Thanachodsiri', e: 'pannaras.tha@nissan.co.th', r: 'NMT — สายแคมเปญ / Sales Ops', src: 'inf', tags: ['แคมเปญ'] },
+      { n: 'Sasisalin Isarangkul Na Ayuttaya', e: 'sasisalin@nissan.co.th', r: 'NMT — สายแคมเปญ / Sales Ops', src: 'inf', tags: ['แคมเปญ'] },
+      { n: 'Ekkamol Chamsai', e: 'ekkamol.cha@nissan.co.th', r: 'NMT — สายแคมเปญ / Sales Ops', src: 'inf', tags: ['แคมเปญ'] },
+    ],
+  },
+  {
+    id: 'dealer', cls: 'org--vendor', mono: 'DEALER',
+    name: 'ดีลเลอร์ที่ติดต่อเข้ามาบ่อย',
+    note: 'ตัวอย่างที่พบในกล่องเมล ไม่ใช่รายชื่อครบทุกศูนย์',
+    people: [
+      { n: 'สยามนิสสัน — CRO', e: 'cro@siamnissan.com', r: 'ทีม CRO ของกลุ่มสยามนิสสัน (SNS-HO)', src: 'dl', tags: ['ดีลเลอร์'] },
+      { n: 'สยามนิสสัน — Pornpimol', e: 'pornpimol.s@siamnissan.com', r: 'ผู้ประสานงานฝั่งสยามนิสสัน', src: 'inf', tags: ['ดีลเลอร์'] },
+      { n: 'นิสสันชลบุรี', e: 'cholburi_01@nissan-dealer.in.th', r: 'ศูนย์บริการที่แจ้งเคสเข้ามา', src: 'inf', tags: ['ดีลเลอร์'] },
+    ],
+  },
+];
+
+const SRC_LABEL = { sig: 'SIG', inf: 'INF', dl: 'DL' };
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+// --- render routing table ---------------------------------------------------
+document.querySelector('#routeTable tbody').innerHTML = ROUTES.map(r => `
+  <tr data-search="${esc((r.sys + ' ' + r.scope + ' ' + r.who + ' ' + r.mail.join(' ') + ' ' + (r.extra || '')).toLowerCase())}">
+    <td class="who">${esc(r.who)}</td>
+    <td><span class="sys">${esc(r.sys)}</span></td>
+    <td>${esc(r.scope)}</td>
+    <td>${r.mail.map(m => `<a class="mono-mail" href="mailto:${esc(m)}">${esc(m)}</a>`).join('<br>')}
+      ${r.extra ? `<div style="margin-top:5px;font-size:11px;color:#8891b0">${esc(r.extra)}</div>` : ''}</td>
+  </tr>`).join('');
+
+// --- render directory -------------------------------------------------------
+document.getElementById('directory').innerHTML = ORGS.map(org => `
+  <div class="org ${org.cls}" data-org="${org.id}">
+    <div class="org-head">
+      <span class="monogram">${esc(org.mono)}</span>
+      <span class="org-name">${esc(org.name)}${org.note ? ` <span class="org-note">· ${esc(org.note)}</span>` : ''}</span>
+      <span class="org-count">${String(org.people.length).padStart(2, '0')}</span>
+    </div>
+    <div class="org-body">
+      ${org.people.map(p => `
+        <div class="person" data-search="${esc((p.n + ' ' + p.e + ' ' + p.r + ' ' + (p.tags || []).join(' ') + ' ' + org.name + ' ' + org.mono).toLowerCase())}">
+          <div class="person-top">
+            <span class="person-name">${esc(p.n)}</span>
+            <span class="badge-src badge-src--${p.src === 'sig' ? 'sig' : p.src === 'dl' ? 'dl' : 'inf'}">${SRC_LABEL[p.src]}</span>
+          </div>
+          <p class="person-role">${esc(p.r)}</p>
+          <a class="person-mail" href="mailto:${esc(p.e)}">${esc(p.e)}</a>
+          ${p.tel ? `<p class="person-tel">☎ ${esc(p.tel)}</p>` : ''}
+          ${(p.tags || []).length ? `<div class="person-tags">${p.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
+        </div>`).join('')}
+    </div>
+  </div>`).join('');
+
+const totalPeople = ORGS.reduce((a, o) => a + o.people.length, 0);
+document.getElementById('totalMeta').textContent = `${ORGS.length} องค์กร · ${totalPeople} ผู้ติดต่อ · ${ROUTES.length} ระบบ`;
+
+// --- search -----------------------------------------------------------------
+const q = document.getElementById('q');
+const empty = document.getElementById('empty');
+const searchCount = document.getElementById('searchCount');
+
+function applyFilter() {
+  const term = q.value.trim().toLowerCase();
+  let shown = 0;
+
+  document.querySelectorAll('#routeTable tbody tr').forEach(tr => {
+    const hit = !term || tr.dataset.search.includes(term);
+    tr.classList.toggle('hidden', !hit);
+  });
+
+  document.querySelectorAll('.org').forEach(org => {
+    let orgShown = 0;
+    org.querySelectorAll('.person').forEach(p => {
+      const hit = !term || p.dataset.search.includes(term);
+      p.classList.toggle('hidden', !hit);
+      if (hit) orgShown++;
+    });
+    org.classList.toggle('hidden', orgShown === 0);
+    org.querySelector('.org-count').textContent = String(orgShown).padStart(2, '0');
+    shown += orgShown;
+  });
+
+  empty.style.display = shown === 0 ? 'block' : 'none';
+  searchCount.textContent = term ? `${shown} / ${totalPeople} คน` : '';
+}
+
+q.addEventListener('input', applyFilter);
+applyFilter();
+</script>
+</body>
+</html>

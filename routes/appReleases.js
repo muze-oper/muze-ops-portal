@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const path = require('path');
-const { fetchSheetRows, listSheetTitles } = require('../storage/googleSheets');
+const { fetchSheetRangesBatch, listSheetTitles, quoteTitle } = require('../storage/googleSheets');
 
 // Read-only - this sheet (the CAB deploy tracker) is edited by hand
 // elsewhere, this page only ever displays it, never writes back.
@@ -22,7 +22,7 @@ const DISPLAY_NAME = {
 };
 
 // Header names as they appear in each tab's own row 1 (looked up by name,
-// lowercased/trimmed - see loadFromTab for why this can't be a fixed column
+// lowercased/trimmed - see parseTabRows for why this can't be a fixed column
 // letter like "M").
 const COL_TOPIC = 'topic';
 const COL_DEPLOY_TAG = 'deploy tag';
@@ -44,15 +44,16 @@ function parseSheetDate(value) {
   return Number(year) * 10000 + (month + 1) * 100 + Number(day);
 }
 
-// Reads one tab and returns its matching platform rows. Every tab's header
-// is read fresh and columns are found by name rather than a fixed index -
+// Parses one tab's already-fetched rows into its matching platform rows.
+// Takes rows rather than fetching them itself so every tab can be read in
+// one batched request (see loadLatestPerPlatform). Every tab's header is
+// read fresh and columns are found by name rather than a fixed index -
 // "Deploy Tag" has actually lived in columns L, M and N at different points
 // in this sheet's history (older tabs also carry "Target Repository" /
 // "Target Commit Hash" columns the newer ones dropped), so a hardcoded
 // "column M" would silently read the wrong field on anything but the
 // newest few tabs.
-async function loadFromTab(title) {
-  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:AH3000`);
+function parseTabRows(rows) {
   if (rows.length < 2) return [];
 
   const header = rows[0].map(h => (h || '').toString().trim().toLowerCase());
@@ -93,13 +94,19 @@ async function loadLatestPerPlatform() {
   const tabs = await listSheetTitles(SHEET_ID);
   const byPlatform = new Map();
 
-  for (const tab of tabs) {
-    const entries = await loadFromTab(tab.title);
-    entries.forEach(e => {
+  // Every tab in one batched read. This used to be a per-tab loop, i.e. one
+  // Sheets read request per tab - 36+ of them back to back, which on its own
+  // is over half the 60-reads-per-minute-per-user quota the whole app shares,
+  // and is what produced "Quota exceeded ... Read requests per minute per
+  // user" on /tvn/crashlytics whenever the cache below was cold (every Vercel
+  // cold start, since that cache only lives in one lambda's memory).
+  const perTab = await fetchSheetRangesBatch(SHEET_ID, tabs.map(t => `${quoteTitle(t.title)}!A1:AH3000`));
+  perTab.forEach(rows => {
+    parseTabRows(rows).forEach(e => {
       if (!byPlatform.has(e.platform)) byPlatform.set(e.platform, []);
       byPlatform.get(e.platform).push(e);
     });
-  }
+  });
 
   // Fixed keyword order rather than Map insertion order, so the table's row
   // order doesn't depend on which tab happened to be scanned first.
@@ -121,14 +128,14 @@ async function loadLatestPerPlatform() {
     });
 }
 
-// Scanning every tab costs ~1 read per tab (36+ of them) - without a cache,
-// every page load (Step 0, the Version to Monitor tables, and the
-// standalone /app-releases page all hit this same endpoint) burns through
-// Sheets API's per-minute read quota within a few reloads, which is exactly
-// what happened in practice ("Quota exceeded ... Read requests per minute
-// per user"). 6h since the CAB deploy tracker sheet itself is edited
-// rarely - the Refresh button's ?refresh=1 bypass covers anyone who needs
-// this sooner than that.
+// A full scan now costs ~3 reads total (1 tab listing + 2 batched value
+// reads) instead of ~37, but it's still the most expensive endpoint here and
+// Step 0, the Version to Monitor tables and the standalone /app-releases
+// page all hit it. Cached 6h since the CAB deploy tracker sheet itself is
+// edited rarely - the Refresh button's ?refresh=1 bypass covers anyone who
+// needs it sooner. Note this cache is per-lambda-instance on Vercel, so a
+// cold start always pays the full scan; that's what makes the per-scan read
+// count, not just the cache, the thing that has to stay small.
 const CACHE_MS = 6 * 60 * 60 * 1000;
 let cache = { data: null, lastUpdated: 0 };
 

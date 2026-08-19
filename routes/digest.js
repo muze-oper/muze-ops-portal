@@ -164,24 +164,28 @@ router.post('/api/digest/live', async (req, res) => {
       // One status lookup per account (shared token + read-by-id, not each
       // read doing its own token refresh + name search) covers BOTH: which
       // carry-forward candidates are done/ignored/skipped, AND which items
-      // still inside this fetch's own window are flagged Skip - Skip means
-      // "hide this going forward", not just "stop carrying it once Gmail's
-      // own query stops returning it", so a still-in-window item needs the
-      // same check the carry-forward candidates already got.
+      // still inside this fetch's own window are Done/Ignore/Skip - all
+      // three mean "hide this going forward", not just "stop carrying it
+      // once Gmail's own query stops returning it", so a still-in-window
+      // item needs the same check the carry-forward candidates already got
+      // (previously only Skip was applied here, so an email marked Done
+      // kept reappearing on Live every refresh as long as it stayed in the
+      // inbox and inside Gmail's own fetch window).
       const statusFiles = await drive.listFiles(`emailstatus_${acc.replace(/@|\./g, '_')}_`);
       const accessToken = await drive.getAdminAccessToken();
       const statusDocs = await Promise.all(statusFiles.map(f => drive.readFileById(f.id, accessToken).catch(() => null)));
       const statusByMsgId = {};
       statusDocs.filter(Boolean).forEach(s => { statusByMsgId[s.msgId] = s.status; });
+      const HIDDEN_STATUSES = new Set(['Done', 'Ignore', 'Skip']);
 
       const carried = candidates
         .map(e => {
           const status = statusByMsgId[e.msgId] || 'To Do';
-          return (status === 'Done' || status === 'Ignore' || status === 'Skip') ? null : { ...e, carried: true };
+          return HIDDEN_STATUSES.has(status) ? null : { ...e, carried: true };
         })
         .filter(Boolean);
 
-      const freshFiltered = newEmails.filter(e => statusByMsgId[e.msgId] !== 'Skip');
+      const freshFiltered = newEmails.filter(e => !HIDDEN_STATUSES.has(statusByMsgId[e.msgId]));
 
       merged[acc] = { counts: entry.counts, emails: [...freshFiltered, ...carried] };
 
