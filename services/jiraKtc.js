@@ -1,10 +1,8 @@
 // Searches the KTC Jira project for cases related to a customer's question.
 // Uses API-token Basic Auth (a real user/service account, not OAuth) since
-// this runs server-side with no interactive login. REST API v2 is used
-// deliberately over v3: v2 returns description/comment bodies as plain
-// strings (Jira wiki markup) instead of ADF JSON, which is far simpler to
-// display as-is.
+// this runs server-side with no interactive login.
 const { significantWords, charNgrams, scoreText, isRelevant } = require('./textRelevance');
+const { extractText } = require('./adfText');
 
 const JIRA_SITE = (process.env.JIRA_BASE_URL || 'https://mymuze.atlassian.net').replace(/\/$/, '');
 const JIRA_API_EMAIL = process.env.JIRA_API_EMAIL;
@@ -20,9 +18,33 @@ function escapeJqlString(s) {
   return s.replace(/["\\]/g, '\\$&');
 }
 
-// Atlassian's enhanced JQL endpoint (token-paginated) is the current one;
-// fall back to the older endpoint in case a site hasn't rolled it out.
-const SEARCH_ENDPOINTS = ['/rest/api/2/search/jql', '/rest/api/2/search'];
+// v3 confirmed working directly against this site (a copy-pasted ticket
+// title reliably found its own ticket via this exact endpoint+JQL shape).
+// v2's equivalent endpoints were never actually verified to exist/behave
+// the same for Thai full-text search — don't reintroduce them without
+// testing against the real API first. The enhanced JQL endpoint is current;
+// the classic one is the fallback in case a site hasn't rolled it out.
+const SEARCH_ENDPOINTS = ['/rest/api/3/search/jql', '/rest/api/3/search'];
+
+// v3 returns description/comment bodies as ADF (JSON), not plain strings —
+// normalize to plain text right here, once, so every caller of runSearch
+// (searchKtcCases, searchRecentTickets, and whatever else lands on this
+// module later) keeps getting plain strings like before, without each one
+// needing to know or care which API version produced the data.
+function normalizeIssue(issue) {
+  const f = issue.fields || {};
+  return {
+    ...issue,
+    fields: {
+      ...f,
+      description: extractText(f.description),
+      comment: f.comment && {
+        ...f.comment,
+        comments: (f.comment.comments || []).map((c) => ({ ...c, body: extractText(c.body) })),
+      },
+    },
+  };
+}
 
 async function runSearch(jql, maxResults) {
   let lastErr;
@@ -42,7 +64,7 @@ async function runSearch(jql, maxResults) {
         continue;
       }
       const data = await res.json();
-      return data.issues || [];
+      return (data.issues || []).map(normalizeIssue);
     } catch (err) {
       lastErr = err;
     }
@@ -57,11 +79,12 @@ async function runSearch(jql, maxResults) {
 // question text ourselves and drop anything that doesn't clear the same
 // relevance bar the handover-doc matcher uses, instead of trusting Jira's
 // ranking blindly.
-function isIssueRelevant(question, words, questionGrams, issue) {
+function issueScore(words, questionGrams, issue) {
   const f = issue.fields || {};
   const lastComment = f.comment?.comments?.[f.comment.comments.length - 1];
-  const haystack = [f.summary, f.description, lastComment?.body].filter(Boolean).join(' ');
-  return isRelevant(scoreText(words, questionGrams, haystack));
+  const haystack = [f.summary, extractText(f.description), extractText(lastComment?.body)]
+    .filter(Boolean).join(' ');
+  return scoreText(words, questionGrams, haystack);
 }
 
 // Searches the full question first (Jira's `text ~` operator already does
@@ -89,9 +112,17 @@ async function searchKtcCases(question, maxResults = 8) {
 
   const words = significantWords(trimmed);
   const questionGrams = charNgrams(trimmed);
-  const relevant = issues.filter((issue) => isIssueRelevant(trimmed, words, questionGrams, issue));
+  // Score every candidate (attached as __score, same scale as the
+  // handover-doc matcher's since both use textRelevance.scoreText) so the
+  // route can tell whether Jira's own match is stronger than a doc match —
+  // an exact-phrase Jira hit should outrank a merely-topical doc entry, not
+  // get buried under it.
+  const scored = issues
+    .map((issue) => ({ issue, score: issueScore(words, questionGrams, issue) }))
+    .filter(({ score }) => isRelevant(score))
+    .sort((a, b) => b.score.total - a.score.total);
 
-  return relevant.slice(0, maxResults);
+  return scored.slice(0, maxResults).map(({ issue, score }) => ({ ...issue, __score: score.total }));
 }
 
 // Recently-created, still-open cases for the landing page's hot-issues
@@ -105,9 +136,9 @@ async function searchRecentTickets(days = 2, maxResults = 10) {
 }
 
 function cleanText(text, limit = 4000) {
-  if (!text) return '(none)';
-  const cleaned = String(text).replace(/\n{3,}/g, '\n\n').trim();
-  return cleaned.length > limit ? `${cleaned.slice(0, limit)}\n...(truncated)` : cleaned;
+  const plain = extractText(text);
+  if (!plain) return '(none)';
+  return plain.length > limit ? `${plain.slice(0, limit)}\n...(truncated)` : plain;
 }
 
 // Renders one issue as-is (no rewriting/summarizing) for direct display in

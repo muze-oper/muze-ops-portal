@@ -12,10 +12,13 @@ router.get('/ktc-chat', (req, res) => {
 });
 
 // No LLM involved by design (avoids a per-query Anthropic API cost). Instead
-// of a flat dump of whatever matched, the top handover-doc match's own
-// Resolution text is surfaced first as the recommendation — that text was
-// already written as "what to do", it just wasn't being led with. Everything
-// else (other matches, raw Jira cases) follows as supporting reference.
+// of a flat dump of whatever matched, the single strongest match — Jira and
+// the handover doc are scored on the same scale (services/textRelevance) —
+// is surfaced first as "what to do". An exact/near-exact Jira hit is
+// concrete, specific evidence and should lead over a merely topical doc
+// entry, not get buried under one just because doc sections are listed
+// first in the response shape. Everything else follows as supporting
+// reference.
 router.post('/api/ktc-chat', async (req, res) => {
   const question = (req.body?.question || '').trim();
   if (!question) return res.status(400).json({ error: 'question is required' });
@@ -37,25 +40,38 @@ router.post('/api/ktc-chat', async (req, res) => {
     });
   }
 
-  const parts = [];
-  const [topSection, ...restSections] = docSections;
+  const topDocScore = docSections[0]?.score || 0;
+  const topIssueScore = issues[0]?.__score || 0;
+  const leadWithJira = topIssueScore > topDocScore;
 
-  if (topSection) {
+  const parts = [];
+
+  if (leadWithJira) {
+    const [topIssue, ...restIssues] = issues;
+    parts.push(`**เรื่องนี้ตรงกับเคส Jira:** ${topIssue.key}`);
+    parts.push(formatIssueRaw(topIssue));
+    if (docSections.length) {
+      parts.push('**หัวข้อใกล้เคียงใน Handover Document (อ้างอิงประกอบ)**');
+      parts.push(...docSections.map((s) => `**${s.heading}**\n${s.body}`));
+    }
+    if (restIssues.length) {
+      parts.push('**เคส Jira ใกล้เคียงอื่นๆ**');
+      parts.push(...restIssues.map(formatIssueRaw));
+    }
+  } else {
+    const [topSection, ...restSections] = docSections;
     const { rootCause, resolution } = splitRootCauseResolution(topSection.body);
     parts.push(`**เรื่องนี้ตรงกับ:** ${topSection.heading}`);
     parts.push(`**แนะนำให้ทำ**\n${resolution || rootCause}`);
     if (resolution) parts.push(`**สาเหตุ (Root Cause)**\n${rootCause}`);
-  } else {
-    parts.push('**หมายเหตุ:** ไม่พบหัวข้อสำเร็จรูปใน Handover Document สำหรับเรื่องนี้ — ลองพิจารณาจากเคส Jira ที่ใกล้เคียงด้านล่าง');
-  }
-
-  if (restSections.length) {
-    parts.push('**หัวข้อใกล้เคียงอื่นๆ ใน Handover Document**');
-    parts.push(...restSections.map((s) => `**${s.heading}**\n${s.body}`));
-  }
-  if (issues.length) {
-    parts.push('**เคสใน Jira ที่ใกล้เคียงที่สุด (อ้างอิงประกอบ)**');
-    parts.push(...issues.map(formatIssueRaw));
+    if (restSections.length) {
+      parts.push('**หัวข้อใกล้เคียงอื่นๆ ใน Handover Document**');
+      parts.push(...restSections.map((s) => `**${s.heading}**\n${s.body}`));
+    }
+    if (issues.length) {
+      parts.push('**เคสใน Jira ที่ใกล้เคียงที่สุด (อ้างอิงประกอบ)**');
+      parts.push(...issues.map(formatIssueRaw));
+    }
   }
 
   res.json({
