@@ -18,13 +18,18 @@ function escapeJqlString(s) {
   return s.replace(/["\\]/g, '\\$&');
 }
 
-// v3 confirmed working directly against this site (a copy-pasted ticket
-// title reliably found its own ticket via this exact endpoint+JQL shape).
-// v2's equivalent endpoints were never actually verified to exist/behave
-// the same for Thai full-text search — don't reintroduce them without
-// testing against the real API first. The enhanced JQL endpoint is current;
-// the classic one is the fallback in case a site hasn't rolled it out.
-const SEARCH_ENDPOINTS = ['/rest/api/3/search/jql', '/rest/api/3/search'];
+// IMPORTANT: only verified directly against `api.atlassian.com/ex/jira/{id}/...`
+// (the OAuth gateway a connected Atlassian session goes through) — NOT
+// against this file's actual request path, `{site}.atlassian.net/rest/api/...`
+// with Basic Auth. Those are different hosts/auth models; a newer endpoint
+// being confirmed on one doesn't guarantee it behaves the same on the other.
+// The classic `/rest/api/3/search` has been stable for direct-site
+// Basic-Auth access for years — try it FIRST, and treat an empty result
+// from any endpoint as reason to still try the next one (runSearch below),
+// not proof there's really nothing — an endpoint returning 200 with an
+// empty/differently-shaped result is indistinguishable from "genuinely no
+// matches" otherwise.
+const SEARCH_ENDPOINTS = ['/rest/api/3/search', '/rest/api/3/search/jql', '/rest/api/2/search'];
 
 // v3 returns description/comment bodies as ADF (JSON), not plain strings —
 // normalize to plain text right here, once, so every caller of runSearch
@@ -48,6 +53,7 @@ function normalizeIssue(issue) {
 
 async function runSearch(jql, maxResults) {
   let lastErr;
+  let bestEmptyResult = null; // an endpoint that responded OK but found nothing
   for (const endpoint of SEARCH_ENDPOINTS) {
     try {
       const res = await fetch(`${JIRA_SITE}${endpoint}`, {
@@ -64,11 +70,19 @@ async function runSearch(jql, maxResults) {
         continue;
       }
       const data = await res.json();
-      return (data.issues || []).map(normalizeIssue);
+      const issues = (data.issues || []).map(normalizeIssue);
+      if (issues.length) return issues;
+      // Responded OK but nothing came back — could be a real "no matches",
+      // or this specific endpoint quietly not working as expected for this
+      // auth/host combination. Remember it, but keep trying the remaining
+      // endpoints in case one of them actually finds something.
+      console.warn(`[jiraKtc] ${endpoint} returned 0 issues for: ${jql}`);
+      bestEmptyResult = issues;
     } catch (err) {
       lastErr = err;
     }
   }
+  if (bestEmptyResult) return bestEmptyResult;
   throw lastErr || new Error('Jira search failed');
 }
 
