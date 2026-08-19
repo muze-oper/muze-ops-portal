@@ -180,16 +180,24 @@ Users are printed numbers, not bar lengths - read them directly, no
 estimation involved (this is the one Crashlytics read that doesn't need the
 "never trust the chart line" caution). Output tab-separated rows matching
 the destination sheet's own columns exactly (see Step 4) - no header row,
-since the sheet already has one and rows just get appended below:
+since the sheet already has one and rows just get appended below. The
+sheet's header is `วันที่ตรวจ | ช่วงเวลาที่ตรวจสอบ | Platform | Filters |
+Issue | Versions | Events | Users` (changed 2026-08-19 - it used to be a
+single `Date Check` column; re-verify against the live sheet if this looks
+stale):
 
 ```
-19-Aug-26	Android TV	4.0.28,4.0.27,4.0.26	DataStoreModule.provideAead — android.security.KeyStoreException - Unknown error [Repetitive crashes]	4.0.6-tv – 4.0.27-tv	662	102
+19-Aug-26	13 Aug - 19 Aug	Android TV	4.0.28,4.0.27,4.0.26	DataStoreModule.provideAead — android.security.KeyStoreException - Unknown error [Repetitive crashes]	4.0.6-tv – 4.0.27-tv	626	96
 ```
 
-- **Date Check**: today's date in Bangkok, `DD-Mon-YY` (matches
+- **วันที่ตรวจ**: today's date in Bangkok, `DD-Mon-YY` (matches
   `formatBangkokShortDate()` in `routes/tvn.js`) - the screenshot itself
   never prints an "as of" date for the Issues table, so this is an
   assumption; say so and offer to use a different date if asked.
+- **ช่วงเวลาที่ตรวจสอบ**: read directly from the date-range control in the
+  top-right of the screenshot (e.g. "Last 7 days, Aug 13 – Aug 19"),
+  formatted as `13 Aug - 19 Aug` - not the Versions filter, not inferred,
+  copy what's actually shown there.
 - **Platform**: from Step 1 (version-suffix / app-picker method).
 - **Filters**: the platform's current Version to Monitor list as plain
   comma-separated numbers (e.g. `4.0.28,4.0.27,4.0.26`), matching the
@@ -252,11 +260,11 @@ before trusting it, since this input UI has already been redesigned twice):
   placeholder filled in place, otherwise a new row inserted after that
   platform's block), so re-running it doesn't overwrite prior days.
 - **Crashlytics Issues list -> the "Crashlytics Issue Log" sheet tab
-  directly** (same spreadsheet, gid `570219984`, header `Date Check |
-  Platform | Filters | Issue | Versions | Events | Users`) - there is
-  **no portal page for this yet**, unlike the other reads. Give the
-  tab-separated block from Step 3 and the human pastes it into that sheet
-  tab by hand, appended below whatever's already there.
+  directly** (same spreadsheet, gid `570219984`, header `วันที่ตรวจ |
+  ช่วงเวลาที่ตรวจสอบ | Platform | Filters | Issue | Versions | Events |
+  Users`) - there is **no portal page for this yet**, unlike the other
+  reads. Give the tab-separated block from Step 3 and the human pastes it
+  into that sheet tab by hand, appended below whatever's already there.
 
 The human still reviews what's in the table/paste box and clicks the
 existing Sync/ลงตาราง buttons themselves before anything is written.
