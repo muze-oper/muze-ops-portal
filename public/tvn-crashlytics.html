@@ -368,8 +368,7 @@ function populateCrTargetSelect() {
     .join('');
   document.getElementById('cr-target-platform').innerHTML = options;
   document.getElementById('cr-backfill-platform').innerHTML = options;
-  // cr-err-platform is populated separately by loadCrashlyticsErrors(),
-  // from the Crashlytics Issue Log sheet's own Platform column.
+  document.getElementById('cr-err-platform').innerHTML = options;
 }
 
 // Best-effort match against the App Releases platform names (which spell
@@ -678,26 +677,11 @@ async function syncCrBackfill() {
 // dropdown only decides which platform's block to insert into and, on
 // paste, gets auto-filled FROM the rows' own Platform field.
 //
-// Platform options come from the "Crashlytics Issue Log" sheet's own
-// Platform column (not the fixed CR_PLATFORM_OPTIONS list the other two
-// Crashlytics tracks use) - that sheet has its own idea of which platforms
-// exist, spelling included ("android Mobile", not "Android Mobile"), so
-// it's read fresh via /api/tvn/crashlytics-errors rather than assumed. ----
-let crErrPlatforms = [];
-
-async function loadCrashlyticsErrors() {
-  const select = document.getElementById('cr-err-platform');
-  try {
-    const data = await fetchJson('/api/tvn/crashlytics-errors');
-    crErrPlatforms = (data.blocks || []).map(b => b.platform);
-    select.innerHTML = '<option value="">— เลือก platform —</option>' + crErrPlatforms
-      .map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`)
-      .join('');
-  } catch (err) {
-    select.innerHTML = '<option value="">โหลด platform ไม่สำเร็จ</option>';
-    document.getElementById('cr-err-result').textContent = 'Error: ' + err.message;
-  }
-}
+// Platform options are the same fixed CR_PLATFORM_OPTIONS list the other
+// two Crashlytics tracks use, in canonical casing - the sheet's own
+// Platform column spells some of these differently ("android TV", not
+// "Android TV"), so matching against the fixed list is what normalizes a
+// pasted row's casing to what the dropdown shows. ----
 
 function setCrErrPlatformAutofilled(on) {
   document.getElementById('cr-err-platform').classList.toggle('autofilled', !!on);
@@ -720,7 +704,7 @@ function parseCrErrLine(line) {
 function applyCrErrPlatformHint(entries) {
   const hinted = entries.map(e => e.platform).find(Boolean);
   if (!hinted) return null;
-  const match = crErrPlatforms.find(p => p.toLowerCase() === hinted.toLowerCase());
+  const match = CR_PLATFORM_OPTIONS.find(p => p.toLowerCase() === hinted.toLowerCase());
   const select = document.getElementById('cr-err-platform');
   if (match) {
     select.value = match;
@@ -745,7 +729,7 @@ function parseCrErrPasted() {
   const note = document.getElementById('cr-err-parse-note');
   const notes = [];
   if (platformHint) {
-    notes.push(crErrPlatforms.some(p => p.toLowerCase() === platformHint.toLowerCase())
+    notes.push(CR_PLATFORM_OPTIONS.some(p => p.toLowerCase() === platformHint.toLowerCase())
       ? `เลือก Platform เป็น "${platformHint}" จากค่าที่เจอในแถว`
       : `แถวระบุ Platform "${platformHint}" ซึ่งไม่ตรงกับตัวเลือกใด - เลือกเองด้านล่าง`);
   }
@@ -828,7 +812,6 @@ async function syncCrErr() {
 
 loadStep0();
 loadCrashlyticsForm();
-loadCrashlyticsErrors();
 </script>
 </body>
 </html>
