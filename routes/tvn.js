@@ -674,17 +674,21 @@ router.post('/api/tvn/crashlytics-errors/record', async (req, res) => {
       return res.status(400).json({ error: `${platformName}: รับได้สูงสุด ${CRASHLYTICS_ERR_MAX_ROWS_PER_SYNC} แถวต่อครั้ง (ส่งมา ${list.length})` });
     }
 
-    const date = String(dateLabel || '').trim() || formatBangkokWeekdayLabel();
-    const filtersValue = filter || block.filters || '';
+    const defaultDate = String(dateLabel || '').trim() || formatBangkokWeekdayLabel();
+    const defaultFilters = filter || block.filters || '';
 
     await insertSheetRows(SHEET_ID, CRASHLYTICS_ERR_SHEET_GID, block.startRow, list.length);
 
-    // Date Check and Platform go on every row - Platform is what groups the
-    // rows into a block, so a row missing it would split the platform's run.
+    // Each row writes its own Date Check/Platform/Filters if the table
+    // carried one (the paste format includes all 7 sheet columns, editable
+    // before sync - what's in the table is what gets written), falling
+    // back to the batch-level default only when a row left one blank.
+    // Platform is what groups the rows into a block, so a row missing it
+    // falls back to the block's own platform rather than staying empty.
     const grid = list.map(e => [
-      date,
-      block.platform,
-      filtersValue,
+      String(e.date || '').trim() || defaultDate,
+      String(e.platform || '').trim() || block.platform,
+      String(e.filters || '').trim() || defaultFilters,
       String(e.issue || '').trim(),
       String(e.versions || '').trim(),
       String(e.events || '').trim(),
@@ -694,7 +698,7 @@ router.post('/api/tvn/crashlytics-errors/record', async (req, res) => {
     const endRow = block.startRow + list.length - 1;
     await updateSheetGrid(SHEET_ID, `'${title}'!A${block.startRow}:${lastCol}${endRow}`, grid);
 
-    res.json({ result: `${block.platform}: แทรก ${list.length} issue วันที่ ${date} ที่แถว ${block.startRow}-${endRow} (ของเดิมเลื่อนลง)` });
+    res.json({ result: `${block.platform}: แทรก ${list.length} issue ที่แถว ${block.startRow}-${endRow} (ของเดิมเลื่อนลง)` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
