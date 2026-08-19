@@ -31,13 +31,13 @@
 
   <div class="view-switch-row">
     <div class="view-toggle" role="tablist" aria-label="สลับหน้า">
-      <button id="tab-input" class="active" onclick="switchTvnView('input')">✍️ ใส่ข้อมูลใหม่</button>
-      <button id="tab-dash" onclick="switchTvnView('dash')">📊 Dashboard</button>
+      <button id="tab-input" onclick="switchTvnView('input')">✍️ ใส่ข้อมูลใหม่</button>
+      <button id="tab-dash" class="active" onclick="switchTvnView('dash')">📊 Dashboard</button>
     </div>
     <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=1338052572#gid=1338052572" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
   </div>
 
-  <section class="block" id="view-input">
+  <section class="block" id="view-input" hidden>
     <div class="card">
       <div class="steps">
         <div class="step">
@@ -126,12 +126,12 @@
           <div class="tec-paste-col">
             <label class="field-label" for="tec-platform">Platform ที่จะเขียนลงชีต</label>
             <div class="field-row" style="margin-top:2px;">
-              <select id="tec-platform" onchange="onTecPlatformChange(true)"><option value="">กำลังโหลด...</option></select>
+              <select id="tec-platform" onchange="onTecPlatformChange(true); maybeAutoParseTec();"><option value="">กำลังโหลด...</option></select>
               <span id="tec-platform-source" class="platform-source"></span>
             </div>
             <div class="field-row" style="margin-top:8px;">
               <label class="field-label" for="tec-date">Date</label>
-              <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug">
+              <input class="date-cell-input" id="tec-date" placeholder="เช่น Thu-14-Aug" oninput="maybeAutoParseTec()">
             </div>
             <div id="tec-filters-preview" class="hint" style="margin-top:8px;"></div>
           </div>
@@ -141,9 +141,8 @@
           <div class="tec-btn-col">
             <div class="step">
               <span class="step-no">Step 5</span>
-              <span class="step-text">กด <strong>แยกลงตาราง</strong> → ตรวจค่าในตาราง + Date → กด <strong>Sync to Google Sheet</strong></span>
+              <span class="step-text">พอ Platform + Date ครบ ตารางจะขึ้นเอง → ตรวจค่าในตาราง → กด <strong>Sync to Google Sheet</strong></span>
             </div>
-            <button class="btn-ghost" id="tec-parse-btn" onclick="parseTecPasted()">✂️ แยกลงตาราง</button>
             <button class="btn-primary" id="tec-sync-btn" onclick="syncTopErrorCodes()">🔄 Sync to Google Sheet</button>
             <button class="btn-ghost" id="tec-clear-btn" onclick="clearTecRows()">ล้างตาราง</button>
             <button class="btn-ghost" id="copy-error-codes-btn" onclick="copyElementAsImage('error-codes-export-panel','error-codes-result','copy-error-codes-btn')">📋 Copy เป็นรูปภาพ</button>
@@ -161,8 +160,8 @@
     </div>
   </section>
 
-  <section class="block" id="view-dash" hidden>
-    <div class="block-head"><h2 class="h">BITMOVIN Error Sessions ต่อชั่วโมง</h2><div class="rule"></div></div>
+  <section class="block" id="view-dash">
+    <div class="block-head"><h2 class="h">BITMOVIN % Error Session in 24 hours</h2><div class="rule"></div></div>
     <div class="card">
       <div class="toolbar">
         <button class="btn-ghost" id="hourly-refresh-btn" onclick="loadHourlyTable()">🔄 รีเฟรชข้อมูล</button>
@@ -587,9 +586,14 @@ function renderHourlyTable() {
 
   const dash = '<span style="color:var(--ink-faint)">—</span>';
 
+  // "Mon-17-Aug" -> "Mon.17" - the month is dropped here; the Platform
+  // column already carries the full date, so this just needs enough to tell
+  // two rows' peak hours apart at a glance.
+  const shortCompactDate = (label) => String(label || '').split('-').slice(0, 2).join('.');
+
   // Peak Time is a clock reading, not a percentage - it keeps the sheet's own
   // "16.00" form rather than being run through formatPct.
-  const timeCell = (v, date) => `<td class="col-stat col-time">${v ? `<span class="time-value">${escapeHtml(v)}</span><span class="time-date">${escapeHtml(compactDate(date))}</span>` : dash}</td>`;
+  const timeCell = (v, date) => `<td class="col-stat col-time">${v ? `<span class="time-value">${escapeHtml(v)}</span><span class="time-date">${escapeHtml(shortCompactDate(date))}</span>` : dash}</td>`;
 
   // Peak is the day's worst hour, so it gets the critical colour outright -
   // a fixed colour rather than Avg's scaled one, since "this is the maximum"
@@ -625,22 +629,53 @@ function renderHourlyTable() {
     </tr>`;
   }).join('');
 
+  // Hours run 10.00->24.00 then wrap to 1.00->9.00, crossing midnight into
+  // the next calendar day - "D" / "D+1" rather than a real date, mirroring
+  // the same relative labels the sheet's own header row (D1:AA1) now uses
+  // for the same reason: no row here has a single date of its own, since a
+  // day's hours split across two sheet dates.
+  const rolloverIdx = hourlyTableColumns.indexOf('1.00');
+  const daygroupClass = (i) => (rolloverIdx !== -1 && i >= rolloverIdx ? 'daygroup-next' : 'daygroup-cur');
+
   // Label every 3rd hour only - 24 labels don't fit without colliding. The
   // offset lands them on 12.00/15.00/18.00/21.00/24.00/3.00/6.00/9.00, and
   // the hour column is now wide enough (at its own smaller font) for "12.00"
   // to sit on one line entirely inside its own cell. That matters beyond
   // looks: a label that overflowed into neighbouring columns got clipped when
-  // the table was captured as an export image.
+  // the table was captured as an export image. Each hour cell also carries
+  // its D/D+1 group as a background tint, not just the label row above it -
+  // the two rows read as one coloured block per group instead of a label
+  // floating disconnected from the hours it describes.
   const headHours = hourlyTableColumns
-    .map((h, i) => `<th class="col-hour">${i % HOUR_LABEL_EVERY === HOUR_LABEL_OFFSET ? escapeHtml(h) : ''}</th>`)
+    .map((h, i) => `<th class="col-hour ${daygroupClass(i)}">${i % HOUR_LABEL_EVERY === HOUR_LABEL_OFFSET ? escapeHtml(h) : ''}</th>`)
     .join('');
+
+  const daygroupRow = rolloverIdx === -1 ? '' : `<tr class="daygroup-row">
+        <th class="col-id" colspan="2"></th>
+        <th class="peak-group" colspan="2">PEAK</th>
+        <th class="daygroup daygroup-cur" colspan="${rolloverIdx}">D · 10.00-24.00</th>
+        <th class="daygroup daygroup-next" colspan="${hourlyTableColumns.length - rolloverIdx}">D+1 · 1.00-9.00</th>
+      </tr>`;
+
+  // Fixed-layout column widths have to come from a colgroup once the header
+  // has a colspan row in it - table-layout:fixed otherwise sizes columns off
+  // whichever row it reads first, which would ignore col-id/col-stat/col-hour's
+  // own widths the moment that row's cells are span-merged.
+  const colgroup = `<colgroup>
+        <col style="width:86px"><col style="width:42px"><col style="width:42px"><col style="width:58px">
+        ${hourlyTableColumns.map(() => '<col style="width:32px">').join('')}
+      </colgroup>`;
 
   body.innerHTML = `
     ${heatLegendHtml()}
     <div id="hourly-export-panel" style="overflow-x:auto;background:var(--surface);">
-      <div class="export-head"><span class="export-title">BITMOVIN Error Session in 24 hours</span></div>
+      <div class="export-head"><span class="export-title">BITMOVIN % Error Session in 24 hours</span></div>
       <table class="data hourly-heatmap">
-        <thead><tr><th class="col-id"><span class="id-platform">Platform</span><span class="id-date">Date</span></th><th class="col-stat col-avg">Avg</th><th class="col-stat col-peak">Peak</th><th class="col-stat col-time">Time</th>${headHours}</tr></thead>
+        ${colgroup}
+        <thead>
+          ${daygroupRow}
+          <tr><th class="col-id"><span class="id-platform">Platform</span><span class="id-date">Date</span></th><th class="col-stat col-avg">Avg</th><th class="col-stat col-peak">%</th><th class="col-stat col-time"><span class="time-value">Time</span><span class="time-date">Date</span></th>${headHours}</tr>
+        </thead>
         <tbody>${rowsHtml}</tbody>
       </table>
       ${hourlySummaryHtml(platforms)}
@@ -960,6 +995,16 @@ function parseTecPasted() {
   renderTecRows(parsed, Math.max(TEC_DEFAULT_ROWS, parsed.length));
 }
 
+// Replaces the old "แยกลงตาราง" button - once Platform and Date are both
+// filled (by auto-detection or by hand) and there's pasted text to read, the
+// table fills itself instead of waiting for a manual click.
+function maybeAutoParseTec() {
+  const platform = document.getElementById('tec-platform').value;
+  const date = document.getElementById('tec-date').value.trim();
+  const text = document.getElementById('tec-paste-input').value.trim();
+  if (platform && date && text) parseTecPasted();
+}
+
 function readTecRows() {
   return [...document.querySelectorAll('#error-codes-table-body tr')].map(tr => ({
     playerVersion: (tr.querySelector('.tec-version') || {}).value || '',
@@ -1024,6 +1069,7 @@ document.getElementById('tec-paste-input').addEventListener('input', () => {
   applyPlatformHintFromText(text);
   const dateInput = document.getElementById('tec-date');
   if (text.trim() && !dateInput.value) dateInput.value = todayBangkokLabel();
+  maybeAutoParseTec();
 });
 
 function toSessions(v) {

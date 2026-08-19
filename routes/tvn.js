@@ -2,7 +2,7 @@ const router = require('express').Router();
 const path = require('path');
 const {
   fetchSheetRows, resolveSheetTitleByGid, updateSheetRow, updateSheetGrid,
-  insertSheetRows,
+  insertSheetRows, setCellBackgrounds,
 } = require('../storage/googleSheets');
 const { readValueFromScreenshot } = require('../lib/anthropicVision');
 
@@ -306,6 +306,10 @@ const HOUR_COLUMNS = [
   '10.00', '11.00', '12.00', '13.00', '14.00', '15.00', '16.00', '17.00', '18.00', '19.00', '20.00',
   '21.00', '22.00', '23.00', '24.00', '1.00', '2.00', '3.00', '4.00', '5.00', '6.00', '7.00', '8.00', '9.00',
 ];
+// Marks an hour cell that the sync had no data for, so a blank cell (nothing
+// synced yet) reads differently from one the sheet's own formulas or a human
+// left empty on purpose.
+const NO_SYNC_DATA_COLOR = { red: 0.788, green: 0.855, blue: 0.973 }; // #c9daf8
 const HOURLY_FILTERS_COL_IDX = 0; // column A
 const HOURLY_PLATFORM_COL_IDX = 1; // column B
 const HOURLY_DATE_COL_IDX = 2; // column C
@@ -403,7 +407,12 @@ router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
     await insertSheetRows(SHEET_ID, HOURLY_SHEET_GID, rowNum, 1, [HOURLY_AVERAGE_COL_IDX, HOURLY_PEAK_TIME_COL_IDX + 1]);
 
     // The row is brand new, so hours the CSV didn't cover stay blank - there
-    // is no previous value on this row to preserve.
+    // is no previous value on this row to preserve. Built by walking
+    // HOUR_COLUMNS and looking each one up in `values`, not the other way
+    // around - any key in `values` that isn't exactly one of these 24 hour
+    // labels (a typo, a stale format, a client-side bug) is never read and
+    // so never written anywhere: it's flushed rather than risking a write to
+    // the wrong column.
     let updatedCount = 0;
     const merged = HOUR_COLUMNS.map(label => {
       const provided = values ? values[label] : undefined;
@@ -427,6 +436,27 @@ router.post('/api/tvn/error-sessions-hourly/record', async (req, res) => {
       date,
     ]);
     await updateSheetRow(SHEET_ID, `'${title}'!${firstColLetter}${rowNum}:${lastColLetter}${rowNum}`, merged);
+
+    // The inserted row starts out blank, but insertSheetRows pulls its cell
+    // formatting from the platform's previous top row (now pushed down one
+    // row) - which may itself be colored blue from an earlier sync's gaps.
+    // Every hour cell is set explicitly here, not just the blank ones, so
+    // none of that stale color survives onto an hour this sync did fill.
+    const rowIndex0 = rowNum - 1;
+    await setCellBackgrounds(SHEET_ID, HOURLY_SHEET_GID, merged.map((v, i) => ({
+      row: rowIndex0,
+      col: HOURLY_FIRST_HOUR_COL_IDX + i,
+      color: v ? null : NO_SYNC_DATA_COLOR,
+    })));
+
+    // Row 1 is never touched by a sync: the sheet's own "Peak Time" formula
+    // is `=INDEX($D$1:$Y$1, MATCH(MAX(...), ..., 0))` - it reads the hour
+    // label straight out of this row, so anything beyond the bare "10.00"
+    // style label (a D/D+1 prefix, a date, a newline) corrupts every
+    // platform's Peak Time into that same garbled text. The D/D+1 grouping
+    // shown on the Dashboard is rendered client-side from this route's own
+    // `hourColumns` list, not from row 1's cell contents, so it doesn't need
+    // row 1 to hold anything beyond the plain hour labels it started with.
 
     res.json({ result: `${platform}: แทรกแถวใหม่ ${date} ที่แถว ${rowNum} (ของเดิมเลื่อนลง) — ${updatedCount} ช่วงเวลา` });
   } catch (err) {
@@ -548,19 +578,24 @@ router.post('/api/tvn/top-error-codes/record', async (req, res) => {
   }
 });
 
-// --- Firebase Crashlytics "Crashlytics Error" tab: Top Issues list, laid
-// out exactly like the BitMovin Top Error Codes tab above - one block of
-// consecutive rows per platform, Filters (A) + Platform (B) established per
-// block, this only ever inserts new rows at the top of a block (newest
-// snapshot first), never rewrites/removes what's already there. Columns
-// line up 1:1 with what Firebase's own issue list table shows (Issue,
-// Versions, Trend, Events, Users), so a row copy-pasted straight out of
-// that UI lands as tab-separated fields in the same order.
+// --- Firebase Crashlytics "Crashlytics Issue Log" tab: Top Issues list,
+// grouped exactly like the BitMovin Top Error Codes tab above - one block
+// of consecutive rows per platform, this only ever inserts new rows at the
+// top of a block (newest snapshot first), never rewrites/removes what's
+// already there. Column order/count has already drifted twice (originally
+// Filters/Platform/Date Check/Issue/Versions/Trends/Events/Users; then
+// Trends dropped and Date Check/Platform moved to the front; now a new
+// "ช่วงเวลาที่ตรวจสอบ" column has been inserted after the date), so
+// columns are read by their own fixed index here rather than assumed from
+// Firebase's UI order - re-check against the live sheet before trusting
+// this if it looks stale.
 const CRASHLYTICS_ERR_SHEET_GID = 570219984;
-const CRASHLYTICS_ERR_FILTERS_COL_IDX = 0; // column A
-const CRASHLYTICS_ERR_PLATFORM_COL_IDX = 1; // column B
-const CRASHLYTICS_ERR_DATE_COL_IDX = 2; // column C - first of the six written columns (C:H)
-const CRASHLYTICS_ERR_WRITE_COLS = 6; // Date Check, Issue, Versions, Trends, Events, Users
+const CRASHLYTICS_ERR_DATE_COL_IDX = 0; // column A - "วันที่ตรวจ"
+const CRASHLYTICS_ERR_PERIOD_COL_IDX = 1; // column B - "ช่วงเวลาที่ตรวจสอบ"
+const CRASHLYTICS_ERR_PLATFORM_COL_IDX = 2; // column C
+const CRASHLYTICS_ERR_FILTERS_COL_IDX = 3; // column D
+const CRASHLYTICS_ERR_ISSUE_COL_IDX = 4; // column E - first of the four written data columns (E:H)
+const CRASHLYTICS_ERR_WRITE_COLS = 4; // Issue, Versions, Events, Users
 
 async function fetchCrashlyticsErrorsTitleAndRows() {
   const title = await resolveSheetTitleByGid(SHEET_ID, CRASHLYTICS_ERR_SHEET_GID);
@@ -571,11 +606,11 @@ async function fetchCrashlyticsErrorsTitleAndRows() {
 function readCrashlyticsErrorEntry(row) {
   return {
     date: row[CRASHLYTICS_ERR_DATE_COL_IDX] || '',
-    issue: row[CRASHLYTICS_ERR_DATE_COL_IDX + 1] || '',
-    versions: row[CRASHLYTICS_ERR_DATE_COL_IDX + 2] || '',
-    trend: row[CRASHLYTICS_ERR_DATE_COL_IDX + 3] || '',
-    events: row[CRASHLYTICS_ERR_DATE_COL_IDX + 4] || '',
-    users: row[CRASHLYTICS_ERR_DATE_COL_IDX + 5] || '',
+    period: row[CRASHLYTICS_ERR_PERIOD_COL_IDX] || '',
+    issue: row[CRASHLYTICS_ERR_ISSUE_COL_IDX] || '',
+    versions: row[CRASHLYTICS_ERR_ISSUE_COL_IDX + 1] || '',
+    events: row[CRASHLYTICS_ERR_ISSUE_COL_IDX + 2] || '',
+    users: row[CRASHLYTICS_ERR_ISSUE_COL_IDX + 3] || '',
   };
 }
 
@@ -642,28 +677,32 @@ router.post('/api/tvn/crashlytics-errors/record', async (req, res) => {
       return res.status(400).json({ error: `${platformName}: รับได้สูงสุด ${CRASHLYTICS_ERR_MAX_ROWS_PER_SYNC} แถวต่อครั้ง (ส่งมา ${list.length})` });
     }
 
-    const date = String(dateLabel || '').trim() || formatBangkokWeekdayLabel();
-    const filtersValue = filter || block.filters || '';
+    const defaultDate = String(dateLabel || '').trim() || formatBangkokWeekdayLabel();
+    const defaultFilters = filter || block.filters || '';
 
     await insertSheetRows(SHEET_ID, CRASHLYTICS_ERR_SHEET_GID, block.startRow, list.length);
 
-    // Filters and Platform go on every row - they're what groups the rows
-    // into a block, so a row missing them would split the platform's run.
+    // Each row writes its own Date/Period/Platform/Filters if the table
+    // carried one (the paste format includes all 8 sheet columns, editable
+    // before sync - what's in the table is what gets written), falling
+    // back to the batch-level default only when a row left one blank.
+    // Platform is what groups the rows into a block, so a row missing it
+    // falls back to the block's own platform rather than staying empty.
     const grid = list.map(e => [
-      filtersValue,
-      block.platform,
-      date,
+      String(e.date || '').trim() || defaultDate,
+      String(e.period || '').trim(),
+      String(e.platform || '').trim() || block.platform,
+      String(e.filters || '').trim() || defaultFilters,
       String(e.issue || '').trim(),
       String(e.versions || '').trim(),
-      String(e.trend || '').trim(),
       String(e.events || '').trim(),
       String(e.users || '').trim(),
     ]);
-    const lastCol = colLetter(CRASHLYTICS_ERR_DATE_COL_IDX + CRASHLYTICS_ERR_WRITE_COLS - 1);
+    const lastCol = colLetter(CRASHLYTICS_ERR_ISSUE_COL_IDX + CRASHLYTICS_ERR_WRITE_COLS - 1);
     const endRow = block.startRow + list.length - 1;
     await updateSheetGrid(SHEET_ID, `'${title}'!A${block.startRow}:${lastCol}${endRow}`, grid);
 
-    res.json({ result: `${block.platform}: แทรก ${list.length} issue วันที่ ${date} ที่แถว ${block.startRow}-${endRow} (ของเดิมเลื่อนลง)` });
+    res.json({ result: `${block.platform}: แทรก ${list.length} issue ที่แถว ${block.startRow}-${endRow} (ของเดิมเลื่อนลง)` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

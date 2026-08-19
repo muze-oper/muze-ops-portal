@@ -121,11 +121,27 @@ async function loadLatestPerPlatform() {
     });
 }
 
+// Scanning every tab costs ~1 read per tab (36+ of them) - without a cache,
+// every page load (Step 0, the Version to Monitor tables, and the
+// standalone /app-releases page all hit this same endpoint) burns through
+// Sheets API's per-minute read quota within a few reloads, which is exactly
+// what happened in practice ("Quota exceeded ... Read requests per minute
+// per user"). 6h since the CAB deploy tracker sheet itself is edited
+// rarely - the Refresh button's ?refresh=1 bypass covers anyone who needs
+// this sooner than that.
+const CACHE_MS = 6 * 60 * 60 * 1000;
+let cache = { data: null, lastUpdated: 0 };
+
 router.get('/api/app-releases', async (req, res) => {
   if (!SHEET_ID) return res.status(500).json({ error: 'APP_RELEASES_SHEET_ID is not configured' });
   try {
-    const platforms = await loadLatestPerPlatform();
-    res.json({ platforms, lastUpdated: new Date().toISOString() });
+    const forceRefresh = req.query.refresh === '1';
+    if (forceRefresh || !cache.data || (Date.now() - cache.lastUpdated) > CACHE_MS) {
+      const platforms = await loadLatestPerPlatform();
+      cache.data = { platforms, lastUpdated: new Date().toISOString() };
+      cache.lastUpdated = Date.now();
+    }
+    res.json(cache.data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

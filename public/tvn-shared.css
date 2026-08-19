@@ -166,9 +166,15 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 .hourly-heatmap td.col-stat { white-space: nowrap; }
 .hourly-heatmap .col-time { width: 58px; }
 /* Time stacks with its date the same way Platform stacks with its date -
-   the two are one reading, so they share the same two-line treatment. */
+   the two are one reading, so they share the same two-line treatment. The
+   header reuses these same two classes with "Time" / "Date" as the labels,
+   same as Platform's header reuses id-platform/id-date for its own labels. */
 .hourly-heatmap .time-value { display: block; font-family: var(--font-sans); font-size: 9px; font-weight: 600; color: var(--ink); white-space: nowrap; }
 .hourly-heatmap .time-date { display: block; font-family: var(--font-mono); font-size: 8.5px; color: var(--info); font-weight: 600; white-space: nowrap; }
+/* Peak and Time are one reading (a value and when it happened), so a single
+   "PEAK" label spans both columns at the same level as "D" / "D+1" - the row
+   below it then splits into each column's own unit ("%" / "Time"+"Date"). */
+.hourly-heatmap .peak-group { font-size: 9.5px; font-weight: 800; letter-spacing: 0.03em; color: var(--ink-dim); }
 /* Peak is the day's maximum - a fixed critical colour, not a point on the
    ramp, so it never reads as "just another value". */
 .hourly-heatmap td.col-peak { color: var(--critical); font-weight: 700; }
@@ -181,6 +187,20 @@ table.data td:first-child { font-family: var(--font-sans); font-variant-numeric:
 /* Avg is coloured on the same scale as the hours, so without a break it reads
    as just another hour cell - this gap separates the summary block. */
 .hourly-heatmap .col-avg { border-right: 6px solid var(--surface); }
+
+/* The two halves of the day (before/after midnight) get their own labelled
+   row above the hour header - "D" / "D+1" rather than a real date, since one
+   row here can span two different sheet dates. Each half also tints the hour
+   cells directly below its label the same colour, so the label row and the
+   hour row it describes read as one block per group instead of a thin
+   border being the only thing marking where the day rolls over. */
+.hourly-heatmap .daygroup-row th { border-top: none; padding-top: 3px; padding-bottom: 3px; }
+.hourly-heatmap .daygroup { font-size: 9.5px; font-weight: 800; letter-spacing: 0.03em; }
+.hourly-heatmap .daygroup-cur { color: var(--info-ink); background: var(--info-soft); }
+.hourly-heatmap .daygroup-next { color: var(--warn); background: var(--warn-soft); }
+.hourly-heatmap th.col-hour.daygroup-cur { background: var(--info-soft); }
+.hourly-heatmap th.col-hour.daygroup-next { background: var(--warn-soft); }
+.hourly-heatmap .daygroup-cur + .daygroup-next { border-left: 1px solid var(--border); }
 
 .cell-input, .date-cell-input {
   font-family: var(--font-mono); font-size: 12.5px; padding: 5px 7px; border: 1px solid var(--border);

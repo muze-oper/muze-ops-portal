@@ -34,6 +34,15 @@
     #cr-table td:first-child, #cr-table th:first-child { text-align: left; }
     #cr-table td:nth-child(3), #cr-table th:nth-child(3) { text-align: left; }
     #cr-table td:last-child, #cr-table th:last-child { text-align: left; font-size: 11.5px; color: var(--ink-dim); }
+
+    /* 7 columns (Date Check/Platform/Filters/Issue/Versions/Events/Users) has
+       to fit the card width with no horizontal scroll - table-layout:fixed
+       makes the colgroup widths binding, and every cell shrinks its font
+       and wraps instead of overflowing sideways. */
+    .cr-err-table { table-layout: fixed; width: 100%; }
+    .cr-err-table th, .cr-err-table td { padding: 3px 5px; font-size: 10.5px; overflow-wrap: break-word; }
+    .cr-err-table th:nth-child(n+7), .cr-err-table td:nth-child(n+7) { text-align: center; }
+    .cr-err-table input { width: 100%; box-sizing: border-box; font-size: 10.5px; padding: 3px 5px; }
   </style>
 </head>
 <body>
@@ -59,12 +68,12 @@
 
   <div class="view-switch-row">
     <div class="view-toggle" role="tablist" aria-label="สลับหน้า">
-      <button id="cr-tab-input" class="active" onclick="switchCrashView('input')">✍️ ใส่ข้อมูลใหม่</button>
-      <button id="cr-tab-dash" onclick="switchCrashView('dash')">📊 Dashboard</button>
+      <button id="cr-tab-input" onclick="switchCrashView('input')">✍️ ใส่ข้อมูลใหม่</button>
+      <button id="cr-tab-dash" class="active" onclick="switchCrashView('dash')">📊 Dashboard</button>
     </div>
   </div>
 
-  <section class="block" id="cr-view-input">
+  <section class="block" id="cr-view-input" hidden>
     <div class="card">
       <div class="step1-intro">
         <div class="step1-intro-image">
@@ -100,47 +109,49 @@
       </div>
     </div>
 
-    <div class="block-head"><h2 class="h">บันทึก Crashlytics Top Issues</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">Crashlytics Issues</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">คัดลอกแถวจากตาราง Issues ในหน้า Firebase Crashlytics (Issue / Versions / Trend / Events / Users) มาวางได้ตรงๆ — บรรทัดแรกใส่ <code>Platform: ชื่อ platform</code> เพื่อเลือก platform ให้อัตโนมัติ</div>
+      <div class="hint">วางแถวที่มี 8 field คั่นด้วย Tab เรียงตามหัวตารางของชีต: <code>วันที่ตรวจ, ช่วงเวลาที่ตรวจสอบ, Platform, Filters, Issue, Versions, Events, Users</code> — Platform จะถูกเลือกให้อัตโนมัติจากค่าที่เจอในแถว</div>
 
-      <div class="tec-paste-row" style="margin-top:12px;">
-        <div class="tec-paste-col">
-          <div class="step"><span class="step-no">Step 1</span><span class="step-text">วาง 1 บรรทัดต่อ 1 issue</span></div>
-          <textarea id="cr-err-paste" class="paste-input" oninput="parseCrErrPasted()"></textarea>
-          <div id="cr-err-parse-note" class="result-text"></div>
-          <div class="table-actions">
-            <button class="btn-ghost" onclick="clearCrErrPaste()">🧹 ล้างข้อความที่วาง</button>
-          </div>
-        </div>
-
-        <div class="tec-paste-col">
-          <div class="step"><span class="step-no">Step 2</span><span class="step-text">เลือก Platform + ตรวจค่าที่แยกได้ในตาราง แก้ไขได้ก่อน sync</span></div>
-          <div class="field-row" style="margin:8px 0;">
-            <label class="field-label" for="cr-err-platform">Platform</label>
-            <select id="cr-err-platform" onchange="onCrErrPlatformChange(true)"><option value="">— เลือก platform —</option></select>
-          </div>
-          <div style="overflow-x:auto;">
-            <table class="data" id="cr-err-table">
-              <thead><tr><th style="text-align:left;">Issue</th><th style="text-align:left;">Versions</th><th style="text-align:left;">Trend</th><th>Events</th><th>Users</th></tr></thead>
-              <tbody id="cr-err-table-body"><tr><td colspan="5" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr></tbody>
-            </table>
-          </div>
-        </div>
+      <div class="step" style="margin:12px 0 6px;">
+        <span class="step-no">Step 1</span>
+        <span class="step-text">วาง 1 บรรทัดต่อ 1 issue</span>
+      </div>
+      <textarea id="cr-err-paste" class="paste-input" oninput="parseCrErrPasted()"></textarea>
+      <div id="cr-err-parse-note" class="result-text"></div>
+      <div class="table-actions">
+        <button class="btn-ghost" onclick="clearCrErrPaste()">🧹 ล้างข้อความที่วาง</button>
       </div>
 
-      <div class="step" style="margin-bottom:8px;">
+      <div class="step" style="margin:16px 0 6px;">
+        <span class="step-no">Step 2</span>
+        <span class="step-text">เลือก Platform + ตรวจค่าที่แยกได้ในตาราง แก้ไขได้ก่อน sync</span>
+      </div>
+      <div class="field-row" style="margin-bottom:8px;">
+        <label class="field-label" for="cr-err-platform">Platform</label>
+        <select id="cr-err-platform" onchange="onCrErrPlatformChange(true)"><option value="">— เลือก platform —</option></select>
+      </div>
+      <table class="data cr-err-table" id="cr-err-table">
+        <colgroup>
+          <col style="width:6%"><col style="width:9%"><col style="width:7%"><col style="width:10%">
+          <col style="width:34%"><col style="width:18%"><col style="width:8%"><col style="width:8%">
+        </colgroup>
+        <thead><tr><th style="text-align:left;">วันที่ตรวจ</th><th style="text-align:left;">ช่วงเวลาที่ตรวจสอบ</th><th style="text-align:left;">Platform</th><th style="text-align:left;">Filters</th><th style="text-align:left;">Issue</th><th style="text-align:left;">Versions</th><th>Events</th><th>Users</th></tr></thead>
+        <tbody id="cr-err-table-body"><tr><td colspan="8" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr></tbody>
+      </table>
+
+      <div class="step" style="margin:16px 0 8px;">
         <span class="step-no">Step 3</span>
         <span class="step-text">กด Sync — แทรกไว้บนสุดของ platform นั้น ของเดิมเลื่อนลง ไม่มีอะไรถูกลบ</span>
       </div>
       <div class="toolbar">
-        <button class="btn-primary" id="cr-err-sync-btn" onclick="syncCrErr()">🔄 Sync Top Issues เข้าชีต</button>
+        <button class="btn-primary" id="cr-err-sync-btn" onclick="syncCrErr()">🔄 Sync Crashlytics Issues เข้าชีต</button>
         <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=570219984#gid=570219984" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
       </div>
       <div id="cr-err-result" class="result-text"></div>
     </div>
 
-    <div class="block-head"><h2 class="h">Backfill ย้อนหลัง</h2><div class="rule"></div></div>
+    <div class="block-head"><h2 class="h">Crash-free users</h2><div class="rule"></div></div>
     <div class="card">
       <div class="hint">สำหรับใส่ข้อมูลหลายวันย้อนหลังทีเดียว (เช่น export/summary ที่มีหลายวันในหน้าเดียว) — เลือก platform เดียวต่อครั้ง วางข้อความ 1 บรรทัดต่อ 1 วัน รูปแบบ <code>เดือน วันที่  ค่า%</code> เช่น <code>Aug 11  99.92</code></div>
 
@@ -215,14 +226,14 @@
     </div>
   </section>
 
-  <section class="block" id="cr-view-dash" hidden>
+  <section class="block" id="cr-view-dash">
     <div class="block-head"><h2 class="h">Deploy Tag ล่าสุด</h2><div class="rule"></div></div>
     <div class="card">
       <div class="step0-layout">
         <div class="step0-info">
           <div class="hint">เวอร์ชันล่าสุดของแต่ละ platform จาก Deploy Tag ในชีต CAB Deploy Tracker (ทุกแท็บ)</div>
           <div class="toolbar">
-            <button class="btn-ghost" onclick="loadStep0()">🔄 Refresh</button>
+            <button class="btn-ghost" onclick="loadStep0(true)">🔄 Refresh</button>
           </div>
           <span class="last-updated" id="step0-updated"></span>
           <div class="sheet-link-row">
@@ -250,11 +261,11 @@ function switchCrashView(view) {
 // with version history) both read the same Apps Releases data, so one fetch
 // feeds both renderers instead of hitting the API twice on load/refresh.
 let appReleasesPlatforms = [];
-async function loadStep0() {
+async function loadStep0(forceRefresh) {
   const body = document.getElementById('step0-body');
   const updated = document.getElementById('step0-updated');
   try {
-    const data = await fetchJson('/api/app-releases');
+    const data = await fetchJson('/api/app-releases' + (forceRefresh ? '?refresh=1' : ''));
     appReleasesPlatforms = data.platforms || [];
     renderStep0(data.platforms);
     renderStep1(data.platforms);
@@ -475,7 +486,7 @@ async function syncCrashlytics() {
   }
 }
 
-// ---- Backfill ย้อนหลัง: paste several days of Crash-free Users % for one
+// ---- Crash-free users: paste several days of Crash-free Users % for one
 // platform at once (e.g. a weekly export/summary), instead of the quick
 // table above which always writes today's date. ----
 
@@ -656,19 +667,44 @@ async function syncCrBackfill() {
   }
 }
 
-// ---- Crashlytics Top Issues: paste rows copied straight out of the
-// Firebase Crashlytics issue list table (Issue, Versions, Trend, Events,
-// Users - tab-separated, matching that table's own column order) and sync
-// them as a new ranked snapshot for one platform, inserted at the top of
-// that platform's block - same insert-and-push-down convention the
-// BitMovin Top Error Codes tab already uses. ----
+// ---- Crashlytics Issues: paste rows already shaped like the sheet's own
+// columns (Date Check, Platform, Filters, Issue, Versions, Events, Users -
+// tab-separated, 7 fields) and sync them as a new ranked snapshot for one
+// platform, inserted at the top of that platform's block - same
+// insert-and-push-down convention the BitMovin Top Error Codes tab already
+// uses. Every field is editable in the table before sync, and what's
+// actually written is each row's own values (not the dropdown's) - the
+// dropdown only decides which platform's block to insert into and, on
+// paste, gets auto-filled FROM the rows' own Platform field.
+//
+// Platform options are the same fixed CR_PLATFORM_OPTIONS list the other
+// two Crashlytics tracks use, in canonical casing - the sheet's own
+// Platform column spells some of these differently ("android TV", not
+// "Android TV"), so matching against the fixed list is what normalizes a
+// pasted row's casing to what the dropdown shows. ----
 
 function setCrErrPlatformAutofilled(on) {
   document.getElementById('cr-err-platform').classList.toggle('autofilled', !!on);
 }
 
-function applyCrErrPlatformHint(lines) {
-  const hinted = lines.map(parseCrPlatformLine).find(Boolean);
+// "19-Aug-26<TAB>7d<TAB>Android TV<TAB>4.0.28,4.0.27,4.0.26<TAB>Issue text
+// <TAB>Versions<TAB>Events<TAB>Users" - the sheet's own column order
+// (วันที่ตรวจ, ช่วงเวลาที่ตรวจสอบ, Platform, Filters, Issue, Versions,
+// Events, Users). Trailing fields can be short (a line missing Users when
+// it equals Events, seen in practice) - only Date/Platform/Issue are
+// required, the rest default to ''.
+function parseCrErrLine(line) {
+  const parts = line.split('\t').map(s => s.trim());
+  if (parts.length < 5 || !parts[0] || !parts[2] || !parts[4]) return null;
+  const [date, period, platform, filters, issue, versions, events, users] = parts;
+  return { date, period: period || '', platform, filters: filters || '', issue, versions: versions || '', events: events || '', users: users || '' };
+}
+
+// Scans the parsed rows' own Platform field rather than a separate
+// "Platform:" header line - this paste format already carries Platform per
+// row, so there's nothing extra to write by hand.
+function applyCrErrPlatformHint(entries) {
+  const hinted = entries.map(e => e.platform).find(Boolean);
   if (!hinted) return null;
   const match = CR_PLATFORM_OPTIONS.find(p => p.toLowerCase() === hinted.toLowerCase());
   const select = document.getElementById('cr-err-platform');
@@ -680,38 +716,27 @@ function applyCrErrPlatformHint(lines) {
   return hinted;
 }
 
-// "Issue<TAB>Versions<TAB>Trend<TAB>Events<TAB>Users" - a row copied
-// straight out of Firebase's own issue list table pastes as tab-separated
-// fields in exactly this order, so no reformatting is needed by hand.
-function parseCrErrLine(line) {
-  const parts = line.split('\t').map(s => s.trim());
-  if (parts.length < 5 || !parts[0]) return null;
-  const [issue, versions, trend, events, users] = parts;
-  return { issue, versions, trend, events, users };
-}
-
 function parseCrErrPasted() {
   const text = document.getElementById('cr-err-paste').value;
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const platformHint = applyCrErrPlatformHint(lines);
 
   const entries = [];
   const skipped = [];
   lines.forEach(line => {
-    if (parseCrPlatformLine(line)) return; // consumed by applyCrErrPlatformHint above
     const parsed = parseCrErrLine(line);
     if (parsed) entries.push(parsed); else skipped.push(line);
   });
+  const platformHint = applyCrErrPlatformHint(entries);
   renderCrErrTable(entries);
   const note = document.getElementById('cr-err-parse-note');
   const notes = [];
   if (platformHint) {
     notes.push(CR_PLATFORM_OPTIONS.some(p => p.toLowerCase() === platformHint.toLowerCase())
-      ? `เลือก Platform เป็น "${platformHint}" จากบรรทัดแรก`
-      : `บรรทัดแรกระบุ Platform "${platformHint}" ซึ่งไม่ตรงกับตัวเลือกใด - เลือกเองด้านล่าง`);
+      ? `เลือก Platform เป็น "${platformHint}" จากค่าที่เจอในแถว`
+      : `แถวระบุ Platform "${platformHint}" ซึ่งไม่ตรงกับตัวเลือกใด - เลือกเองด้านล่าง`);
   }
   if (!lines.length) { note.textContent = ''; return; }
-  if (!entries.length) notes.push('อ่านค่าไม่ได้สักบรรทัด - ต้องมี 5 field คั่นด้วย Tab (Issue, Versions, Trend, Events, Users)');
+  if (!entries.length) notes.push('อ่านค่าไม่ได้สักบรรทัด - ต้องมีอย่างน้อย วันที่ตรวจ, Platform, Issue คั่นด้วย Tab');
   else notes.push(`แยกได้ ${entries.length} issue` + (skipped.length ? ` (ข้าม ${skipped.length} บรรทัดที่อ่านไม่ออก)` : ''));
   note.textContent = notes.join(' · ');
 }
@@ -719,16 +744,19 @@ function parseCrErrPasted() {
 function renderCrErrTable(entries) {
   const tbody = document.getElementById('cr-err-table-body');
   if (!entries.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr>';
     return;
   }
   tbody.innerHTML = entries.map((e, i) => `
     <tr>
-      <td><input class="date-cell-input" style="width:100%;min-width:220px;text-align:left;" data-idx="${i}" data-field="issue" value="${escapeHtml(e.issue)}"></td>
-      <td><input class="date-cell-input" style="width:100%;min-width:120px;" data-idx="${i}" data-field="versions" value="${escapeHtml(e.versions)}"></td>
-      <td><input class="date-cell-input" style="width:100%;min-width:90px;" data-idx="${i}" data-field="trend" value="${escapeHtml(e.trend)}"></td>
-      <td><input class="cell-input" data-idx="${i}" data-field="events" value="${escapeHtml(e.events)}"></td>
-      <td><input class="cell-input" data-idx="${i}" data-field="users" value="${escapeHtml(e.users)}"></td>
+      <td><input data-idx="${i}" data-field="date" value="${escapeHtml(e.date)}"></td>
+      <td><input data-idx="${i}" data-field="period" value="${escapeHtml(e.period)}"></td>
+      <td><input data-idx="${i}" data-field="platform" value="${escapeHtml(e.platform)}"></td>
+      <td><input data-idx="${i}" data-field="filters" value="${escapeHtml(e.filters)}"></td>
+      <td><input data-idx="${i}" data-field="issue" value="${escapeHtml(e.issue)}"></td>
+      <td><input data-idx="${i}" data-field="versions" value="${escapeHtml(e.versions)}"></td>
+      <td><input data-idx="${i}" data-field="events" value="${escapeHtml(e.events)}"></td>
+      <td><input data-idx="${i}" data-field="users" value="${escapeHtml(e.users)}"></td>
     </tr>
   `).join('');
 }

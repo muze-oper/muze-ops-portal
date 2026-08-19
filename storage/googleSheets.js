@@ -21,11 +21,25 @@ async function fetchSheetRows(spreadsheetId, range) {
 // break when someone renames the tab (observed happening live on the TVN
 // sheet - the tab title changed between two checks a few minutes apart while
 // its gid stayed the same).
+//
+// Cached for a few minutes per (spreadsheetId, gid): every TVN read AND write
+// resolves a title first, so with no cache a single page load plus a sync
+// burns 2+ reads just on this lookup alone - this is what tipped Sheets API's
+// per-minute read quota over in practice ("Quota exceeded ... Read requests
+// per minute per user"). A short TTL still self-heals within minutes of a
+// rename instead of requiring a server restart.
+const titleCache = new Map(); // `${spreadsheetId}:${gid}` -> { title, ts }
+const TITLE_CACHE_MS = 5 * 60 * 1000;
+
 async function resolveSheetTitleByGid(spreadsheetId, gid) {
+  const key = `${spreadsheetId}:${gid}`;
+  const cached = titleCache.get(key);
+  if (cached && (Date.now() - cached.ts) < TITLE_CACHE_MS) return cached.title;
   const sheets = google.sheets({ version: 'v4', auth: getAuth() });
   const res = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties' });
   const match = (res.data.sheets || []).find(s => s.properties.sheetId === gid);
   if (!match) throw new Error(`ไม่พบแท็บที่มี gid=${gid} ใน spreadsheet ${spreadsheetId}`);
+  titleCache.set(key, { title: match.properties.title, ts: Date.now() });
   return match.properties.title;
 }
 
@@ -133,6 +147,22 @@ function colorToHex(c) {
   return `#${[r, g, b].map(n => n.toString(16).padStart(2, '0')).join('')}`;
 }
 
+// Sets (or clears) a solid background color on individual cells in one
+// batchUpdate call. `cells` is [{ row, col, color }], 0-based row/col;
+// `color` is {red,green,blue} (0-1 floats) or falsy to clear back to white.
+async function setCellBackgrounds(spreadsheetId, gid, cells) {
+  if (!cells.length) return;
+  const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+  const requests = cells.map(({ row, col, color }) => ({
+    repeatCell: {
+      range: { sheetId: gid, startRowIndex: row, endRowIndex: row + 1, startColumnIndex: col, endColumnIndex: col + 1 },
+      cell: { userEnteredFormat: { backgroundColor: color || { red: 1, green: 1, blue: 1 } } },
+      fields: 'userEnteredFormat.backgroundColor',
+    },
+  }));
+  await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
+}
+
 // แถวแรกเป็น header — แปลงแถวที่เหลือเป็น object ตามชื่อคอลัมน์
 function rowsToObjects(rows) {
   if (rows.length < 2) return [];
@@ -146,6 +176,6 @@ function rowsToObjects(rows) {
 
 module.exports = {
   fetchSheetRows, rowsToObjects, updateSheetRow, updateSheetGrid,
-  insertSheetRows,
+  insertSheetRows, setCellBackgrounds,
   fetchSheetFormatting, colorToHex, resolveSheetTitleByGid, listSheetTitles,
 };
