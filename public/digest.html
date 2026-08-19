@@ -907,13 +907,46 @@ function renderDashboard() {
       || normalizeSubjectKey(e.subject);
   }
   const groups = [];
-  const bySubject = new Map();
-  rows.forEach(function(row) {
-    const key = groupKeyFor(row.e);
-    let group = bySubject.get(key);
-    if (!group) { group = { members: [] }; bySubject.set(key, group); groups.push(group); }
-    group.members.push(row);
-  });
+  {
+    // Union-find over every identifier a row carries (case ref, MN tag,
+    // Zendesk ID, normalized subject) instead of picking just one via
+    // groupKeyFor's priority order. A strict priority pick breaks as soon as
+    // a thread mixes tagged and untagged replies — e.g.
+    // "[MN-139]FW: SNS-HO ลูกค้าเจ้าของรถ B17ลงแอ็ปไม่ได้" (has an MN tag, so
+    // groupKeyFor alone would key it "[MN-139]") next to
+    // "FW: SNS-HO ลูกค้าเจ้าของรถ B17ลงแอ็ปไม่ได้" (no tag, so groupKeyFor
+    // falls through to the subject text) never matched even though their
+    // subject text is identical once the tag/prefix is stripped. Union-find
+    // lets each row link on ANY key it has, so the two above merge via their
+    // shared subject text even though only one of them also carries the MN
+    // tag.
+    const n = rows.length;
+    const parent = Array.from({ length: n }, (_, i) => i);
+    function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+    function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; }
+
+    const keyToRow = new Map();
+    rows.forEach(function(row, i) {
+      const e = row.e;
+      const keys = [];
+      const caseRef = extractCaseRef(e.subject); if (caseRef) keys.push('CR-' + caseRef);
+      const mnTag = extractMnTag(e.subject); if (mnTag) keys.push('MN-' + mnTag);
+      const zid = extractZendeskId(e.subject) || extractZendeskId(e.snippet); if (zid) keys.push('ZD-' + zid);
+      const subj = normalizeSubjectKey(e.subject); if (subj) keys.push('SUBJ-' + subj);
+      keys.forEach(function(k) {
+        if (keyToRow.has(k)) union(i, keyToRow.get(k));
+        else keyToRow.set(k, i);
+      });
+    });
+
+    const rootToGroup = new Map();
+    rows.forEach(function(row, i) {
+      const root = find(i);
+      let group = rootToGroup.get(root);
+      if (!group) { group = { members: [] }; rootToGroup.set(root, group); groups.push(group); }
+      group.members.push(row);
+    });
+  }
 
   groups.forEach(function(group) {
     const members = group.members;
