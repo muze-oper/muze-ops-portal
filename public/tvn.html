@@ -48,7 +48,10 @@
               <div class="filter-ref-head">Filter ที่ต้องใช้</div>
               <div class="filter-ref-sub">1. <strong>Show Metrics Between</strong> = <code>Last 24 hours</code></div>
               <div class="filter-ref-sub">2. <strong>Platform filters</strong> — ตั้งให้เหลือ platform เดียวเท่านั้น:</div>
-              <table class="filter-ref-table"><tbody id="shared-filter-ref"></tbody></table>
+              <table class="filter-ref-table">
+                <thead><tr><th>Platform</th><th>Platform filter</th><th>Operating System (OS)</th></tr></thead>
+                <tbody id="shared-filter-ref"></tbody>
+              </table>
             </div>
           </span>
         </div>
@@ -510,8 +513,8 @@ function renderSharedFilterRef() {
   const show = (v) => LABEL[v] || v;
   el.innerHTML = HOURLY_PLATFORM_FILTERS.map(def => {
     const os = escapeHtml(def.os.map(show).join(', '));
-    const pv = def.platformValue ? `<code>Platform: ${escapeHtml(show(def.platformValue))}</code>` : '';
-    return `<tr><th>${escapeHtml(def.platform)}</th><td><code>Operating System (OS): ${os}</code></td><td>${pv}</td></tr>`;
+    const pv = def.platformValue ? `<code>${escapeHtml(show(def.platformValue))}</code>` : '—';
+    return `<tr><th>${escapeHtml(def.platform)}</th><td>${pv}</td><td><code>${os}</code></td></tr>`;
   }).join('');
 }
 
