@@ -213,6 +213,18 @@ Output one tab-separated row, no header:
   15.00, 18.00, 21.00, 24.00, 3.00, 6.00, 8.00` - flag which stretches are
   lower-confidence (typically wherever the line is moving fastest, e.g.
   near a trough) but still give a number, don't omit it.
+- **Hourly reads are meaningfully less reliable than the daily 7-day reads
+  above, not just the same estimate at finer resolution** - a verified
+  comparison (Android TV, 2026-08-21) came back accurate on the 6 daytime/
+  flat hours (±0.01-0.09, normal line-chart noise) but badly wrong on the 3
+  hours spanning an overnight trough (off by up to **+1.47** at the trough
+  itself) - an order of magnitude past anything seen on a daily chart. More
+  data points packed into the same pixel width means a small horizontal
+  misjudgment lands on a very different point of a fast-moving curve.
+  Flag any hour near a visible peak/trough as low-confidence explicitly,
+  beyond the usual estimate caveat - and don't anchor the last hour toward
+  the headline stat (same "headline ≠ chart line" trap as the daily read,
+  and the direct cause of that trough's endpoint being off by +0.79).
 
 **List read (Bitmovin Top Error Codes):** Answer in exactly the shape the
 `/tvn/top-error-codes` page parses, so it can be pasted in with no editing -
