@@ -725,6 +725,7 @@ const CR_PLATFORM_COL_IDX = 1;       // column B
 const CR_FILTER_COL_IDX = 2;         // column C - versions being monitored
 const CR_DATE_MONITOR_COL_IDX = 3;   // column D - the day the readings are about
 const CR_FIRST_HOUR_COL_IDX = 4;     // column E onward - one per checkpoint hour
+const CR_FIRST_DATA_ROW = 2;         // row 1 is the header; new days are inserted here, on top
 
 // "17-Aug-26" style, matching the existing cells in this tab (different from
 // BitMovin Error's "Mon-3-Aug" and the CAB tracker's "17 Aug 2026").
@@ -746,7 +747,14 @@ async function fetchCrashlyticsTitleAndRows() {
 // "3.00", "6.00", "8.00" - the tail of that list belongs to the following
 // morning, same D/D+1 convention the BitMovin hourly heatmap uses).
 function crashlyticsHours(rows) {
-  return (rows[0] || []).slice(CR_FIRST_HOUR_COL_IDX).map(h => String(h || '').trim()).filter(Boolean);
+  const header = (rows[0] || []).slice(CR_FIRST_HOUR_COL_IDX).map(h => String(h || '').trim());
+  // Stops at the first empty header cell rather than filtering blanks out:
+  // the tab still carries leftovers of the pre-2026-08-21 layout far to the
+  // right (a stray " % Crash Free Users" header in column V and its old
+  // values below it), and filtering blanks would drag that in as a 10th
+  // checkpoint column.
+  const end = header.indexOf('');
+  return (end === -1 ? header : header.slice(0, end)).filter(Boolean);
 }
 
 // "11-Aug-26" / "11 Aug 26" / "11-Aug-2026" - the Date Monitor column has been
@@ -787,21 +795,32 @@ function readCrashlyticsEntry(row, rowNum, hours) {
 // A run of consecutive rows carrying the same Platform value - same block
 // shape the Top Error Codes tab uses, so a re-sized or reordered block in the
 // sheet needs no code change here.
-function groupCrashlyticsBlocks(rows, hours) {
-  const blocks = [];
+// Every data row that names a platform, in sheet order (newest first, since
+// new days are inserted at the top).
+function readCrashlyticsRows(rows, hours) {
+  const out = [];
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i] || [];
-    const platform = (row[CR_PLATFORM_COL_IDX] || '').trim();
-    if (!platform) continue;
-    const entry = readCrashlyticsEntry(row, i + 1, hours); // sheet rows are 1-based, row 1 is the header
-    const last = blocks[blocks.length - 1];
-    if (last && last.platform === platform && last.endRow === entry.rowNum - 1) {
-      last.endRow = entry.rowNum;
-      last.history.push(entry);
-    } else {
-      blocks.push({ platform, startRow: entry.rowNum, endRow: entry.rowNum, history: [entry] });
-    }
+    if (!(row[CR_PLATFORM_COL_IDX] || '').trim()) continue;
+    out.push(readCrashlyticsEntry(row, i + 1, hours)); // sheet rows are 1-based, row 1 is the header
   }
+  return out;
+}
+
+// Grouped by platform NAME rather than by a contiguous run of rows: a
+// platform's days no longer sit together now that each new day is inserted at
+// the top of the sheet, so contiguity would split one platform into several
+// blocks (and show it several times on the dashboard).
+function groupCrashlyticsBlocks(rows, hours) {
+  const blocks = [];
+  readCrashlyticsRows(rows, hours).forEach(entry => {
+    let block = blocks.find(b => b.platform.toLowerCase() === entry.platform.toLowerCase());
+    if (!block) {
+      block = { platform: entry.platform, history: [] };
+      blocks.push(block);
+    }
+    block.history.push(entry);
+  });
   return blocks;
 }
 
@@ -824,9 +843,10 @@ router.get('/api/tvn/crashlytics', async (req, res) => {
     const { rows } = await fetchCrashlyticsTitleAndRows();
     const hours = crashlyticsHours(rows);
     const platforms = groupCrashlyticsBlocks(rows, hours).map(b => {
-      // Days are chronological in the sheet (oldest first) but written by
-      // hand as well as by this app, so they're sorted here rather than
-      // trusted - the dashboard plots them in this order.
+      // Sheet order is newest-first (new days are inserted at the top) and
+      // rows get hand-edited too, so the series is sorted by date here rather
+      // than trusted - the dashboard plots it in this order, oldest to
+      // newest.
       const history = b.history
         .filter(e => e.iso && e.values.some(v => v !== null))
         .sort((a, b2) => a.iso.localeCompare(b2.iso))
@@ -835,7 +855,9 @@ router.get('/api/tvn/crashlytics', async (req, res) => {
       const newest = history[history.length - 1] || b.history[b.history.length - 1] || {};
       // Newest *non-empty* filter, not simply the newest row's - a day added
       // from the quick single-checkpoint entry doesn't always carry one.
-      const lastFilter = [...b.history].reverse().find(e => String(e.filter || '').trim());
+      const lastFilter = [...b.history]
+        .sort((a, c) => (c.iso || '').localeCompare(a.iso || ''))
+        .find(e => String(e.filter || '').trim());
       return {
         platform: b.platform,
         filter: (lastFilter && lastFilter.filter) || newest.filter || '',
@@ -898,13 +920,19 @@ router.post('/api/tvn/crashlytics/record', async (req, res) => {
     const sheetRows = rows.map(r => [...(r || [])]);
     const written = [];
 
-    for (const entry of list) {
+    // Oldest first, so that with every new row going in at the top the newest
+    // day of a multi-day paste ends up above the older ones no matter which
+    // order they were pasted in.
+    const ordered = [...list].sort((a, b) => (a.iso || '').localeCompare(b.iso || ''));
+
+    for (const entry of ordered) {
       const blocks = groupCrashlyticsBlocks(sheetRows, hours);
       const block = blocks.find(b => b.platform.toLowerCase() === platformName.toLowerCase());
       // Same day already recorded for this platform -> fill the missing
-      // checkpoints in place. Matched on the parsed date where possible so
-      // "20-Aug-26" and "20 Aug 26" are the same day, falling back to the
-      // raw label for a cell that isn't a recognisable date at all.
+      // checkpoints in place, wherever that row happens to sit. Matched on
+      // the parsed date where possible so "20-Aug-26" and "20 Aug 26" are the
+      // same day, falling back to the raw label for a cell that isn't a
+      // recognisable date at all.
       const existing = block && block.history.find(h => (entry.iso && h.iso ? h.iso === entry.iso : h.date.trim() === entry.date));
 
       const base = existing ? [...(sheetRows[existing.rowNum - 1] || [])] : [];
@@ -916,7 +944,9 @@ router.post('/api/tvn/crashlytics/record', async (req, res) => {
       row[CR_PLATFORM_COL_IDX] = block ? block.platform : platformName;
       // Falls back to whatever this platform last recorded, so a quick
       // single-checkpoint sync doesn't leave the Filter cell blank.
-      const lastFilter = block && [...block.history].reverse().find(e => String(e.filter || '').trim());
+      const lastFilter = block && [...block.history]
+        .sort((a, b) => (b.iso || '').localeCompare(a.iso || ''))
+        .find(e => String(e.filter || '').trim());
       row[CR_FILTER_COL_IDX] = entry.filter || filter || (existing && existing.filter) || (lastFilter && lastFilter.filter) || '';
       row[CR_DATE_MONITOR_COL_IDX] = existing ? existing.date : entry.date;
       hours.forEach((_, i) => { row[CR_FIRST_HOUR_COL_IDX + i] = values[i] === null ? '' : values[i]; });
@@ -928,16 +958,20 @@ router.post('/api/tvn/crashlytics/record', async (req, res) => {
       if (existing) {
         rowNum = existing.rowNum;
       } else {
-        rowNum = block ? block.endRow + 1 : sheetRows.length + 1;
+        // Newest on top: a new day always goes in at row 2 and pushes
+        // everything below it down, rather than being appended after the
+        // last used row. Appending was also fragile - this tab still carries
+        // leftover values from the old layout out in column V, which made
+        // "the last used row" row 22 even with no real data in A:M.
+        rowNum = CR_FIRST_DATA_ROW;
         await insertSheetRows(SHEET_ID, CRASHLYTICS_SHEET_GID, rowNum, 1);
-        while (sheetRows.length < rowNum - 1) sheetRows.push([]);
         sheetRows.splice(rowNum - 1, 0, []);
       }
       await updateSheetGrid(SHEET_ID, `'${title}'!A${rowNum}:${lastCol}${rowNum}`, [row.slice(0, CR_FIRST_HOUR_COL_IDX + hours.length).map(c => (c === undefined ? '' : c))]);
       sheetRows[rowNum - 1] = row;
 
       const filled = entry.values.map(v => `${hours[v.hourIdx]}=${v.value}%`).join(', ');
-      written.push(`${entry.date} (${filled})${existing ? '' : ' [แถวใหม่]'}`);
+      written.push(`${entry.date} → แถว ${rowNum}${existing ? ' (เติมช่องที่ว่าง)' : ' (แถวใหม่บนสุด ของเดิมเลื่อนลง)'}: ${filled}`);
     }
 
     res.json({ result: `${platformName}: บันทึก ${list.length} วัน — ${written.join(' · ')}` });

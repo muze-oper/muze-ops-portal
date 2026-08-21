@@ -436,3 +436,14 @@ changing anything:
   (Platform, Date Monitor): it fills only the checkpoints sent and leaves the
   rest of the row alone, so checking in again at 15.00 adds to the 9.00/12.00
   values instead of replacing them.
+- **Newest on top.** A day that has no row yet is inserted at **row 2** and
+  pushes everything below it down - same convention as the Top Error Codes
+  tab - so the sheet reads newest-first and a platform's days no longer sit
+  together in one block. A multi-day paste is written oldest first so its
+  newest day still ends up on top, whichever order it was pasted in.
+- The tab still carries **leftovers of the old layout out in column V** (a
+  stray `% Crash Free Users` header and 21 old daily values). Nothing reads
+  them, and the hour columns are taken as the unbroken run starting at E
+  precisely so that stray header isn't picked up as a 10th checkpoint - but
+  they are why "append after the last used row" was landing writes at row 23
+  with no real data in the sheet at all.
