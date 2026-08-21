@@ -178,6 +178,42 @@ Aug 13	99.85
   numbers instead of re-estimating from the image - don't discard known
   ground truth in favor of a fresh guess.
 
+**Hourly read (Crashlytics "last 24 hours" graph) - a third distinct
+Crashlytics mode, separate from the 7-day Trend read above:** some
+Crashlytics screenshots show "Crash-free users in last 24 hours" instead of
+"...in last 7 days" - an hourly line chart (x-axis labelled every 3 hours,
+e.g. `09:00AM 12:00PM 03:00PM ... 06:00AM`) alongside an separate "Trends"
+panel with its own hourly *crash-count* bar chart - don't confuse the two;
+only the Crash-free % line feeds this read.
+
+The destination sheet (`gid=0` on the main spreadsheet, header re-verified
+2026-08-21, already changed twice - check the live sheet before trusting
+this) is `Sync Date | Platform | Filter (Versions) | Date Monitor | 9.00 |
+12.00 | 15.00 | 18.00 | 21.00 | 24.00 | 3.00 | 6.00 | 8.00` - the 9 hour
+columns are **deliberately kept matching the chart's own x-axis gridline
+labels**, specifically so a read can go straight into them without
+retiming. **Read a value at each of those 9 grid positions directly from
+the line, the same as any other line-chart estimate** - do not leave them
+blank because there's no hover-verified number available; a real visual
+estimate at the right grid position is exactly what this column is for
+(corrected 2026-08-21 after leaving them blank instead of estimating).
+Output one tab-separated row, no header:
+
+```
+21-Aug-26	Android TV	4.0.28,4.0.27,4.0.26	20-Aug-26	99.55	99.95	99.85	99.90	99.60	98.75	99.20	99.75	99.78
+```
+
+- **Sync Date**: today, `DD-Mon-YY`.
+- **Platform** / **Filter (Versions)**: from Step 1 / the current Version
+  to Monitor list, same as elsewhere.
+- **Date Monitor**: the *earlier* calendar day of the "Last 24 hours" range
+  shown top-right (e.g. `Aug 20 – Aug 21` -> `20-Aug-26`), confirmed as the
+  convention to use.
+- The 9 values: estimate the line's position at each of `9.00, 12.00,
+  15.00, 18.00, 21.00, 24.00, 3.00, 6.00, 8.00` - flag which stretches are
+  lower-confidence (typically wherever the line is moving fastest, e.g.
+  near a trough) but still give a number, don't omit it.
+
 **List read (Bitmovin Top Error Codes):** Answer in exactly the shape the
 `/tvn/top-error-codes` page parses, so it can be pasted in with no editing -
 a `Platform:` line first, then one line per row, ranked highest first, and
@@ -298,6 +334,53 @@ before trusting it, since this input UI has already been redesigned twice):
   Users`) - there is **no portal page for this yet**, unlike the other
   reads. Give the tab-separated block from Step 3 and the human pastes it
   into that sheet tab by hand, appended below whatever's already there.
+- **Crashlytics Hourly read -> the same `Crashlytics Crash Free User` sheet
+  tab** (gid `0`) as the daily quick-entry/Backfill rows, but a **different
+  header shape** for this one row - see Step 3's Hourly read for the exact
+  columns (re-verify live, already changed twice). No portal page for this
+  either - give the single tab-separated row and the human pastes it in by
+  hand.
 
 The human still reviews what's in the table/paste box and clicks the
 existing Sync/ลงตาราง buttons themselves before anything is written.
+
+## Step 5 - what the recorded values feed (the KPI dashboard)
+
+Everything written into the `Crashlytics Crash Free User` tab (gid `0`) is
+read straight back by the **📊 Dashboard** view of `/tvn/crashlytics`, which
+grades every recorded day against the two agreed KPI thresholds:
+
+| Band | Rule | Shown as |
+|---|---|---|
+| Tier 1 | value ≥ **99.70%** | green, glyph `●` |
+| Tier 2 | **99.50%** ≤ value < 99.70% | amber, glyph `▲` |
+| below Tier 2 | value < **99.50%** | red, glyph `✕` |
+
+The thresholds live in one place - `KPI_TIER1` / `KPI_TIER2` at the top of
+the dashboard script in `public/tvn-crashlytics.html` - so a change to the
+agreed KPI is a two-line edit, not a hunt through the markup. The view has
+three parts: a 4-stat summary strip, one small-multiple panel per platform
+(latest value + day-on-day delta + a shared-scale trend chart with the two
+KPI lines drawn on it), and a platform x day matrix of every recorded value.
+
+Two things this implies for a read:
+- **A day only counts once it's synced.** A platform with no row for a date
+  shows a blank cell, not a carried-forward value - so a skipped check is
+  visible as a gap rather than silently reading as "fine".
+- **Accuracy of the day-by-day series matters more than the headline tile.**
+  The matrix and the trend panels are built entirely from the per-day
+  `Date Monitor` values, so a backfill that substituted the headline
+  "Crash-free users" number for several days would show up as a flat line
+  that isn't real. Read the graph per day (Step 3's "Trend read" mode).
+
+### Android TV versions always carry `-tv`
+
+Firebase reports Android TV builds as `4.0.28-tv`, while the CAB Deploy
+Tracker records the same build plain (`4.0.28`). Whenever an Android TV
+version is *shown* - the "Version to Monitor" table on `/tvn/crashlytics`,
+the suggested Filter value, or a version quoted back in a read - write it
+with the `-tv` suffix on the version number, keeping any build number in
+parentheses where it is: `4.0.28 (1002)` → `4.0.28-tv (1002)`. This is
+presentation only; the tracker sheet itself is never rewritten, and a value
+already recorded in the Crashlytics sheet by hand is left exactly as typed.
+Only Android TV gets this - Apple TV's tracker versions are shown as-is.
