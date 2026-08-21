@@ -196,6 +196,13 @@ e.g. `09:00AM 12:00PM 03:00PM ... 06:00AM`) alongside an separate "Trends"
 panel with its own hourly *crash-count* bar chart - don't confuse the two;
 only the Crash-free % line feeds this read.
 
+**This is the default action for a "last 24 hours" screenshot, not an
+optional extra** (instruction, 2026-08-21) - do the hourly read straight
+away rather than reporting just the headline stat and asking whether an
+hourly read is wanted too. The headline/Platform read is still worth
+stating alongside it (Step 3's single-stat read), but the hourly numbers
+are the point of pasting this particular chart shape.
+
 **The chart's own tick labels shift from session to session** - one "last 24
 hours" screenshot showed `09:00AM 12:00PM 03:00PM ... 06:00AM`, the next
 (same platform, same nominal date range) showed `10:00AM 01:00PM 04:00PM ...
