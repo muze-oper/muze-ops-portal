@@ -196,21 +196,34 @@ e.g. `09:00AM 12:00PM 03:00PM ... 06:00AM`) alongside an separate "Trends"
 panel with its own hourly *crash-count* bar chart - don't confuse the two;
 only the Crash-free % line feeds this read.
 
-The destination sheet (`gid=0` on the main spreadsheet, header re-verified
-2026-08-21, already changed twice - check the live sheet before trusting
-this) is `Sync Date | Platform | Filter (Versions) | Date Monitor | 9.00 |
-12.00 | 15.00 | 18.00 | 21.00 | 24.00 | 3.00 | 6.00 | 8.00` - the 9 hour
-columns are **deliberately kept matching the chart's own x-axis gridline
-labels**, specifically so a read can go straight into them without
-retiming. **Read a value at each of those 9 grid positions directly from
+**The chart's own tick labels shift from session to session** - one "last 24
+hours" screenshot showed `09:00AM 12:00PM 03:00PM ... 06:00AM`, the next
+(same platform, same nominal date range) showed `10:00AM 01:00PM 04:00PM ...
+07:00AM` instead - a ~1 hour drift, presumably tied to whatever moment the
+dashboard happened to load. This is *not* a fixed daily grid like the
+BitMovin hourly heatmap's `10.00...9.00` columns - **always re-read the 8
+hour labels actually printed on the current chart** rather than assuming
+they match a previous read or a remembered header.
+
+The destination sheet (`gid=0` on the main spreadsheet, header changed 3
+times as of 2026-08-21 - always check the live sheet, don't trust this
+example) has looked like `Sync Date | Platform | Filter (Versions) | Date
+Monitor | <8 hour columns matching that read's chart> | <9th column near
+the endpoint>` - the hour columns are **kept matching whichever chart's
+labels prompted the last edit**, so a mismatch between the sheet's current
+header and the chart in hand is expected and should be flagged, not
+silently forced. The 9 hour columns exist so a read can go straight into
+them without retiming. **Read a value at each of those 9 grid positions directly from
 the line, the same as any other line-chart estimate** - do not leave them
 blank because there's no hover-verified number available; a real visual
 estimate at the right grid position is exactly what this column is for
 (corrected 2026-08-21 after leaving them blank instead of estimating).
-Output one tab-separated row, no header:
+Output one tab-separated row, no header, columns in whatever order the
+live sheet's header currently uses (example only - re-verify the actual
+header and hour labels before trusting this shape):
 
 ```
-21-Aug-26	Android TV	4.0.28,4.0.27,4.0.26	20-Aug-26	99.55	99.95	99.85	99.90	99.60	98.75	99.20	99.75	99.78
+21-Aug-26	Android TV	4.0.28,4.0.27,4.0.26	20-Aug-26	99.55	99.90	99.80	99.85	99.60	99.00	98.05	99.75	99.85
 ```
 
 - **Sync Date**: today, `DD-Mon-YY`.
@@ -219,9 +232,10 @@ Output one tab-separated row, no header:
 - **Date Monitor**: the *earlier* calendar day of the "Last 24 hours" range
   shown top-right (e.g. `Aug 20 – Aug 21` -> `20-Aug-26`), confirmed as the
   convention to use.
-- The 9 values: estimate the line's position at each of `9.00, 12.00,
-  15.00, 18.00, 21.00, 24.00, 3.00, 6.00, 8.00` - flag which stretches are
-  lower-confidence (typically wherever the line is moving fastest, e.g.
+- The hour values: estimate the line's position at each hour label the
+  **current chart itself shows** (read them fresh each time, per the drift
+  note above) - flag which stretches are lower-confidence (typically
+  wherever the line is moving fastest, e.g.
   near a trough) but still give a number, don't omit it.
 - **Hourly reads are meaningfully less reliable than the daily 7-day reads
   above, not just the same estimate at finer resolution** - a verified
