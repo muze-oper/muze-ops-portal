@@ -708,20 +708,23 @@ router.post('/api/tvn/crashlytics-errors/record', async (req, res) => {
   }
 });
 
-// --- Firebase Crashlytics tab: a history log now (this used to be one
-// static row per platform - the sheet itself has since grown a Date Check
-// history per platform, most visibly on iOS Mobile which already carries
-// several dated rows, while the other 3 platforms still sit on a single
-// not-yet-filled placeholder row). Rows are grouped into one contiguous
-// block per platform, the same shape groupTopErrorCodeBlocks uses for the
-// BitMovin Top Error Codes tab. gid is stable (0) but resolve the title
-// anyway in case it's ever renamed like BitMovin Error was.
+// --- Firebase Crashlytics tab ("Crashlytics Crash Free User", gid 0).
+// Restructured by hand on 2026-08-21: it used to be one row per reading
+// (Sync Date | Filters | Platform | Date Monitor | % Crash Free Users), it is
+// now one row per monitored DAY with a Crash-free % column per checkpoint
+// hour:
+//   A Sync Date | B Platform | C Filter (Versions) | D Date Monitor | E.. hours
+// Two things changed at once - Platform/Filter swapped columns, and the
+// single value column became many - so any code still assuming the old A-E
+// layout is stale. The hour labels are read from the header row instead of
+// being hardcoded, so adding or removing a checkpoint column in the sheet
+// needs no change here.
 const CRASHLYTICS_SHEET_GID = 0;
-const CRASHLYTICS_SYNC_DATE_COL_IDX = 0; // column A - the real calendar date the row was written (today), auto-filled server-side - not the date the reading is about, see Date Check
-const CRASHLYTICS_FILTERS_COL_IDX = 1; // column B - versions being monitored, e.g. "4.0.27,4.0.26,4.0.25"
-const CRASHLYTICS_PLATFORM_COL_IDX = 2; // column C
-const CRASHLYTICS_DATE_CHECK_COL_IDX = 3; // column D (sheet header reads "Date Monitor")
-const CRASHLYTICS_VALUE_COL_IDX = 4; // column E - plain number, NOT percent-formatted (unlike BitMovin Error's columns)
+const CR_SYNC_DATE_COL_IDX = 0;      // column A - the calendar date the sync ran
+const CR_PLATFORM_COL_IDX = 1;       // column B
+const CR_FILTER_COL_IDX = 2;         // column C - versions being monitored
+const CR_DATE_MONITOR_COL_IDX = 3;   // column D - the day the readings are about
+const CR_FIRST_HOUR_COL_IDX = 4;     // column E onward - one per checkpoint hour
 
 // "17-Aug-26" style, matching the existing cells in this tab (different from
 // BitMovin Error's "Mon-3-Aug" and the CAB tracker's "17 Aug 2026").
@@ -735,139 +738,209 @@ function formatBangkokShortDate() {
 
 async function fetchCrashlyticsTitleAndRows() {
   const title = await resolveSheetTitleByGid(SHEET_ID, CRASHLYTICS_SHEET_GID);
-  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:E2000`);
+  const rows = await fetchSheetRows(SHEET_ID, `'${title}'!A1:Z2000`);
   return { title, rows };
 }
 
+// The checkpoint hours, straight off the header row ("9.00", "12.00", ...
+// "3.00", "6.00", "8.00" - the tail of that list belongs to the following
+// morning, same D/D+1 convention the BitMovin hourly heatmap uses).
+function crashlyticsHours(rows) {
+  return (rows[0] || []).slice(CR_FIRST_HOUR_COL_IDX).map(h => String(h || '').trim()).filter(Boolean);
+}
+
+// "11-Aug-26" / "11 Aug 26" / "11-Aug-2026" - the Date Monitor column has been
+// written by hand as well as by this app, so both separators show up. Returns
+// an ISO "2026-08-11" (sortable, and what the dashboard groups columns by) or
+// '' when the cell isn't a date at all.
+function parseDateCheckToIso(raw) {
+  const m = String(raw || '').trim().match(/^(\d{1,2})[-\s]([A-Za-z]{3,})[-\s](\d{2,4})$/);
+  if (!m) return '';
+  const month = MONTH_INDEX[m[2].slice(0, 3).toLowerCase()];
+  if (month === undefined) return '';
+  const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+  const day = Number(m[1]);
+  if (!day || day > 31) return '';
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function parseCrashlyticsValue(raw) {
+  const v = parseFloat(String(raw === undefined || raw === null ? '' : raw).replace('%', '').trim());
+  return isNaN(v) ? null : v;
+}
+
+// One entry per sheet row: the day it's about plus one slot per checkpoint
+// hour, `null` where that checkpoint hasn't been recorded yet (a day in
+// progress is a normal, expected state here).
+function readCrashlyticsEntry(row, rowNum, hours) {
+  return {
+    rowNum,
+    syncDate: row[CR_SYNC_DATE_COL_IDX] || '',
+    platform: (row[CR_PLATFORM_COL_IDX] || '').trim(),
+    filter: row[CR_FILTER_COL_IDX] || '',
+    date: row[CR_DATE_MONITOR_COL_IDX] || '',
+    iso: parseDateCheckToIso(row[CR_DATE_MONITOR_COL_IDX]),
+    values: hours.map((_, i) => parseCrashlyticsValue(row[CR_FIRST_HOUR_COL_IDX + i])),
+  };
+}
+
 // A run of consecutive rows carrying the same Platform value - same block
-// shape as groupTopErrorCodeBlocks, so a re-sized or reordered block in the
+// shape the Top Error Codes tab uses, so a re-sized or reordered block in the
 // sheet needs no code change here.
-function groupCrashlyticsBlocks(rows) {
+function groupCrashlyticsBlocks(rows, hours) {
   const blocks = [];
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i] || [];
-    const platform = (row[CRASHLYTICS_PLATFORM_COL_IDX] || '').trim();
+    const platform = (row[CR_PLATFORM_COL_IDX] || '').trim();
     if (!platform) continue;
-    const rowNum = i + 1; // sheet rows are 1-based and row 1 is the header
-    const entry = {
-      syncDate: row[CRASHLYTICS_SYNC_DATE_COL_IDX] || '',
-      filters: row[CRASHLYTICS_FILTERS_COL_IDX] || '',
-      dateCheck: row[CRASHLYTICS_DATE_CHECK_COL_IDX] || '',
-      value: row[CRASHLYTICS_VALUE_COL_IDX] || '',
-    };
+    const entry = readCrashlyticsEntry(row, i + 1, hours); // sheet rows are 1-based, row 1 is the header
     const last = blocks[blocks.length - 1];
-    if (last && last.platform === platform && last.endRow === rowNum - 1) {
-      last.endRow = rowNum;
+    if (last && last.platform === platform && last.endRow === entry.rowNum - 1) {
+      last.endRow = entry.rowNum;
       last.history.push(entry);
     } else {
-      blocks.push({ platform, startRow: rowNum, endRow: rowNum, history: [entry] });
+      blocks.push({ platform, startRow: entry.rowNum, endRow: entry.rowNum, history: [entry] });
     }
   }
   return blocks;
+}
+
+// The newest actually-recorded checkpoint of a platform: the last day that
+// carries any value, and within it the last filled hour. That pair is what
+// the entry form shows as "ล่าสุดที่บันทึกไว้".
+function latestCrashlyticsReading(history, hours) {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const entry = history[i];
+    for (let h = entry.values.length - 1; h >= 0; h--) {
+      if (entry.values[h] !== null) return { date: entry.date, hour: hours[h], value: entry.values[h] };
+    }
+  }
+  return null;
 }
 
 router.get('/api/tvn/crashlytics', async (req, res) => {
   if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
   try {
     const { rows } = await fetchCrashlyticsTitleAndRows();
-    const platforms = groupCrashlyticsBlocks(rows).map(b => {
-      // Rows are chronological (oldest first, e.g. iOS Mobile's 11-16 Aug
-      // run) - a block's last filled entry is its most recent record. An
-      // untouched placeholder row (blank dateCheck/value) never counts.
-      const filled = b.history.filter(h => h.dateCheck !== '' || h.value !== '');
-      const latest = filled[filled.length - 1] || null;
-      const base = latest || b.history[0];
+    const hours = crashlyticsHours(rows);
+    const platforms = groupCrashlyticsBlocks(rows, hours).map(b => {
+      // Days are chronological in the sheet (oldest first) but written by
+      // hand as well as by this app, so they're sorted here rather than
+      // trusted - the dashboard plots them in this order.
+      const history = b.history
+        .filter(e => e.iso && e.values.some(v => v !== null))
+        .sort((a, b2) => a.iso.localeCompare(b2.iso))
+        .map(({ rowNum, platform, ...rest }) => rest);
+      const latest = latestCrashlyticsReading(history, hours);
+      const newest = history[history.length - 1] || b.history[b.history.length - 1] || {};
+      // Newest *non-empty* filter, not simply the newest row's - a day added
+      // from the quick single-checkpoint entry doesn't always carry one.
+      const lastFilter = [...b.history].reverse().find(e => String(e.filter || '').trim());
       return {
         platform: b.platform,
-        filter: base.filters || '',
-        syncDate: base.syncDate || '',
-        dateCheck: latest ? latest.dateCheck : '',
+        filter: (lastFilter && lastFilter.filter) || newest.filter || '',
+        syncDate: newest.syncDate || '',
+        dateCheck: latest ? latest.date : '',
+        hour: latest ? latest.hour : '',
         value: latest ? latest.value : '',
+        history,
       };
     });
-    res.json({ platforms });
+    res.json({ hours, platforms });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Two request shapes share this endpoint: the day-to-day dropdown+one-value
-// entry sends `value` alone (written under today's date), and the backfill
-// paste box sends `entries: [{date, value}, ...]` (each under its own
-// date) for catching up several days at once. Both end up as the same
-// per-entry write loop below.
+// Both entry flows on the page post the same shape now:
+//   { platform, filter, entries: [{ date, values: [{ hour, value }] }] }
+// the day-to-day one sending a single entry with a single hour, the backfill
+// box sending several days with every hour it could read. Each entry is an
+// UPSERT on (platform, Date Monitor): an existing row for that day has just
+// the given hours filled in (the rest of the row is left exactly as it was,
+// which is what makes checking in again at 15.00 add to the 9.00/12.00
+// readings instead of replacing them), and a day with no row yet gets one
+// appended to the end of that platform's block.
 router.post('/api/tvn/crashlytics/record', async (req, res) => {
   if (!SHEET_ID) return res.status(500).json({ error: 'TVN_SHEET_ID is not configured' });
-  const { platform, value, entries, filter } = req.body || {};
+  const { platform, entries, filter } = req.body || {};
   try {
     const platformName = String(platform || '').trim();
-    if (!platformName) {
-      return res.status(400).json({ error: 'ไม่ได้ระบุ platform' });
-    }
+    if (!platformName) return res.status(400).json({ error: 'ไม่ได้ระบุ platform' });
+
     const { title, rows } = await fetchCrashlyticsTitleAndRows();
-    let block = groupCrashlyticsBlocks(rows).find(
-      b => b.platform.toLowerCase() === platformName.toLowerCase()
-    );
-    if (!block) {
-      // The app's own platform list (Apple TV / Android TV / iOS Mobile /
-      // Android Mobile) is fixed, independent of whichever rows happen to
-      // exist in the sheet right now - a platform's placeholder row can go
-      // missing (seen in practice: hand-edited out of the sheet), so a
-      // fresh block is created at the bottom rather than failing outright.
-      // The single empty-placeholder history entry makes the write loop
-      // below fill this brand-new row in place, same as any other
-      // not-yet-recorded platform.
-      const newRow = rows.length + 1;
-      block = { platform: platformName, startRow: newRow, endRow: newRow, history: [{ syncDate: '', filters: '', dateCheck: '', value: '' }] };
-    }
+    const hours = crashlyticsHours(rows);
+    if (!hours.length) return res.status(500).json({ error: 'อ่านหัวตาราง (ชั่วโมง) จากชีตไม่ได้' });
+    const lastCol = colLetter(CR_FIRST_HOUR_COL_IDX + hours.length - 1);
 
-    const list = Array.isArray(entries) && entries.length
-      ? entries
-          .map(e => ({ date: String(e.date || '').trim(), value: parseFloat(String(e.value).replace('%', '').trim()) }))
-          .filter(e => e.date && !isNaN(e.value))
-      : (isNaN(parseFloat(String(value).replace('%', '').trim()))
-          ? []
-          : [{ date: formatBangkokShortDate(), value: parseFloat(String(value).replace('%', '').trim()) }]);
+    // Only hours the sheet actually has a column for, and only numeric
+    // values - a blank cell in the pasted row means "not checked yet", not 0.
+    const list = (Array.isArray(entries) ? entries : []).map(e => {
+      const date = String(e.date || '').trim();
+      const values = (Array.isArray(e.values) ? e.values : [])
+        .map(v => ({ hourIdx: hours.indexOf(String(v.hour || '').trim()), value: parseCrashlyticsValue(v.value) }))
+        .filter(v => v.hourIdx !== -1 && v.value !== null);
+      // Per-row Sync Date/Filter win over the batch-level ones: the backfill
+      // table lets both be edited per row, and what's in that table is what
+      // gets written.
+      return {
+        date,
+        iso: parseDateCheckToIso(date),
+        syncDate: String(e.syncDate || '').trim(),
+        filter: String(e.filter || '').trim(),
+        values,
+      };
+    }).filter(e => e.date && e.values.length);
 
-    if (!list.length) {
-      return res.status(400).json({ error: entries ? 'ไม่มีข้อมูลให้ sync' : `ค่า "${value}" ไม่ใช่ตัวเลข` });
-    }
+    if (!list.length) return res.status(400).json({ error: 'ไม่มีข้อมูลให้ sync (ต้องมีวันที่ + ค่าอย่างน้อย 1 ช่วงเวลา)' });
 
-    // One real calendar date for the whole batch - column A records when
-    // this sync actually ran, not which date each entry's reading is about
-    // (that's entry.date, going into Date Check instead). A 6-day backfill
-    // synced today gets the same "17-Aug-26" in column A on every one of
-    // its 6 rows, even though their Date Check values span 12-17 Aug.
     const syncDate = formatBangkokShortDate();
-
+    const sheetRows = rows.map(r => [...(r || [])]);
     const written = [];
+
     for (const entry of list) {
-      const lastEntry = block.history[block.history.length - 1];
-      const filtersValue = filter || lastEntry.filters || '';
+      const blocks = groupCrashlyticsBlocks(sheetRows, hours);
+      const block = blocks.find(b => b.platform.toLowerCase() === platformName.toLowerCase());
+      // Same day already recorded for this platform -> fill the missing
+      // checkpoints in place. Matched on the parsed date where possible so
+      // "20-Aug-26" and "20 Aug 26" are the same day, falling back to the
+      // raw label for a cell that isn't a recognisable date at all.
+      const existing = block && block.history.find(h => (entry.iso && h.iso ? h.iso === entry.iso : h.date.trim() === entry.date));
 
-      // The block's last row is still an untouched placeholder (a platform
-      // with no history yet) - fill it in place. Otherwise this platform
-      // already has a history, so a new row is inserted right after the
-      // block (pushing whatever comes after it - other platforms' blocks -
-      // down) instead of overwriting the previous reading.
-      const isPlaceholder = lastEntry.dateCheck === '' && lastEntry.value === '';
-      const rowNum = isPlaceholder ? block.endRow : block.endRow + 1;
-      if (!isPlaceholder) {
+      const base = existing ? [...(sheetRows[existing.rowNum - 1] || [])] : [];
+      const values = existing ? [...existing.values] : hours.map(() => null);
+      entry.values.forEach(v => { values[v.hourIdx] = v.value; });
+
+      const row = [];
+      row[CR_SYNC_DATE_COL_IDX] = entry.syncDate || syncDate;
+      row[CR_PLATFORM_COL_IDX] = block ? block.platform : platformName;
+      // Falls back to whatever this platform last recorded, so a quick
+      // single-checkpoint sync doesn't leave the Filter cell blank.
+      const lastFilter = block && [...block.history].reverse().find(e => String(e.filter || '').trim());
+      row[CR_FILTER_COL_IDX] = entry.filter || filter || (existing && existing.filter) || (lastFilter && lastFilter.filter) || '';
+      row[CR_DATE_MONITOR_COL_IDX] = existing ? existing.date : entry.date;
+      hours.forEach((_, i) => { row[CR_FIRST_HOUR_COL_IDX + i] = values[i] === null ? '' : values[i]; });
+      // Anything the sheet carries beyond the hour columns (a note column
+      // added by hand, say) is left untouched rather than blanked.
+      for (let i = CR_FIRST_HOUR_COL_IDX + hours.length; i < base.length; i++) row[i] = base[i];
+
+      let rowNum;
+      if (existing) {
+        rowNum = existing.rowNum;
+      } else {
+        rowNum = block ? block.endRow + 1 : sheetRows.length + 1;
         await insertSheetRows(SHEET_ID, CRASHLYTICS_SHEET_GID, rowNum, 1);
+        while (sheetRows.length < rowNum - 1) sheetRows.push([]);
+        sheetRows.splice(rowNum - 1, 0, []);
       }
-      await updateSheetGrid(SHEET_ID, `'${title}'!A${rowNum}:E${rowNum}`, [[syncDate, filtersValue, block.platform, entry.date, entry.value]]);
+      await updateSheetGrid(SHEET_ID, `'${title}'!A${rowNum}:${lastCol}${rowNum}`, [row.slice(0, CR_FIRST_HOUR_COL_IDX + hours.length).map(c => (c === undefined ? '' : c))]);
+      sheetRows[rowNum - 1] = row;
 
-      // Keep the in-memory block in sync with what was just written, so the
-      // next entry in this same batch sees the right "last row"/endRow -
-      // re-fetching the whole sheet on every entry would be needlessly slow.
-      block = { ...block, endRow: rowNum, history: [...block.history, { syncDate, filters: filtersValue, dateCheck: entry.date, value: entry.value }] };
-      written.push(`${entry.date}: ${entry.value}%`);
+      const filled = entry.values.map(v => `${hours[v.hourIdx]}=${v.value}%`).join(', ');
+      written.push(`${entry.date} (${filled})${existing ? '' : ' [แถวใหม่]'}`);
     }
 
-    const summary = list.length > 1
-      ? `${block.platform}: บันทึกย้อนหลัง ${list.length} วัน (${written.join(', ')})`
-      : `${block.platform}: บันทึก Crash Free Users = ${list[0].value}% (${list[0].date})`;
-    res.json({ result: summary });
+    res.json({ result: `${platformName}: บันทึก ${list.length} วัน — ${written.join(' · ')}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -342,26 +342,35 @@ before trusting it, since this input UI has already been redesigned twice):
   the Filter column for each row (auto-suggested from the current Version
   to Monitor list, but editable), then click "🔄 Sync เข้าชีต" once at the
   end to write every filled row - it POSTs one platform at a time, so a
-  partial failure leaves the rest of the table intact to retry. **For a
-  multi-day trend read** (Step 3's "Trend read" mode) use the separate
-  "Backfill ย้อนหลัง" section instead: pick the platform from its own
-  dropdown (`cr-backfill-platform`), paste the `<date>  <value>` lines into
-  `cr-backfill-paste`, check the parsed date+value table, then "🔄 Sync
-  ย้อนหลังเข้าชีต" - each date is written under its own row (existing
-  placeholder filled in place, otherwise a new row inserted after that
-  platform's block), so re-running it doesn't overwrite prior days.
+  partial failure leaves the rest of the table intact to retry.
+  **Since 2026-08-21 that section also carries a `Date Monitor` field and a
+  `รอบเวลาที่ตรวจ` dropdown** (9.00 / 12.00 / 15.00 / 18.00 / 21.00 /
+  24.00 / 3.00 / 6.00 / 8.00), because the sheet now holds one row per
+  monitored day with a column per checkpoint - the value lands in that day's
+  row under that checkpoint, and the other checkpoints already recorded for
+  the day are left alone. The date defaults to today and the checkpoint to
+  the most recent one that has passed in Bangkok time; both are editable, and
+  a read of *yesterday's* window needs Date Monitor moved back a day.
+  **For a multi-day catch-up** use the "Crash-free users" paste section
+  instead: it now expects one whole sheet row per line, tab-separated -
+  `Sync Date ⇥ Platform ⇥ Filter (Versions) ⇥ Date Monitor ⇥ 9.00 ⇥ 12.00 ⇥
+  ... ⇥ 8.00` - checkpoints not yet checked left blank. The Step 2 table
+  mirrors those columns exactly and is what actually gets written, and
+  Platform is auto-selected from the pasted rows.
 - **Crashlytics Issues list -> the "Crashlytics Issue Log" sheet tab
   directly** (same spreadsheet, gid `570219984`, header `วันที่ตรวจ |
   ช่วงเวลาที่ตรวจสอบ | Platform | Filters | Issue | Versions | Events |
   Users`) - there is **no portal page for this yet**, unlike the other
   reads. Give the tab-separated block from Step 3 and the human pastes it
   into that sheet tab by hand, appended below whatever's already there.
-- **Crashlytics Hourly read -> the same `Crashlytics Crash Free User` sheet
-  tab** (gid `0`) as the daily quick-entry/Backfill rows, but a **different
-  header shape** for this one row - see Step 3's Hourly read for the exact
-  columns (re-verify live, already changed twice). No portal page for this
-  either - give the single tab-separated row and the human pastes it in by
-  hand.
+- **Crashlytics Hourly read -> the "Crash-free users" paste box on
+  `/tvn/crashlytics`** (writes the `Crashlytics Crash Free User` tab, gid
+  `0`). As of 2026-08-21 that box takes exactly the tab-separated row Step
+  3's Hourly read produces - one line per monitored day - parses it into an
+  editable table with the sheet's own columns, and syncs it; there is no
+  longer any need to paste into the sheet by hand (it still works if
+  someone prefers to). Re-verify the header live before trusting the column
+  list, it has already changed twice.
 
 The human still reviews what's in the table/paste box and clicks the
 existing Sync/ลงตาราง buttons themselves before anything is written.
@@ -370,7 +379,8 @@ existing Sync/ลงตาราง buttons themselves before anything is writte
 
 Everything written into the `Crashlytics Crash Free User` tab (gid `0`) is
 read straight back by the **📊 Dashboard** view of `/tvn/crashlytics`, which
-grades every recorded day against the two agreed KPI thresholds:
+grades every recorded **checkpoint** (platform + day + hour, not just the
+day) against the two agreed KPI thresholds:
 
 | Band | Rule | Shown as |
 |---|---|---|
@@ -382,18 +392,19 @@ The thresholds live in one place - `KPI_TIER1` / `KPI_TIER2` at the top of
 the dashboard script in `public/tvn-crashlytics.html` - so a change to the
 agreed KPI is a two-line edit, not a hunt through the markup. The view has
 three parts: a 4-stat summary strip, one small-multiple panel per platform
-(latest value + day-on-day delta + a shared-scale trend chart with the two
-KPI lines drawn on it), and a platform x day matrix of every recorded value.
+(latest checkpoint + delta from the previous one + a shared-scale trend chart
+with the two KPI lines drawn on it), and a platform x day x checkpoint matrix
+laid out exactly like the sheet, with per-day ต่ำสุด / เฉลี่ย / ผ่าน T1.
 
 Two things this implies for a read:
-- **A day only counts once it's synced.** A platform with no row for a date
-  shows a blank cell, not a carried-forward value - so a skipped check is
-  visible as a gap rather than silently reading as "fine".
-- **Accuracy of the day-by-day series matters more than the headline tile.**
-  The matrix and the trend panels are built entirely from the per-day
-  `Date Monitor` values, so a backfill that substituted the headline
-  "Crash-free users" number for several days would show up as a flat line
-  that isn't real. Read the graph per day (Step 3's "Trend read" mode).
+- **A checkpoint only counts once it's synced.** An unrecorded checkpoint
+  shows as a blank cell, never a carried-forward value - so a skipped round
+  is visible as a gap rather than silently reading as "fine".
+- **Report the value for the round you actually read.** The dashboard grades
+  each checkpoint on its own, so substituting the 7-day headline
+  "Crash-free users" tile for a specific round's value plants a number that
+  was never true at that hour. Read the graph per point (Step 3's "Trend
+  read" mode) and say which round each value belongs to.
 
 ### Android TV versions always carry `-tv`
 
@@ -406,3 +417,22 @@ parentheses where it is: `4.0.28 (1002)` → `4.0.28-tv (1002)`. This is
 presentation only; the tracker sheet itself is never rewritten, and a value
 already recorded in the Crashlytics sheet by hand is left exactly as typed.
 Only Android TV gets this - Apple TV's tracker versions are shown as-is.
+
+
+### How the code reads that layout
+
+Two implementation details behind Step 3's column list, worth knowing before
+changing anything:
+
+- The tab was restructured **and emptied** on 2026-08-21. Compared with the
+  layout before that, Platform and Filter swapped columns (old: `Filters` in
+  B, `Platform` in C) and the single `% Crash Free Users` column became the 9
+  checkpoint columns - so one row is now one monitored *day*, not one
+  reading. Anything still describing the old A-E shape is stale.
+- `routes/tvn.js` reads the hour labels **out of the sheet's header row**
+  rather than hardcoding them, and every table on the page is built from that
+  list. Add or remove a checkpoint column in the sheet and the page follows on
+  the next load, no code change. `/api/tvn/crashlytics/record` is an upsert on
+  (Platform, Date Monitor): it fills only the checkpoints sent and leaves the
+  rest of the row alone, so checking in again at 15.00 adds to the 9.00/12.00
+  values instead of replacing them.

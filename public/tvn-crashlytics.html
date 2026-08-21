@@ -43,6 +43,58 @@
     .cr-err-table th, .cr-err-table td { padding: 3px 5px; font-size: 10.5px; overflow-wrap: break-word; }
     .cr-err-table th:nth-child(n+7), .cr-err-table td:nth-child(n+7) { text-align: center; }
     .cr-err-table input { width: 100%; box-sizing: border-box; font-size: 10.5px; padding: 3px 5px; }
+
+    /* ---------- KPI dashboard ----------
+       The only colour that carries meaning here is the KPI tier (Tier 1 /
+       Tier 2 / below), so it reuses the shared status tokens rather than a
+       categorical palette - and every coloured thing also carries a glyph
+       and its own number, never colour alone. */
+    .kpi-legend { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .kpi-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid transparent; font-family: var(--font-mono); }
+    .kpi-chip .kpi-glyph { font-size: 10px; }
+    .kpi-t1 { background: var(--good-soft); color: var(--good); border-color: var(--good); }
+    .kpi-t2 { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
+    .kpi-t0 { background: var(--critical-soft); color: var(--critical); border-color: var(--critical); }
+    .kpi-none { background: var(--surface-2); color: var(--ink-faint); border-color: var(--border); }
+
+    .crd-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+    .crd-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px 10px; background: var(--surface); min-width: 0; }
+    .crd-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+    .crd-card-name { font-size: 13px; font-weight: 700; color: var(--ink); }
+    .crd-value-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .crd-value { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 700; line-height: 1.15; color: var(--ink); }
+    .crd-value-unit { font-size: 13px; font-weight: 600; color: var(--ink-faint); }
+    .crd-delta { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-dim); }
+    .crd-asof { font-size: 11px; color: var(--ink-faint); margin-top: 1px; }
+    .crd-spark { width: 100%; height: auto; display: block; margin: 8px 0 6px; overflow: visible; }
+    .crd-foot { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--ink-dim); font-family: var(--font-mono); border-top: 1px solid var(--border); padding-top: 7px; }
+    .crd-foot b { color: var(--ink); font-weight: 700; }
+    .crd-filter { font-size: 10.5px; color: var(--ink-faint); margin-top: 5px; overflow-wrap: anywhere; }
+
+    /* Matrix: one row per platform, one column per recorded day. */
+    .crd-matrix-wrap { overflow-x: auto; }
+    table.crd-matrix td.crd-cell { text-align: center; padding: 5px 6px; font-size: 11.5px; font-weight: 600; }
+    table.crd-matrix td.crd-cell .kpi-glyph { font-size: 9px; margin-right: 3px; opacity: 0.85; }
+    table.crd-matrix td.cell-t1 { background: var(--good-soft); color: var(--good); }
+    table.crd-matrix td.cell-t2 { background: var(--warn-soft); color: var(--warn); }
+    table.crd-matrix td.cell-t0 { background: var(--critical-soft); color: var(--critical); }
+    table.crd-matrix td.cell-none { color: var(--ink-faint); }
+    table.crd-matrix th.crd-day { text-align: center; }
+    table.crd-matrix td.crd-summary, table.crd-matrix th.crd-summary { border-left: 2px solid var(--border); }
+
+    .crd-tip { position: fixed; z-index: 40; pointer-events: none; opacity: 0; transition: opacity .1s; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; font-size: 11.5px; line-height: 1.45; color: var(--ink); box-shadow: 0 6px 20px rgba(0,0,0,.14); max-width: 220px; }
+    .crd-tip b { font-family: var(--font-mono); }
+    .crd-empty { font-size: 12.5px; color: var(--ink-faint); padding: 10px 0; }
+
+    /* Backfill table: the sheet's own 13 columns, so it scrolls sideways on a
+       narrow window rather than squeezing the hour cells into nothing. */
+    .cr-bf-wrap { overflow-x: auto; }
+    .cr-bf-table { width: 100%; min-width: 940px; }
+    .cr-bf-table th, .cr-bf-table td { padding: 3px 5px; font-size: 10.5px; }
+    .cr-bf-table input { width: 100%; box-sizing: border-box; font-size: 10.5px; padding: 3px 5px; font-family: var(--font-mono); }
+    .cr-bf-table th.cr-bf-hour { text-align: center; }
+    .cr-bf-table td:nth-child(n+5) { width: 62px; }
+    .cr-bf-table td:nth-child(n+5) input { text-align: center; }
   </style>
 </head>
 <body>
@@ -157,38 +209,40 @@
 
     <div class="block-head"><h2 class="h">Crash-free users</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">สำหรับใส่ข้อมูลหลายวันย้อนหลังทีเดียว (เช่น export/summary ที่มีหลายวันในหน้าเดียว) — เลือก platform เดียวต่อครั้ง วางข้อความ 1 บรรทัดต่อ 1 วัน รูปแบบ <code>เดือน วันที่  ค่า%</code> เช่น <code>Aug 11  99.92</code></div>
+      <div class="hint">
+        วางแถวที่ shape เหมือนหัวตารางของชีตเลย — คั่นด้วย Tab (หรือเว้นวรรคหลายช่อง) 1 บรรทัดต่อ 1 วัน:
+        <code>Sync Date, Platform, Filter (Versions), Date Monitor, 9.00, 12.00, 15.00, 18.00, 21.00, 24.00, 3.00, 6.00, 8.00</code>
+        — ช่วงเวลาที่ยังไม่ได้เช็คเว้นว่างไว้ได้ Platform จะถูกเลือกให้อัตโนมัติจากค่าที่เจอในแถว
+      </div>
 
-      <div class="tec-paste-row" style="margin-top:12px;">
-        <div class="tec-paste-col">
-          <div class="step"><span class="step-no">Step 1</span><span class="step-text">วางข้อความ 1 บรรทัดต่อ 1 วัน</span></div>
-          <textarea id="cr-backfill-paste" class="paste-input" oninput="parseCrBackfillPasted()"></textarea>
-          <div id="cr-backfill-parse-note" class="result-text"></div>
-          <div class="table-actions">
-            <button class="btn-ghost" onclick="clearCrBackfillPaste()">🧹 ล้างข้อความที่วาง</button>
-          </div>
-        </div>
+      <div class="step" style="margin:12px 0 6px;">
+        <span class="step-no">Step 1</span>
+        <span class="step-text">วางข้อความ 1 บรรทัดต่อ 1 วัน</span>
+      </div>
+      <textarea id="cr-backfill-paste" class="paste-input" oninput="parseCrBackfillPasted()"></textarea>
+      <div id="cr-backfill-parse-note" class="result-text"></div>
+      <div class="table-actions">
+        <button class="btn-ghost" onclick="clearCrBackfillPaste()">🧹 ล้างข้อความที่วาง</button>
+      </div>
 
-        <div class="tec-paste-col">
-          <div class="step"><span class="step-no">Step 2</span><span class="step-text">เลือก Platform + ตรวจค่าที่แยกได้ในตาราง แก้ไขได้ก่อน sync</span></div>
-          <div class="field-row" style="margin:8px 0;">
-            <label class="field-label" for="cr-backfill-platform">Platform</label>
-            <select id="cr-backfill-platform" onchange="onCrBackfillPlatformChange(true)"><option value="">— เลือก platform —</option></select>
-          </div>
-          <div class="field-row" style="margin-bottom:8px;">
-            <label class="field-label" for="cr-backfill-filter">Filter</label>
-            <input class="date-cell-input" id="cr-backfill-filter" style="flex:1;min-width:160px;" placeholder="เช่น 4.0.27,4.0.26,4.0.25">
-          </div>
-          <table class="data" id="cr-backfill-table">
-            <thead><tr><th style="text-align:left;">Date</th><th style="text-align:left;">Crash-free Users %</th></tr></thead>
-            <tbody id="cr-backfill-table-body"><tr><td colspan="2" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr></tbody>
-          </table>
-        </div>
+      <div class="step" style="margin:16px 0 6px;">
+        <span class="step-no">Step 2</span>
+        <span class="step-text">เลือก Platform + ตรวจค่าที่แยกได้ในตาราง แก้ไขได้ก่อน sync</span>
+      </div>
+      <div class="field-row" style="margin-bottom:8px;">
+        <label class="field-label" for="cr-backfill-platform">Platform</label>
+        <select id="cr-backfill-platform" onchange="onCrBackfillPlatformChange(true)"><option value="">— เลือก platform —</option></select>
+      </div>
+      <div class="cr-bf-wrap">
+        <table class="data cr-bf-table" id="cr-backfill-table">
+          <thead id="cr-backfill-head"><tr><th style="text-align:left;">Date Monitor</th></tr></thead>
+          <tbody id="cr-backfill-table-body"><tr><td class="hint">วางข้อความด้านบนเพื่อเริ่ม</td></tr></tbody>
+        </table>
       </div>
 
       <div class="step" style="margin-bottom:8px;">
         <span class="step-no">Step 3</span>
-        <span class="step-text">กด Sync — เขียนทีละวันต่อท้ายประวัติเดิมของ platform นั้น ไม่ทับของเก่า</span>
+        <span class="step-text">กด Sync — วันไหนมีแถวอยู่แล้วจะเติมเฉพาะช่วงเวลาที่กรอกมา ช่วงเวลาอื่นในแถวนั้นไม่ถูกลบ</span>
       </div>
       <div class="toolbar">
         <button class="btn-primary" id="cr-backfill-sync-btn" onclick="syncCrBackfill()">🔄 Sync ย้อนหลังเข้าชีต</button>
@@ -199,10 +253,18 @@
 
     <div class="block-head"><h2 class="h">บันทึก Crash-free Users %</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">เช็คค่า Crash-free users % ตาม filter ด้านบน (7 วันล่าสุด) ทีละ platform — เลือก platform จาก dropdown แล้ววาง (หรือพิมพ์) ค่าที่อ่านได้ กด "ลงตาราง" แล้วทำซ้ำทีละ platform ก่อนกด Sync ครั้งเดียวตอนท้าย</div>
+      <div class="hint">สำหรับเช็คตามรอบ (9.00, 12.00, 15.00, ...) — เลือกวันที่ที่กำลัง monitor + รอบเวลา แล้วไล่ทีละ platform: เลือก platform, วาง (หรือพิมพ์) ค่าที่อ่านได้, กด "ลงตาราง" แล้วกด Sync ครั้งเดียวตอนท้าย ค่าจะไปลงช่องของรอบเวลานั้นในแถวของวันนั้น รอบอื่นที่บันทึกไว้แล้วไม่หาย</div>
 
       <div class="tec-paste-row" style="margin-top:12px;align-items:flex-end;">
-        <div class="tec-paste-col" style="flex:0 0 220px;">
+        <div class="tec-paste-col" style="flex:0 0 170px;">
+          <label class="field-label" for="cr-date-monitor">Date Monitor</label>
+          <input class="date-cell-input" id="cr-date-monitor" placeholder="20-Aug-26">
+        </div>
+        <div class="tec-paste-col" style="flex:0 0 150px;">
+          <label class="field-label" for="cr-hour">รอบเวลาที่ตรวจ</label>
+          <select id="cr-hour"></select>
+        </div>
+        <div class="tec-paste-col" style="flex:0 0 190px;">
           <label class="field-label" for="cr-target-platform">Platform</label>
           <select id="cr-target-platform"><option value="">— เลือก platform —</option></select>
         </div>
@@ -218,7 +280,7 @@
       </div>
 
       <table class="data" id="cr-table" style="margin-top:14px;">
-        <thead><tr><th>Platform</th><th>Crash-free Users %</th><th>Filter (versions ที่กำลัง monitor)</th><th>ล่าสุดที่บันทึกไว้</th></tr></thead>
+        <thead><tr><th>Platform</th><th>Crash-free Users %</th><th>Filter (Versions)</th><th>ล่าสุดที่บันทึกไว้</th></tr></thead>
         <tbody id="cr-table-body"><tr><td colspan="4" class="hint">กำลังโหลดข้อมูล...</td></tr></tbody>
       </table>
 
@@ -231,6 +293,36 @@
   </section>
 
   <section class="block" id="cr-view-dash">
+    <div class="block-head"><h2 class="h">KPI Crash-free Users</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="hint">
+        เกณฑ์ KPI: <strong>Tier 1 = 99.7%</strong> · <strong>Tier 2 = 99.5%</strong> — ค่าที่บันทึกไว้ในแท็บ
+        <em>Crashlytics Crash Free User</em> ถูกจัดเป็น 3 ระดับตามเกณฑ์นี้ (แก้ตัวเลขเกณฑ์ได้ที่ตัวแปร
+        <code>KPI_TIER1</code>/<code>KPI_TIER2</code> ในหน้านี้)
+      </div>
+      <div class="kpi-legend">
+        <span class="kpi-chip kpi-t1"><span class="kpi-glyph">●</span> Tier 1 · ≥ 99.70%</span>
+        <span class="kpi-chip kpi-t2"><span class="kpi-glyph">▲</span> Tier 2 · 99.50–99.69%</span>
+        <span class="kpi-chip kpi-t0"><span class="kpi-glyph">✕</span> ต่ำกว่า Tier 2 · &lt; 99.50%</span>
+        <span class="kpi-chip kpi-none">— ไม่มีข้อมูล</span>
+      </div>
+
+      <div class="toolbar" style="margin-bottom:12px;">
+        <button class="btn-ghost" onclick="loadCrashlyticsForm()">🔄 Refresh</button>
+        <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1_1ojg19vO5p6KfVx-HoGO6VX1ov1_RL_obYfK_iON68/edit?gid=0#gid=0" target="_blank" rel="noopener">📄 เปิดชีตต้นทาง</a>
+        <span class="last-updated" id="crd-period"></span>
+      </div>
+
+      <div class="stat-row" id="crd-stats"></div>
+      <div class="crd-cards" id="crd-cards"><div class="crd-empty">กำลังโหลดข้อมูล...</div></div>
+    </div>
+
+    <div class="block-head"><h2 class="h">รายวันต่อ Platform</h2><div class="rule"></div></div>
+    <div class="card">
+      <div class="hint">ทุกค่าที่บันทึกไว้ เรียงตามวันที่ตรวจ (Date Monitor) — สีและสัญลักษณ์บอกระดับ KPI ของวันนั้น ช่องว่างคือวันที่ยังไม่ได้บันทึก</div>
+      <div class="crd-matrix-wrap" id="crd-matrix"><div class="crd-empty">กำลังโหลดข้อมูล...</div></div>
+    </div>
+
     <div class="block-head"><h2 class="h">Deploy Tag ล่าสุด</h2><div class="rule"></div></div>
     <div class="card">
       <div class="step0-layout">
@@ -319,12 +411,35 @@ function platformsMatching(platforms, keywords) {
   });
 }
 
+// Firebase reports Android TV builds with a "-tv" suffix on the version
+// number (4.0.28-tv) while the CAB Deploy Tracker records them plain
+// (4.0.28), so the suffix is added here on the way out - the Version to
+// Monitor list has to read exactly like what the Crashlytics version filter
+// shows, or the person checking it can't tell Android TV's builds from
+// Android Mobile's. Presentation only: the tracker sheet is never rewritten.
+const TV_SUFFIX_PLATFORMS = ['android tv'];
+
+// "4.0.28 (1002)" -> "4.0.28-tv (1002)"; the build number in parentheses is
+// left where it is, and a version that already carries the suffix (or that
+// doesn't start with a number at all) is passed through untouched.
+function withTvSuffix(version) {
+  const v = String(version || '').trim();
+  if (!v || /-tv/i.test(v)) return v;
+  return v.replace(/^(v?\d[\d.]*)/i, '$1-tv');
+}
+
+function displayVersions(platformName, versions) {
+  const list = versions || [];
+  const norm = String(platformName || '').trim().toLowerCase();
+  return TV_SUFFIX_PLATFORMS.includes(norm) ? list.map(withTvSuffix) : list;
+}
+
 function versionToMonitorTable(rows) {
   if (!rows.length) return '<div class="hint">ไม่พบ platform ที่เกี่ยวข้องใน Step 0</div>';
   const rowsHtml = rows.map(p => `
     <tr>
       <td style="text-align:left;">${escapeHtml(p.platform)}</td>
-      <td style="text-align:left;">${p.recentVersions && p.recentVersions.length ? p.recentVersions.map(escapeHtml).join('<br>') : '—'}</td>
+      <td style="text-align:left;">${p.recentVersions && p.recentVersions.length ? displayVersions(p.platform, p.recentVersions).map(escapeHtml).join('<br>') : '—'}</td>
     </tr>
   `).join('');
   return `
@@ -349,17 +464,276 @@ function renderStep1(platforms) {
 // "⬇ ลงตาราง" drops the typed/pasted value into that platform's row, repeat
 // for each platform, then one Sync at the end.
 let crPlatforms = [];
+let crHours = [];
 
 async function loadCrashlyticsForm() {
   try {
     const data = await fetchJson('/api/tvn/crashlytics');
     crPlatforms = data.platforms || [];
+    // The checkpoint columns are whatever the sheet's header row says, so
+    // every table that has one column per checkpoint is built from this.
+    crHours = data.hours || [];
+    renderCrBackfillHead();
+    // Only re-lays the empty placeholder row, never a table someone is
+    // half-way through editing - this runs on the dashboard's Refresh too.
+    if (!document.querySelector('#cr-backfill-table-body input')) renderCrBackfillTable([]);
+    populateCrCheckpointFields();
     renderCrTable();
     populateCrTargetSelect();
+    renderCrDashboard(crPlatforms, crHours);
   } catch (err) {
     document.getElementById('cr-table-body').innerHTML = `<tr><td colspan="4" class="hint">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</td></tr>`;
+    const msg = `<div class="crd-empty">⚠️ โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</div>`;
+    document.getElementById('crd-cards').innerHTML = msg;
+    document.getElementById('crd-matrix').innerHTML = msg;
   }
 }
+
+// ================= KPI dashboard =================
+// Read-only view over the exact same payload the entry form uses (one Sheets
+// read serves both). The only meaning colour carries here is the KPI tier, so
+// it reuses the shared status tokens - and because green/amber/red are never
+// distinguishable to every reader, every coloured element also carries a
+// glyph and its own number.
+const KPI_TIER1 = 99.7;
+const KPI_TIER2 = 99.5;
+const KPI_EPS = 1e-9; // 99.7 read off Firebase must count as Tier 1, float noise and all
+
+function kpiTier(value) {
+  if (value === null || value === undefined || isNaN(value)) return 'none';
+  if (value + KPI_EPS >= KPI_TIER1) return 't1';
+  if (value + KPI_EPS >= KPI_TIER2) return 't2';
+  return 't0';
+}
+const TIER_GLYPH = { t1: '●', t2: '▲', t0: '✕', none: '—' };
+const TIER_LABEL = { t1: 'Tier 1', t2: 'Tier 2', t0: 'ต่ำกว่า Tier 2', none: 'ไม่มีข้อมูล' };
+const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const fmtPct = v => Number(v).toFixed(2);
+function isoLabel(iso) {
+  const [y, m, d] = String(iso).split('-').map(Number);
+  return `${d} ${MONTH_ABBR[m - 1] || '?'}`;
+}
+function tierChip(tier, text) {
+  return `<span class="kpi-chip kpi-${tier}"><span class="kpi-glyph">${TIER_GLYPH[tier]}</span> ${escapeHtml(text)}</span>`;
+}
+
+// A day in the sheet is a row of checkpoints, so the unit the dashboard
+// grades is one *reading* (platform + day + checkpoint hour), not one day -
+// a dip at 3.00 that recovered by 8.00 is a KPI event either way. Days come
+// out chronological, and within a day the checkpoints stay in the sheet's own
+// column order (9.00 ... 24.00, then 3.00/6.00/8.00 the next morning).
+function readingsOf(platform, hours) {
+  const out = [];
+  (platform.history || []).forEach(day => {
+    (day.values || []).forEach((value, i) => {
+      if (value === null || value === undefined || value === '') return;
+      out.push({ platform: platform.platform, iso: day.iso, date: day.date, hour: hours[i] || '', value: Number(value) });
+    });
+  });
+  return out;
+}
+
+// Small multiples only work if every panel shares one y-scale, so the domain
+// is computed once across every reading. Floor is whichever is lower - the
+// worst reading or the Tier 2 line - so both KPI lines are always visible no
+// matter how good the week was.
+function kpiDomain(readings) {
+  const min = readings.length ? Math.min(...readings.map(r => r.value)) : KPI_TIER2;
+  const floor = Math.min(min, KPI_TIER2) - 0.1;
+  return { yMin: Math.floor(floor * 20) / 20, yMax: 100 };
+}
+
+function sparkline(readings, domain) {
+  const W = 300, H = 96, padX = 8, padTop = 6, padBottom = 15;
+  const { yMin, yMax } = domain;
+  const plotH = H - padTop - padBottom;
+  const y = v => padTop + ((yMax - v) / (yMax - yMin)) * plotH;
+  const x = i => readings.length < 2 ? W / 2 : padX + (i * (W - 2 * padX)) / (readings.length - 1);
+  const bandRect = (top, bottom, fill) =>
+    `<rect x="0" y="${y(top).toFixed(1)}" width="${W}" height="${(y(bottom) - y(top)).toFixed(1)}" fill="${fill}" opacity="0.5"></rect>`;
+  const ruleAt = v => v <= yMax && v >= yMin
+    ? `<line x1="0" x2="${W}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"></line>` : '';
+
+  const points = readings.map((r, i) => `${x(i).toFixed(1)},${y(r.value).toFixed(1)}`).join(' ');
+  // Markers only on readings that missed Tier 1, plus the newest one - a dot
+  // on all 60-odd checkpoints would bury the ones that matter.
+  const dots = readings.map((r, i) => {
+    const tier = kpiTier(r.value);
+    const isLast = i === readings.length - 1;
+    if (tier === 't1' && !isLast) return '';
+    const fill = tier === 't1' ? 'var(--good)' : tier === 't2' ? 'var(--warn)' : 'var(--critical)';
+    return `<circle cx="${x(i).toFixed(1)}" cy="${y(r.value).toFixed(1)}" r="3.5" fill="${fill}" stroke="var(--surface)" stroke-width="2"
+      data-tip="${escapeHtml(isoLabel(r.iso))} ${escapeHtml(r.hour)}\n${fmtPct(r.value)}% · ${escapeHtml(TIER_LABEL[tier])}"></circle>`;
+  }).join('');
+
+  const first = readings[0], last = readings[readings.length - 1];
+  const firstLabel = first ? `<text x="0" y="${H - 3}" font-size="9" fill="var(--ink-faint)">${escapeHtml(isoLabel(first.iso))}</text>` : '';
+  const lastLabel = readings.length > 1 ? `<text x="${W}" y="${H - 3}" font-size="9" text-anchor="end" fill="var(--ink-faint)">${escapeHtml(isoLabel(last.iso))}</text>` : '';
+
+  return `<svg class="crd-spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="แนวโน้ม Crash-free users ทุกรอบเวลา เทียบเกณฑ์ KPI">
+    ${bandRect(yMax, Math.max(KPI_TIER1, yMin), 'var(--good-soft)')}
+    ${KPI_TIER1 > yMin ? bandRect(Math.max(KPI_TIER1, yMin), Math.max(KPI_TIER2, yMin), 'var(--warn-soft)') : ''}
+    ${KPI_TIER2 > yMin ? bandRect(Math.max(KPI_TIER2, yMin), yMin, 'var(--critical-soft)') : ''}
+    ${ruleAt(KPI_TIER1)}${ruleAt(KPI_TIER2)}
+    ${readings.length > 1 ? `<polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>` : ''}
+    ${dots}${firstLabel}${lastLabel}
+  </svg>`;
+}
+
+function platformCard(p, readings, domain) {
+  const latest = readings[readings.length - 1] || null;
+  const prev = readings[readings.length - 2] || null;
+  const tier = latest ? kpiTier(latest.value) : 'none';
+  const values = readings.map(r => r.value);
+  const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+  const min = values.length ? Math.min(...values) : null;
+  const t1Count = values.filter(v => kpiTier(v) === 't1').length;
+
+  let delta = '';
+  if (latest && prev) {
+    const diff = latest.value - prev.value;
+    const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '=';
+    delta = `<span class="crd-delta">${arrow} ${diff >= 0 ? '+' : '−'}${Math.abs(diff).toFixed(2)} จากรอบก่อน</span>`;
+  }
+
+  return `<div class="crd-card">
+    <div class="crd-card-head">
+      <span class="crd-card-name">${escapeHtml(p.platform)}</span>
+      ${tierChip(tier, TIER_LABEL[tier])}
+    </div>
+    <div class="crd-value-row">
+      <span class="crd-value">${latest ? fmtPct(latest.value) : '—'}</span><span class="crd-value-unit">%</span>
+      ${delta}
+    </div>
+    <div class="crd-asof">${latest ? `ล่าสุด ${escapeHtml(latest.date)} รอบ ${escapeHtml(latest.hour)}` : 'ยังไม่มีข้อมูลที่บันทึกไว้'}</div>
+    ${readings.length ? sparkline(readings, domain) : '<div class="crd-empty">ไม่มีข้อมูลให้พล็อต</div>'}
+    <div class="crd-foot">
+      <span>เฉลี่ย <b>${avg === null ? '—' : fmtPct(avg)}%</b></span>
+      <span>ต่ำสุด <b>${min === null ? '—' : fmtPct(min)}%</b></span>
+      <span>ผ่าน Tier 1 <b>${t1Count}/${values.length || 0}</b> รอบ</span>
+    </div>
+    <div class="crd-filter">Versions: ${escapeHtml(p.filter || '—')}</div>
+  </div>`;
+}
+
+function renderCrStats(platforms, byPlatform, allReadings) {
+  const withData = platforms.filter(p => (byPlatform.get(p.platform) || []).length);
+  const passT1Now = withData.filter(p => {
+    const rs = byPlatform.get(p.platform);
+    return kpiTier(rs[rs.length - 1].value) === 't1';
+  }).length;
+  const values = allReadings.map(r => r.value);
+  const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+  const belowT1 = allReadings.filter(r => kpiTier(r.value) !== 't1').length;
+  const belowT2 = allReadings.filter(r => kpiTier(r.value) === 't0').length;
+  const worst = allReadings.length ? allReadings.reduce((a, b) => (b.value < a.value ? b : a)) : null;
+
+  const stats = [
+    { value: `${passT1Now}/${withData.length || 0}`, label: `platform ที่ค่ารอบล่าสุดผ่าน Tier 1 (≥ ${KPI_TIER1}%)` },
+    { value: avg === null ? '—' : fmtPct(avg) + '%', label: `ค่าเฉลี่ยรวมทุก platform · ${allReadings.length} รอบที่บันทึกไว้` },
+    { value: `${belowT1}`, label: `รอบที่ไม่ถึง Tier 1 (ในนั้นต่ำกว่า Tier 2 ${belowT2} รอบ)` },
+    { value: worst ? fmtPct(worst.value) + '%' : '—', label: worst ? `ต่ำสุดในช่วง · ${worst.platform} ${isoLabel(worst.iso)} ${worst.hour}` : 'ยังไม่มีข้อมูล' },
+  ];
+  document.getElementById('crd-stats').innerHTML = stats.map(s => `
+    <div class="stat">
+      <div class="stat-value">${escapeHtml(s.value)}</div>
+      <div class="stat-label">${escapeHtml(s.label)}</div>
+    </div>
+  `).join('');
+}
+
+// The table view of the same numbers - the accessible fallback for the panels
+// above, and the only place every checkpoint is readable at once. One row per
+// platform-day, one column per checkpoint hour, exactly like the sheet, plus
+// the per-day summary the sheet doesn't carry.
+function renderCrMatrix(platforms, hours) {
+  const wrap = document.getElementById('crd-matrix');
+  const rows = [];
+  platforms.forEach(p => {
+    (p.history || []).forEach(day => rows.push({ platform: p.platform, day }));
+  });
+  if (!rows.length || !hours.length) {
+    wrap.innerHTML = '<div class="crd-empty">ยังไม่มีข้อมูลที่บันทึกไว้ในชีต</div>';
+    return;
+  }
+
+  const head = `<tr>
+    <th style="text-align:left;">Platform</th>
+    <th style="text-align:left;">Date Monitor</th>
+    ${hours.map(h => `<th class="crd-day">${escapeHtml(h)}</th>`).join('')}
+    <th class="crd-summary">ต่ำสุด</th><th>เฉลี่ย</th><th>ผ่าน T1</th>
+  </tr>`;
+
+  const body = rows.map((row, i) => {
+    const values = (row.day.values || []).map(v => (v === null || v === '' || v === undefined ? null : Number(v)));
+    const filled = values.filter(v => v !== null);
+    const min = filled.length ? Math.min(...filled) : null;
+    const avg = filled.length ? filled.reduce((a, b) => a + b, 0) / filled.length : null;
+    const t1 = filled.filter(v => kpiTier(v) === 't1').length;
+    // The platform name is shown once per block rather than on every row -
+    // it's the same grouping the sheet itself uses.
+    const isFirstOfPlatform = i === 0 || rows[i - 1].platform !== row.platform;
+    const span = rows.filter(r => r.platform === row.platform).length;
+
+    const cells = hours.map((h, hi) => {
+      const v = values[hi];
+      if (v === null || v === undefined) return '<td class="crd-cell cell-none">—</td>';
+      const tier = kpiTier(v);
+      return `<td class="crd-cell cell-${tier}" data-tip="${escapeHtml(row.platform)} · ${escapeHtml(row.day.date)} ${escapeHtml(h)}\n${fmtPct(v)}% · ${escapeHtml(TIER_LABEL[tier])}">
+        <span class="kpi-glyph">${TIER_GLYPH[tier]}</span>${fmtPct(v)}</td>`;
+    }).join('');
+
+    return `<tr>
+      ${isFirstOfPlatform ? `<td style="text-align:left;font-weight:600;" rowspan="${span}">${escapeHtml(row.platform)}</td>` : ''}
+      <td style="text-align:left;">${escapeHtml(row.day.date)}</td>
+      ${cells}
+      <td class="crd-summary">${min === null ? '—' : fmtPct(min)}</td>
+      <td>${avg === null ? '—' : fmtPct(avg)}</td>
+      <td>${filled.length ? `${t1}/${filled.length}` : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `<table class="data crd-matrix"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+
+function renderCrDashboard(platforms, hours) {
+  const list = platforms || [];
+  const hourList = hours || [];
+  const byPlatform = new Map(list.map(p => [p.platform, readingsOf(p, hourList)]));
+  const allReadings = [...byPlatform.values()].flat();
+  const dates = [...new Set(allReadings.map(r => r.iso))].sort();
+  const domain = kpiDomain(allReadings);
+
+  document.getElementById('crd-period').textContent = dates.length
+    ? `ช่วงข้อมูล: ${isoLabel(dates[0])} – ${isoLabel(dates[dates.length - 1])} (${dates.length} วัน · ${allReadings.length} รอบ)`
+    : 'ยังไม่มีข้อมูล';
+
+  renderCrStats(list, byPlatform, allReadings);
+  document.getElementById('crd-cards').innerHTML = list.length
+    ? list.map(p => platformCard(p, byPlatform.get(p.platform) || [], domain)).join('')
+    : '<div class="crd-empty">ยังไม่มี platform ไหนถูกบันทึกลงแท็บ Crashlytics Crash Free User</div>';
+  renderCrMatrix(list, hourList);
+}
+
+// One delegated tooltip for every [data-tip] mark on the dashboard (chart
+// dots and matrix cells alike) - cheaper than binding per element, and it
+// survives the re-render on every refresh.
+(function initCrTooltip() {
+  const tip = document.createElement('div');
+  tip.className = 'crd-tip';
+  document.body.appendChild(tip); // this script tag sits at the end of <body>
+  document.addEventListener('mousemove', e => {
+    const target = e.target.closest && e.target.closest('[data-tip]');
+    if (!target) { tip.style.opacity = '0'; return; }
+    tip.innerHTML = target.getAttribute('data-tip').split('\n').map(escapeHtml).join('<br>');
+    tip.style.opacity = '1';
+    const pad = 14;
+    const rect = tip.getBoundingClientRect();
+    tip.style.left = Math.min(e.clientX + pad, window.innerWidth - rect.width - 8) + 'px';
+    tip.style.top = Math.max(8, e.clientY - rect.height - pad) + 'px';
+  });
+})();
 
 // Fixed list, not derived from the sheet's own blocks - the dropdown should
 // always offer exactly these 4 regardless of which platforms currently have
@@ -382,20 +756,32 @@ function populateCrTargetSelect() {
 function suggestedFilterFor(platformName) {
   const norm = String(platformName || '').trim().toLowerCase();
   const match = appReleasesPlatforms.find(p => p.platform.trim().toLowerCase() === norm);
-  return match && match.recentVersions && match.recentVersions.length ? match.recentVersions.join(',') : '';
+  // Same -tv treatment as the Version to Monitor table above: the Filter
+  // column is what gets written into the sheet as "versions being monitored",
+  // so it has to say the same thing that table does.
+  return match && match.recentVersions && match.recentVersions.length
+    ? displayVersions(match.platform, match.recentVersions).join(',')
+    : '';
 }
 
 // Value cells always start blank - the table is a scratch pad for "what am I
 // about to write", not a mirror of what the sheet already holds (that's what
 // the "ล่าสุดที่บันทึกไว้" column is for). Re-rendering after a sync is what
 // clears it back to blank.
+// One row per platform this tool tracks, whether or not the sheet has any
+// rows for it yet - the tab starts empty after a reset, and a table driven by
+// what's already in the sheet would then have nothing to type into.
+function crEntryRows() {
+  return CR_PLATFORM_OPTIONS.map(name => {
+    const found = crPlatforms.find(p => p.platform.trim().toLowerCase() === name.toLowerCase());
+    return found || { platform: name, filter: '', value: '', dateCheck: '', hour: '' };
+  });
+}
+
 function renderCrTable() {
   const tbody = document.getElementById('cr-table-body');
-  if (!crPlatforms.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="hint">ไม่พบ platform ในแท็บ Firebase Crashlytics</td></tr>';
-    return;
-  }
-  tbody.innerHTML = crPlatforms.map((p, i) => `
+  const rows = crEntryRows();
+  tbody.innerHTML = rows.map((p, i) => `
     <tr data-platform="${escapeHtml(p.platform)}">
       <td style="font-weight:600;">${escapeHtml(p.platform)}</td>
       <td>
@@ -405,14 +791,53 @@ function renderCrTable() {
         </div>
       </td>
       <td><input class="date-cell-input cr-filter-input" data-idx="${i}" value="${escapeHtml(p.filter || suggestedFilterFor(p.platform))}"></td>
-      <td>${p.value ? `${escapeHtml(p.value)}% (${escapeHtml(p.dateCheck)})` : '—'}</td>
+      <td>${p.value !== '' && p.value !== undefined && p.value !== null
+        ? `${escapeHtml(String(p.value))}% (${escapeHtml(p.dateCheck)}${p.hour ? ' ' + escapeHtml(p.hour) : ''})`
+        : '—'}</td>
     </tr>
   `).join('');
 }
 
 function findCrPlatformIndex(name) {
   const norm = String(name || '').trim().toLowerCase();
-  return crPlatforms.findIndex(p => p.platform.trim().toLowerCase() === norm);
+  return crEntryRows().findIndex(p => p.platform.trim().toLowerCase() === norm);
+}
+
+// The checkpoint list comes from the sheet's header row via the API. The
+// default pick is the most recent checkpoint that has already passed in
+// Bangkok time (24.00 being midnight, and 3.00/6.00/8.00 belonging to the
+// following morning), so the common case is one click of ลงตาราง with
+// nothing else to set.
+function crHourClock(label) {
+  const n = parseFloat(label);
+  return isNaN(n) ? 0 : (n >= 24 ? n - 24 : n);
+}
+
+function currentCrHour() {
+  if (!crHours.length) return '';
+  const now = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', hour12: false }).format(new Date()));
+  let best = crHours[0], bestDiff = 99;
+  crHours.forEach(h => {
+    const diff = (now - crHourClock(h) + 24) % 24;
+    if (diff < bestDiff) { bestDiff = diff; best = h; }
+  });
+  return best;
+}
+
+function crTodayLabel() {
+  const t = crTodayParts();
+  return crFormatDateLabel(MONTH_ABBR[t.m] || 'Jan', t.d) || '';
+}
+
+// Only ever fills blanks - a date or checkpoint the human already changed by
+// hand survives a refresh of the page data.
+function populateCrCheckpointFields() {
+  const hourSelect = document.getElementById('cr-hour');
+  const previous = hourSelect.value;
+  hourSelect.innerHTML = crHours.map(h => `<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
+  hourSelect.value = crHours.includes(previous) ? previous : currentCrHour();
+  const dateInput = document.getElementById('cr-date-monitor');
+  if (!dateInput.value.trim()) dateInput.value = crTodayLabel();
 }
 
 // Drops the value field into whichever platform's row is picked in the
@@ -452,15 +877,23 @@ async function syncCrashlytics() {
   const btn = document.getElementById('cr-sync-btn');
   const resultEl = document.getElementById('cr-record-result');
 
+  const date = document.getElementById('cr-date-monitor').value.trim();
+  const hour = document.getElementById('cr-hour').value;
+
   const toSync = [...document.querySelectorAll('#cr-table-body tr[data-platform]')]
     .map(tr => ({
       platform: tr.dataset.platform,
-      value: (tr.querySelector('.cr-value') || {}).value || '',
-      filter: (tr.querySelector('.cr-filter-input') || {}).value || '',
+      value: ((tr.querySelector('.cr-value') || {}).value || '').trim(),
+      filter: ((tr.querySelector('.cr-filter-input') || {}).value || '').trim(),
     }))
-    .map(r => ({ ...r, value: r.value.trim(), filter: r.filter.trim() }))
-    .filter(r => r.value && !isNaN(parseFloat(r.value)));
+    .filter(r => r.value && !isNaN(parseFloat(r.value)))
+    // Every row of one sync shares the same Date Monitor and checkpoint -
+    // the whole point of this table is one pass over the platforms at a
+    // single round of checking.
+    .map(r => ({ platform: r.platform, entries: [{ date, filter: r.filter, values: [{ hour, value: parseFloat(r.value) }] }] }));
 
+  if (!date) { resultEl.textContent = 'ยังไม่ได้ใส่ Date Monitor'; return; }
+  if (!hour) { resultEl.textContent = 'ยังไม่ได้เลือกรอบเวลา'; return; }
   if (!toSync.length) { resultEl.textContent = 'ยังไม่มีค่าที่กรอก/วางไว้ให้ sync'; return; }
 
   btn.disabled = true;
@@ -519,20 +952,6 @@ function crFormatDateLabel(monthName, day) {
   return `${String(day).padStart(2, '0')}-${mm}-${String(year).slice(-2)}`;
 }
 
-// "Aug 11  99.92 100.00" or "Aug 11  99.89" - month, day, then the first
-// number found (Crashlytics screenshots sometimes carry a second number
-// like Crash-free Sessions % alongside Crash-free Users %; only the first
-// gets synced, since that's the only one this sheet has a column for).
-function parseCrBackfillLine(line) {
-  const tokens = String(line).trim().split(/\s+/).filter(Boolean);
-  if (tokens.length < 3 || !/^[A-Za-z]{3,}$/.test(tokens[0])) return null;
-  const day = parseInt(tokens[1], 10);
-  const value = parseFloat(tokens[2]);
-  if (isNaN(day) || isNaN(value)) return null;
-  const dateLabel = crFormatDateLabel(tokens[0], day);
-  return dateLabel ? { dateLabel, value } : null;
-}
-
 // "Platform: Apple TV" - same shape as the quick-entry track's reads and
 // the BitMovin Top Error Codes paste box use for the same purpose.
 function parseCrPlatformLine(line) {
@@ -544,20 +963,61 @@ function setCrBackfillPlatformAutofilled(on) {
   document.getElementById('cr-backfill-platform').classList.toggle('autofilled', !!on);
 }
 
-// Reads a "Platform:" line (if present, from anywhere in the pasted text)
-// and selects it in the dropdown, marked blue to show it came from the
-// paste rather than a manual pick. That line is consumed here - it's never
-// passed to parseCrBackfillLine, so it doesn't show up as an "unreadable"
-// row in the parse note.
-function applyCrBackfillPlatformHint(lines) {
-  const hinted = lines.map(parseCrPlatformLine).find(Boolean);
+const CR_DATE_RE = /^\d{1,2}[-\s][A-Za-z]{3,}[-\s]\d{2,4}$/;
+const isCrDateLabel = v => CR_DATE_RE.test(String(v || '').trim());
+
+// A pasted line is one whole sheet row:
+//   Sync Date | Platform | Filter (Versions) | Date Monitor | 9.00 | ... | 8.00
+// Tab-separated when copied straight out of the sheet, but a copy that has
+// been through an editor often arrives space-padded instead, so runs of 2+
+// spaces separate fields too - and the numeric tail is re-split on single
+// spaces as well, since that's how the hour values usually survive a copy.
+// The two date columns are found by shape rather than by position, so a row
+// pasted without its Sync Date still lands its Date Monitor in the right
+// column instead of shifting every field left by one.
+function parseCrBackfillLine(line, hours) {
+  const fields = String(line).replace(/\r/g, '').split(/\t|\s{2,}/).map(f => f.trim());
+  if (fields.length < 2) return null;
+
+  // Date Monitor is the last date-shaped field among the leading columns, and
+  // the hour values are everything after it - found this way rather than by a
+  // fixed offset so a row pasted without its Sync Date doesn't lose its first
+  // checkpoint into the header fields.
+  const dateIdx = fields.map((f, i) => (isCrDateLabel(f) && i < 4 ? i : -1)).filter(i => i !== -1);
+  if (!dateIdx.length) return null;
+  const monitorIdx = dateIdx[dateIdx.length - 1];
+  const head = fields.slice(0, monitorIdx + 1);
+  const tail = fields.slice(monitorIdx + 1).join(' ').split(/\s+/).map(v => v.trim()).filter(Boolean);
+
+  const syncDate = dateIdx.length > 1 ? fields[dateIdx[0]] : '';
+  const dateLabel = fields[monitorIdx];
+  const rest = head.filter((_, i) => !dateIdx.includes(i));
+  // Whatever isn't a date is Platform then Filter, in the sheet's own order.
+  const platform = rest[0] || '';
+  const filter = rest[1] || '';
+
+  const values = hours.map((_, i) => {
+    const raw = tail[i];
+    if (raw === undefined) return '';
+    const n = parseFloat(String(raw).replace('%', ''));
+    return isNaN(n) ? '' : String(n);
+  });
+  if (!values.some(v => v !== '')) return null;
+  return { syncDate, platform, filter, dateLabel, values };
+}
+
+// Reads a "Platform:" line (if present) or the Platform field of the pasted
+// rows themselves, and selects it in the dropdown, marked blue to show it
+// came from the paste rather than a manual pick.
+function applyCrBackfillPlatformHint(lines, entries) {
+  const hinted = lines.map(parseCrPlatformLine).find(Boolean)
+    || (entries.find(e => e.platform) || {}).platform
+    || null;
   if (!hinted) return null;
   const match = CR_PLATFORM_OPTIONS.find(p => p.toLowerCase() === hinted.toLowerCase());
-  const select = document.getElementById('cr-backfill-platform');
   if (match) {
-    select.value = match;
+    document.getElementById('cr-backfill-platform').value = match;
     setCrBackfillPlatformAutofilled(true);
-    onCrBackfillPlatformChange(false);
   }
   return hinted;
 }
@@ -565,66 +1025,91 @@ function applyCrBackfillPlatformHint(lines) {
 function parseCrBackfillPasted() {
   const text = document.getElementById('cr-backfill-paste').value;
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const platformHint = applyCrBackfillPlatformHint(lines);
 
   const entries = [];
   const skipped = [];
   lines.forEach(line => {
-    if (parseCrPlatformLine(line)) return; // consumed by applyCrBackfillPlatformHint above
-    const parsed = parseCrBackfillLine(line);
+    if (parseCrPlatformLine(line)) return; // consumed by applyCrBackfillPlatformHint below
+    const parsed = parseCrBackfillLine(line, crHours);
     if (parsed) entries.push(parsed); else skipped.push(line);
   });
+  const platformHint = applyCrBackfillPlatformHint(lines, entries);
   renderCrBackfillTable(entries);
+
   const note = document.getElementById('cr-backfill-parse-note');
   const notes = [];
   if (platformHint) {
     notes.push(CR_PLATFORM_OPTIONS.some(p => p.toLowerCase() === platformHint.toLowerCase())
-      ? `เลือก Platform เป็น "${platformHint}" จากบรรทัดแรก`
-      : `บรรทัดแรกระบุ Platform "${platformHint}" ซึ่งไม่ตรงกับตัวเลือกใด - เลือกเองด้านล่าง`);
+      ? `เลือก Platform เป็น "${platformHint}" จากข้อความที่วาง`
+      : `ข้อความระบุ Platform "${platformHint}" ซึ่งไม่ตรงกับตัวเลือกใด - เลือกเองด้านล่าง`);
   }
   if (!lines.length) { note.textContent = ''; return; }
-  if (!entries.length) notes.push('อ่านค่าวันไม่ได้สักบรรทัด - รูปแบบที่รองรับคือ "Aug 11  99.92"');
+  if (!entries.length) notes.push('อ่านไม่ได้สักบรรทัด - ต้องเป็นแถวตามหัวตารางของชีต เช่น "21-Aug-26 ⇥ Android TV ⇥ 4.0.28-tv,4.0.27-tv ⇥ 20-Aug-26 ⇥ 99.51 ⇥ 99.88 ..."');
   else notes.push(`แยกได้ ${entries.length} วัน` + (skipped.length ? ` (ข้าม ${skipped.length} บรรทัดที่อ่านไม่ออก: ${skipped.join(' | ')})` : ''));
   note.textContent = notes.join(' · ');
 }
 
+// The header mirrors the sheet's own columns, hour columns included - they
+// come from the API (which reads them off the sheet's header row), so adding
+// a checkpoint column in the sheet shows up here without a code change.
+function renderCrBackfillHead() {
+  document.getElementById('cr-backfill-head').innerHTML = `<tr>
+    <th style="text-align:left;">Sync Date</th>
+    <th style="text-align:left;">Platform</th>
+    <th style="text-align:left;">Filter (Versions)</th>
+    <th style="text-align:left;">Date Monitor</th>
+    ${crHours.map(h => `<th class="cr-bf-hour">${escapeHtml(h)}</th>`).join('')}
+  </tr>`;
+}
+
 function renderCrBackfillTable(entries) {
   const tbody = document.getElementById('cr-backfill-table-body');
+  const cols = 4 + crHours.length;
   if (!entries.length) {
-    tbody.innerHTML = '<tr><td colspan="2" class="hint">วางข้อความด้านซ้ายเพื่อเริ่ม</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${cols}" class="hint">วางข้อความด้านบนเพื่อเริ่ม</td></tr>`;
     return;
   }
   tbody.innerHTML = entries.map((e, i) => `
     <tr>
-      <td><input class="date-cell-input cr-bf-date" data-idx="${i}" value="${escapeHtml(e.dateLabel)}"></td>
-      <td>
-        <div class="cr-value-row">
-          <input class="cell-input cr-bf-value" data-idx="${i}" value="${escapeHtml(e.value)}">
-          <span class="cr-pct-sign">%</span>
-        </div>
-      </td>
+      <td><input data-idx="${i}" data-field="syncDate" value="${escapeHtml(e.syncDate || '')}" placeholder="วันนี้"></td>
+      <td><input data-idx="${i}" data-field="platform" value="${escapeHtml(e.platform || '')}"></td>
+      <td><input data-idx="${i}" data-field="filter" value="${escapeHtml(e.filter || '')}"></td>
+      <td><input data-idx="${i}" data-field="date" value="${escapeHtml(e.dateLabel || '')}"></td>
+      ${crHours.map((h, hi) => `<td><input class="cr-bf-hour-input" data-idx="${i}" data-hour="${escapeHtml(h)}" value="${escapeHtml(e.values[hi] || '')}" inputmode="decimal"></td>`).join('')}
     </tr>
   `).join('');
 }
 
+// What's in the table is what gets written - the inputs are the source of
+// truth, not the pasted text they were parsed from.
 function readCrBackfillRows() {
-  return [...document.querySelectorAll('#cr-backfill-table-body tr')]
-    .map(tr => ({
-      date: ((tr.querySelector('.cr-bf-date') || {}).value || '').trim(),
-      value: ((tr.querySelector('.cr-bf-value') || {}).value || '').trim(),
-    }))
-    .filter(e => e.date && e.value && !isNaN(parseFloat(e.value)));
+  const rows = new Map();
+  document.querySelectorAll('#cr-backfill-table-body input[data-idx]').forEach(input => {
+    const idx = input.dataset.idx;
+    if (!rows.has(idx)) rows.set(idx, { values: [] });
+    const row = rows.get(idx);
+    if (input.dataset.hour) {
+      const v = input.value.trim();
+      if (v !== '' && !isNaN(parseFloat(v))) row.values.push({ hour: input.dataset.hour, value: parseFloat(v) });
+    } else {
+      row[input.dataset.field] = input.value.trim();
+    }
+  });
+  return [...rows.values()].filter(r => r.date && r.values.length);
 }
 
 // `byHand` is true when a human moved the dropdown themselves, which drops
-// the autofill highlight - the value is no longer the paste's suggestion.
-// Filter always comes from Step 0's Version to Monitor data (current builds
-// still receiving traffic), never from whatever this platform's most recent
-// sheet row happened to record - the sheet's old filter can be stale.
+// the autofill highlight. Picking a platform also fills any Filter cell the
+// paste left blank, from Step 0's Version to Monitor list (current builds
+// still receiving traffic) - a cell that already carries a filter is left
+// alone, since the paste's own value is the more specific one.
 function onCrBackfillPlatformChange(byHand) {
   if (byHand) setCrBackfillPlatformAutofilled(false);
-  const name = document.getElementById('cr-backfill-platform').value;
-  document.getElementById('cr-backfill-filter').value = suggestedFilterFor(name);
+  const suggestion = suggestedFilterFor(document.getElementById('cr-backfill-platform').value);
+  if (!suggestion) return;
+  document.querySelectorAll('#cr-backfill-table-body input[data-field="filter"]').forEach(input => {
+    if (!input.value.trim()) input.value = suggestion;
+  });
 }
 
 function clearCrBackfillPaste() {
@@ -633,13 +1118,12 @@ function clearCrBackfillPaste() {
   renderCrBackfillTable([]);
 }
 
-// Blank slate after a successful sync - platform, filter and the autofill
-// highlight all reset too, not just the paste box/table, so a stray click of
-// Sync a second time can't silently resend the platform just written.
+// Blank slate after a successful sync - platform and the autofill highlight
+// reset too, not just the paste box/table, so a stray second click of Sync
+// can't silently resend the platform just written.
 function resetCrBackfillInput() {
   clearCrBackfillPaste();
   document.getElementById('cr-backfill-platform').value = '';
-  document.getElementById('cr-backfill-filter').value = '';
   setCrBackfillPlatformAutofilled(false);
 }
 
@@ -647,11 +1131,10 @@ async function syncCrBackfill() {
   const btn = document.getElementById('cr-backfill-sync-btn');
   const resultEl = document.getElementById('cr-backfill-result');
   const platform = document.getElementById('cr-backfill-platform').value;
-  const filter = document.getElementById('cr-backfill-filter').value.trim();
   const entries = readCrBackfillRows();
 
   if (!platform) { resultEl.textContent = 'ยังไม่ได้เลือก platform'; return; }
-  if (!entries.length) { resultEl.textContent = 'ยังไม่มีข้อมูลในตารางให้ sync'; return; }
+  if (!entries.length) { resultEl.textContent = 'ยังไม่มีข้อมูลในตารางให้ sync (ต้องมี Date Monitor + ค่าอย่างน้อย 1 ช่วงเวลา)'; return; }
 
   btn.disabled = true;
   resultEl.textContent = 'กำลัง sync...';
@@ -659,11 +1142,11 @@ async function syncCrBackfill() {
     const data = await fetchJson('/api/tvn/crashlytics/record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform, entries, filter }),
+      body: JSON.stringify({ platform, entries }),
     });
     resultEl.textContent = '✓ ' + data.result;
     resetCrBackfillInput();
-    await loadCrashlyticsForm(); // refreshes "ล่าสุดที่บันทึกไว้" on the quick-entry table too
+    await loadCrashlyticsForm(); // refreshes "ล่าสุดที่บันทึกไว้" and the dashboard
   } catch (err) {
     resultEl.textContent = 'Error: ' + err.message;
   } finally {
