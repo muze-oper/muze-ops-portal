@@ -211,7 +211,7 @@
     <div class="card">
       <div class="hint">
         วางแถวที่ shape เหมือนหัวตารางของชีตเลย — คั่นด้วย Tab (หรือเว้นวรรคหลายช่อง) 1 บรรทัดต่อ 1 วัน:
-        <code>Sync Date, Platform, Filter (Versions), Date Monitor, 9.00, 12.00, 15.00, 18.00, 21.00, 24.00, 3.00, 6.00, 8.00</code>
+        <code id="cr-backfill-columns">Sync Date, Platform, Filter (Versions), Date Monitor, ...</code>
         — ช่วงเวลาที่ยังไม่ได้เช็คเว้นว่างไว้ได้ Platform จะถูกเลือกให้อัตโนมัติจากค่าที่เจอในแถว
       </div>
 
@@ -253,16 +253,16 @@
 
     <div class="block-head"><h2 class="h">บันทึก Crash-free Users %</h2><div class="rule"></div></div>
     <div class="card">
-      <div class="hint">สำหรับเช็คตามรอบ (9.00, 12.00, 15.00, ...) — เลือกวันที่ที่กำลัง monitor + รอบเวลา แล้วไล่ทีละ platform: เลือก platform, วาง (หรือพิมพ์) ค่าที่อ่านได้, กด "ลงตาราง" แล้วกด Sync ครั้งเดียวตอนท้าย ค่าจะไปลงช่องของรอบเวลานั้นในแถวของวันนั้น รอบอื่นที่บันทึกไว้แล้วไม่หาย</div>
+      <div class="hint">สำหรับเช็คตามรอบ (<span id="cr-hour-list">...</span>) — เลือกวันที่ที่กำลัง monitor + รอบเวลา แล้วไล่ทีละ platform: เลือก platform, วาง (หรือพิมพ์) ค่าที่อ่านได้, กด "ลงตาราง" แล้วกด Sync ครั้งเดียวตอนท้าย ค่าจะไปลงช่องของรอบเวลานั้นในแถวของวันนั้น รอบอื่นที่บันทึกไว้แล้วไม่หาย</div>
 
       <div class="tec-paste-row" style="margin-top:12px;align-items:flex-end;">
         <div class="tec-paste-col" style="flex:0 0 170px;">
           <label class="field-label" for="cr-date-monitor">Date Monitor</label>
-          <input class="date-cell-input" id="cr-date-monitor" placeholder="20-Aug-26">
+          <input class="date-cell-input" id="cr-date-monitor" placeholder="20-Aug-26" oninput="onCrDateMonitorEdited()">
         </div>
         <div class="tec-paste-col" style="flex:0 0 150px;">
           <label class="field-label" for="cr-hour">รอบเวลาที่ตรวจ</label>
-          <select id="cr-hour"></select>
+          <select id="cr-hour" onchange="onCrHourChange()"></select>
         </div>
         <div class="tec-paste-col" style="flex:0 0 190px;">
           <label class="field-label" for="cr-target-platform">Platform</label>
@@ -520,9 +520,9 @@ function tierChip(tier, text) {
 
 // A day in the sheet is a row of checkpoints, so the unit the dashboard
 // grades is one *reading* (platform + day + checkpoint hour), not one day -
-// a dip at 3.00 that recovered by 8.00 is a KPI event either way. Days come
-// out chronological, and within a day the checkpoints stay in the sheet's own
-// column order (9.00 ... 24.00, then 3.00/6.00/8.00 the next morning).
+// a dip overnight that recovered by morning is a KPI event either way. Days
+// come out chronological, and within a day the checkpoints stay in the
+// sheet's own column order, which runs past midnight into the next morning.
 function readingsOf(platform, hours) {
   const out = [];
   (platform.history || []).forEach(day => {
@@ -805,8 +805,8 @@ function findCrPlatformIndex(name) {
 
 // The checkpoint list comes from the sheet's header row via the API. The
 // default pick is the most recent checkpoint that has already passed in
-// Bangkok time (24.00 being midnight, and 3.00/6.00/8.00 belonging to the
-// following morning), so the common case is one click of ลงตาราง with
+// Bangkok time - "24.00" reads as midnight, and the labels after it belong to
+// the following morning - so the common case is one click of ลงตาราง with
 // nothing else to set.
 function crHourClock(label) {
   const n = parseFloat(label);
@@ -824,20 +824,54 @@ function currentCrHour() {
   return best;
 }
 
-function crTodayLabel() {
+function crTodayLabel(offsetDays) {
   const t = crTodayParts();
-  return crFormatDateLabel(MONTH_ABBR[t.m] || 'Jan', t.d) || '';
+  const d = new Date(Date.UTC(t.y, t.m, t.d) + (offsetDays || 0) * 86400000);
+  return crFormatDateLabel(MONTH_ABBR[d.getUTCMonth()] || 'Jan', d.getUTCDate()) || '';
 }
 
-// Only ever fills blanks - a date or checkpoint the human already changed by
-// hand survives a refresh of the page data.
+// Where the checkpoint list wraps past midnight: with 10.00 13.00 16.00 19.00
+// 22.00 01.00 04.00 07.00 9.00, everything from 01.00 on belongs to the
+// morning AFTER the day being monitored. Found by looking for the point where
+// the clock goes backwards, so it keeps working if the rounds are re-timed
+// again.
+function crWrapIndex() {
+  for (let i = 1; i < crHours.length; i++) {
+    if (crHourClock(crHours[i]) < crHourClock(crHours[i - 1])) return i;
+  }
+  return crHours.length;
+}
+
+// A check run at 07.00 is reporting on the window that opened at 10.00
+// *yesterday*, so Date Monitor defaults a day back for those columns - left
+// as today it would silently write into the wrong day's row.
+function crDefaultDateFor(hour) {
+  const idx = crHours.indexOf(hour);
+  return crTodayLabel(idx >= crWrapIndex() ? -1 : 0);
+}
+
+// A checkpoint the human already picked survives a refresh of the page data,
+// and so does a Date Monitor they typed themselves (crDateEditedByHand) - the
+// automatic date only ever fills in a field nobody has touched.
+let crDateEditedByHand = false;
+
+function onCrDateMonitorEdited() {
+  crDateEditedByHand = true;
+}
+
+function onCrHourChange() {
+  if (!crDateEditedByHand) {
+    document.getElementById('cr-date-monitor').value = crDefaultDateFor(document.getElementById('cr-hour').value);
+  }
+}
+
 function populateCrCheckpointFields() {
   const hourSelect = document.getElementById('cr-hour');
   const previous = hourSelect.value;
   hourSelect.innerHTML = crHours.map(h => `<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
   hourSelect.value = crHours.includes(previous) ? previous : currentCrHour();
   const dateInput = document.getElementById('cr-date-monitor');
-  if (!dateInput.value.trim()) dateInput.value = crTodayLabel();
+  if (!crDateEditedByHand && !dateInput.value.trim()) dateInput.value = crDefaultDateFor(hourSelect.value);
 }
 
 // Drops the value field into whichever platform's row is picked in the
@@ -967,7 +1001,7 @@ const CR_DATE_RE = /^\d{1,2}[-\s][A-Za-z]{3,}[-\s]\d{2,4}$/;
 const isCrDateLabel = v => CR_DATE_RE.test(String(v || '').trim());
 
 // A pasted line is one whole sheet row:
-//   Sync Date | Platform | Filter (Versions) | Date Monitor | 9.00 | ... | 8.00
+//   Sync Date | Platform | Filter (Versions) | Date Monitor | <checkpoint hours>
 // Tab-separated when copied straight out of the sheet, but a copy that has
 // been through an editor often arrives space-padded instead, so runs of 2+
 // spaces separate fields too - and the numeric tail is re-split on single
@@ -1053,6 +1087,11 @@ function parseCrBackfillPasted() {
 // come from the API (which reads them off the sheet's header row), so adding
 // a checkpoint column in the sheet shows up here without a code change.
 function renderCrBackfillHead() {
+  // Both hints name the sheet's actual columns, so a checkpoint renamed or
+  // added in the sheet can't leave the instructions saying something else.
+  document.getElementById('cr-backfill-columns').textContent =
+    ['Sync Date', 'Platform', 'Filter (Versions)', 'Date Monitor', ...crHours].join(', ');
+  document.getElementById('cr-hour-list').textContent = crHours.length ? crHours.join(', ') : '—';
   document.getElementById('cr-backfill-head').innerHTML = `<tr>
     <th style="text-align:left;">Sync Date</th>
     <th style="text-align:left;">Platform</th>

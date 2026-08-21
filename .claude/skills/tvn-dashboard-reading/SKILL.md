@@ -358,19 +358,25 @@ before trusting it, since this input UI has already been redesigned twice):
   end to write every filled row - it POSTs one platform at a time, so a
   partial failure leaves the rest of the table intact to retry.
   **Since 2026-08-21 that section also carries a `Date Monitor` field and a
-  `รอบเวลาที่ตรวจ` dropdown** (9.00 / 12.00 / 15.00 / 18.00 / 21.00 /
-  24.00 / 3.00 / 6.00 / 8.00), because the sheet now holds one row per
+  `รอบเวลาที่ตรวจ` dropdown**, because the sheet now holds one row per
   monitored day with a column per checkpoint - the value lands in that day's
   row under that checkpoint, and the other checkpoints already recorded for
-  the day are left alone. The date defaults to today and the checkpoint to
-  the most recent one that has passed in Bangkok time; both are editable, and
-  a read of *yesterday's* window needs Date Monitor moved back a day.
+  the day are left alone. **The dropdown lists whatever the sheet's header
+  row currently says**, not a hardcoded set, so it follows the drift
+  described in Step 3 on its own. The checkpoint defaults to the most recent
+  one that has already passed in Bangkok time, and Date Monitor follows it:
+  for the columns after the list wraps past midnight it defaults a day back,
+  since a 07.00 check reports on the window that opened the previous
+  morning. Both stay editable, and a date typed by hand is never
+  overwritten.
   **For a multi-day catch-up** use the "Crash-free users" paste section
   instead: it now expects one whole sheet row per line, tab-separated -
-  `Sync Date ⇥ Platform ⇥ Filter (Versions) ⇥ Date Monitor ⇥ 9.00 ⇥ 12.00 ⇥
-  ... ⇥ 8.00` - checkpoints not yet checked left blank. The Step 2 table
-  mirrors those columns exactly and is what actually gets written, and
-  Platform is auto-selected from the pasted rows.
+  `Sync Date ⇥ Platform ⇥ Filter (Versions) ⇥ Date Monitor ⇥ <one field per
+  checkpoint column>` - checkpoints not yet checked left blank. The page
+  prints the current column list above the paste box (read from the live
+  header, so it is never the stale one), the Step 2 table mirrors those
+  columns exactly and is what actually gets written, and Platform is
+  auto-selected from the pasted rows.
 - **Crashlytics Issues list -> the "Crashlytics Issue Log" sheet tab
   directly** (same spreadsheet, gid `570219984`, header `วันที่ตรวจ |
   ช่วงเวลาที่ตรวจสอบ | Platform | Filters | Issue | Versions | Events |
@@ -448,8 +454,11 @@ changing anything:
   list. Add or remove a checkpoint column in the sheet and the page follows on
   the next load, no code change. `/api/tvn/crashlytics/record` is an upsert on
   (Platform, Date Monitor): it fills only the checkpoints sent and leaves the
-  rest of the row alone, so checking in again at 15.00 adds to the 9.00/12.00
-  values instead of replacing them.
+  rest of the row alone, so a later round adds to the earlier ones instead of
+  replacing them. Hour labels are matched as exact strings between the page
+  and the sheet, both sourced from that same header row, so a rename in the
+  sheet moves the whole UI with it - **nothing in the app hardcodes a
+  checkpoint time**, which is what makes the drift in Step 3 harmless.
 - **Newest on top.** A day that has no row yet is inserted at **row 2** and
   pushes everything below it down - same convention as the Top Error Codes
   tab - so the sheet reads newest-first and a platform's days no longer sit
