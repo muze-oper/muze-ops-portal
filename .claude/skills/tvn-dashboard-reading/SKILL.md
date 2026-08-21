@@ -13,6 +13,16 @@ This is not hypothetical: on Firebase Crashlytics specifically, the
 in practice: 99.89% headline vs. 100.00% on that day's chart point) - the
 headline tile is the number that gets recorded, never the chart line.
 
+**Always say the axis floor out loud when reporting a trend/hourly chart
+read** (instruction, 2026-08-21) - these Crash-free % charts almost never
+start at 0%, typically `95-100%`. State that explicitly alongside the
+numbers (e.g. "axis is 95-100%, not 0-100%"), not just as something you
+privately account for - a reader looking at bare numbers later, with no
+image and no context, can't tell a genuinely flat chart from a wildly
+swinging one without knowing the scale, and a chart that "looks like a big
+dip" on a 95-100% axis is a very different claim from the same shape on a
+0-100% one.
+
 ## Step 1 - identify the tool and what kind of read this is
 
 Look at the screenshot for which tool it is, and whether it's a single
