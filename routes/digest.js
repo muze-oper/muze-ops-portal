@@ -157,9 +157,7 @@ router.post('/api/digest/live', async (req, res) => {
       const newEmails = entry.emails || [];
       const newIds = new Set(newEmails.map(e => e.msgId));
       const oldEmails = existing?.counts?.[acc]?.emails || [];
-      const candidates = oldEmails.filter(e =>
-        e.msgId && !newIds.has(e.msgId) && e.category !== '⚪ แจ้งเตือนอัตโนมัติ'
-      );
+      const candidates = oldEmails.filter(e => e.msgId && !newIds.has(e.msgId));
 
       // One status lookup per account (shared token + read-by-id, not each
       // read doing its own token refresh + name search) covers BOTH: which
@@ -181,7 +179,21 @@ router.post('/api/digest/live', async (req, res) => {
       const carried = candidates
         .map(e => {
           const status = statusByMsgId[e.msgId] || 'To Do';
-          return HIDDEN_STATUSES.has(status) ? null : { ...e, carried: true };
+          if (HIDDEN_STATUSES.has(status)) return null;
+          // An Auto-classified email (e.g. a Zendesk "you're CC'd" auto-
+          // notification) only keeps carrying forward once it's actually
+          // been escalated (a real status change, typically Processing once
+          // an Action Done ticket ref gets attached) - otherwise it's exactly
+          // the low-value noise this account of emails exists to drop once
+          // it ages out of Gmail's own fetch window. Previously ANY Auto
+          // email got dropped here regardless of status, so one that had
+          // already been escalated (like a Zendesk CC notification with its
+          // ticket ref filled in and Status=Processing) silently vanished
+          // from Live the moment Gmail's window moved past it, even though
+          // it was still actively tracked - digestlivecounts.json never got
+          // a chance to keep re-carrying it forward.
+          if (e.category === '⚪ แจ้งเตือนอัตโนมัติ' && status === 'To Do') return null;
+          return { ...e, carried: true };
         })
         .filter(Boolean);
 
