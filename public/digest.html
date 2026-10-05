@@ -162,9 +162,9 @@
       </div>
       <!-- email table -->
       <div style="overflow-x:auto">
-        <table id="dm-table" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;min-width:820px">
+        <table id="dm-table" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:11px">
           <colgroup>
-            <col style="width:28px"><!-- select -->
+            <col style="width:24px"><!-- select -->
             <col style="width:3%"><!-- Cat -->
             <col style="width:7%"><!-- Account -->
             <col style="width:10%"><!-- Due -->
@@ -178,17 +178,17 @@
           </colgroup>
           <thead>
             <tr style="background:#f8f9fa">
-              <th style="padding:6px 3px;text-align:center;border-bottom:2px solid #e0e0e0"><input id="dm-select-all" type="checkbox" onchange="toggleSelectAllVisible(this.checked)" title="เลือกทั้งหมดที่แสดงอยู่"></th>
-              <th style="padding:6px 2px;text-align:center;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0">Cat</th>
-              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Account</th>
-              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Due (Arrival+30m)</th>
-              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Last Update</th>
-              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Sender</th>
-              <th style="padding:6px 6px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0">Summary</th>
-              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Status</th>
-              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Assignee</th>
-              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Action Done</th>
-              <th style="padding:6px 4px;text-align:left;color:#555;font-weight:700;font-size:12px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Working Time</th>
+              <th style="padding:6px 2px;text-align:center;border-bottom:2px solid #e0e0e0"><input id="dm-select-all" type="checkbox" onchange="toggleSelectAllVisible(this.checked)" title="เลือกทั้งหมดที่แสดงอยู่"></th>
+              <th style="padding:6px 2px;text-align:center;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0">Cat</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Account</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Due (Arrival+30m)</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Last Update</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Sender</th>
+              <th style="padding:6px 5px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0">Summary</th>
+              <th style="padding:6px 2px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Status</th>
+              <th style="padding:6px 2px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Assignee</th>
+              <th style="padding:6px 2px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Action Done</th>
+              <th style="padding:6px 3px;text-align:left;color:#555;font-weight:700;font-size:11px;border-bottom:2px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis">Working Time</th>
             </tr>
           </thead>
           <tbody id="dm-tbody">
@@ -1054,7 +1054,7 @@ function renderDashboard() {
       // Category — color only (red/yellow/grey), no text
       '<td style="padding:6px 2px;text-align:center;overflow:hidden" title="'+(effectiveCategory||'')+'"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+(CATEGORY_DOT[effectiveCategory]||'#ccc')+'"></span></td>'+
       // Account
-      '<td style="padding:6px 3px;overflow:hidden;white-space:nowrap"><span style="font-size:10px;padding:2px 5px;border-radius:10px;background:#e8f0fe;color:#1a73e8;font-weight:700">'+shortAcc+'</span></td>'+
+      '<td style="padding:6px 3px;overflow:hidden;white-space:nowrap"><span style="font-size:9px;padding:2px 5px;border-radius:10px;background:#e8f0fe;color:#1a73e8;font-weight:700">'+shortAcc+'</span></td>'+
       // Due — compact formatted text with a fully transparent native
       // datetime-local input overlaid on top, so clicking anywhere on the
       // text opens the real picker without a native input's own locale-
